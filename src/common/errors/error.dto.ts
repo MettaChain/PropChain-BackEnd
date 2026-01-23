@@ -2,46 +2,52 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ErrorResponseDto {
   @ApiProperty({
-    example: 400,
     description: 'HTTP status code',
+    example: 400,
   })
   statusCode: number;
 
   @ApiProperty({
-    example: 'Invalid input data',
-    description: 'Human-readable error message',
+    description: 'Application-specific error code',
+    example: 'VALIDATION_ERROR',
+  })
+  errorCode: string;
+
+  @ApiProperty({
+    description: 'User-friendly error message',
+    example: 'The provided data is invalid',
   })
   message: string;
 
   @ApiProperty({
-    example: 'VALIDATION_ERROR',
-    description: 'Machine-readable error code',
+    description: 'Detailed error information',
+    example: ['email must be a valid email address'],
+    required: false,
+    type: [String],
   })
-  code: string;
+  details?: string[];
 
   @ApiProperty({
-    example: '2026-01-22T14:46:55Z',
-    description: 'Timestamp when the error occurred',
+    description: 'Timestamp of the error',
+    example: '2024-01-22T10:30:00.000Z',
   })
   timestamp: string;
 
   @ApiProperty({
-    example: '/api/v1/resource',
-    description: 'The API path that triggered the error',
+    description: 'Request path where error occurred',
+    example: '/api/v1/users',
   })
   path: string;
 
   @ApiProperty({
-    example: { field: 'email', reason: 'must be a valid email' },
-    description: 'Additional error details (optional)',
+    description: 'Unique request identifier for tracking',
+    example: 'req_abc123xyz',
     required: false,
   })
-  details?: any;
+  requestId?: string;
 
-  @ApiProperty({
-    example: 'Stack trace',
-    description: 'Error stack trace (only in development environment)',
-    required: false,
-  })
-  stack?: string;
+  constructor(partial: Partial<ErrorResponseDto>) {
+    Object.assign(this, partial);
+    this.timestamp = this.timestamp || new Date().toISOString();
+  }
 }

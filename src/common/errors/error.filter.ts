@@ -4,118 +4,122 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ConfigService } from '@nestjs/config';
-import { LoggerService } from '../logger/logger.service';
-import { ErrorCode } from './error.codes';
 import { ErrorResponseDto } from './error.dto';
+import { ErrorCode, ErrorMessages } from './error.codes';
+import { v4 as uuidv4 } from 'uuid';
 
 @Catch()
-export class AppExceptionFilter implements ExceptionFilter {
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly loggerService: LoggerService,
-  ) {}
+export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const requestId = request.headers['x-request-id'] as string || uuidv4();
 
-    let status: number;
-    let message: string;
-    let code: string;
-    let details: any = undefined;
+    let errorResponse: ErrorResponseDto;
 
     if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+      errorResponse = this.handleHttpException(exception, request, requestId);
+    } else {
+      errorResponse = this.handleUnknownException(exception, request, requestId);
+    }
 
-      if (typeof exceptionResponse === 'string') {
-        message = exceptionResponse;
-        code = this.mapHttpStatusToErrorCode(status);
-      } else if (typeof exceptionResponse === 'object') {
-        message = (exceptionResponse as any).message || exception.message;
-        code = (exceptionResponse as any).code || this.mapHttpStatusToErrorCode(status);
-        details = (exceptionResponse as any).errors || (exceptionResponse as any).details;
-        
-        // Handle validation errors from ValidationPipe
-        if (status === HttpStatus.BAD_REQUEST && Array.isArray((exceptionResponse as any).message)) {
-          message = 'Validation failed';
-          details = (exceptionResponse as any).message;
-          code = ErrorCode.VALIDATION_ERROR;
-        }
+    // Log the error
+    this.logger.error(
+      `Error occurred: ${errorResponse.errorCode} - ${errorResponse.message}`,
+      {
+        requestId,
+        path: request.url,
+        method: request.method,
+        statusCode: errorResponse.statusCode,
+        details: errorResponse.details,
+        stack: exception instanceof Error ? exception.stack : undefined,
+      },
+    );
+
+    response.status(errorResponse.statusCode).json(errorResponse);
+  }
+
+  private handleHttpException(
+    exception: HttpException,
+    request: Request,
+    requestId: string,
+  ): ErrorResponseDto {
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+    
+    let errorCode: ErrorCode;
+    let message: string;
+    let details: string[] | undefined;
+
+    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      const responseObj = exceptionResponse as any;
+      
+      // Handle validation errors
+      if (Array.isArray(responseObj.message)) {
+        errorCode = ErrorCode.VALIDATION_ERROR;
+        message = ErrorMessages[ErrorCode.VALIDATION_ERROR];
+        details = responseObj.message;
       } else {
-        message = exception.message;
-        code = this.mapHttpStatusToErrorCode(status);
+        errorCode = this.mapStatusToErrorCode(status);
+        message = responseObj.message || ErrorMessages[errorCode];
+        details = responseObj.details;
       }
     } else {
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = 'Internal server error';
-      code = ErrorCode.INTERNAL_SERVER_ERROR;
-      
-      // Log unhandled exceptions
-      const error = exception instanceof Error ? exception : new Error(String(exception));
-      this.loggerService.logError(error, AppExceptionFilter.name, (request as any).user?.id);
+      errorCode = this.mapStatusToErrorCode(status);
+      message = exceptionResponse.toString();
     }
 
-    const errorResponse: ErrorResponseDto = {
+    return new ErrorResponseDto({
       statusCode: status,
+      errorCode,
       message,
-      code,
-      timestamp: new Date().toISOString(),
-      path: request.url,
       details,
-      ...(this.configService.get('NODE_ENV') === 'development' && {
-        stack: exception instanceof Error ? exception.stack : undefined,
-      }),
+      path: request.url,
+      requestId,
+    });
+  }
+
+  private handleUnknownException(
+    exception: unknown,
+    request: Request,
+    requestId: string,
+  ): ErrorResponseDto {
+    const status = HttpStatus.INTERNAL_SERVER_ERROR;
+    const errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+    const message = ErrorMessages[errorCode];
+
+    // In production, don't expose internal error details
+    const details =
+      process.env.NODE_ENV !== 'production' && exception instanceof Error
+        ? [exception.message]
+        : undefined;
+
+    return new ErrorResponseDto({
+      statusCode: status,
+      errorCode,
+      message,
+      details,
+      path: request.url,
+      requestId,
+    });
+  }
+
+  private mapStatusToErrorCode(status: HttpStatus): ErrorCode {
+    const statusToErrorCode: Record<number, ErrorCode> = {
+      [HttpStatus.BAD_REQUEST]: ErrorCode.VALIDATION_ERROR,
+      [HttpStatus.UNAUTHORIZED]: ErrorCode.UNAUTHORIZED,
+      [HttpStatus.FORBIDDEN]: ErrorCode.FORBIDDEN,
+      [HttpStatus.NOT_FOUND]: ErrorCode.NOT_FOUND,
+      [HttpStatus.CONFLICT]: ErrorCode.CONFLICT,
+      [HttpStatus.INTERNAL_SERVER_ERROR]: ErrorCode.INTERNAL_SERVER_ERROR,
     };
 
-    // Log the error using the existing security event logger
-    this.logSecurityEvent(exception, request, status, code);
-
-    response.status(status).json(errorResponse);
-  }
-
-  private mapHttpStatusToErrorCode(status: number): string {
-    switch (status) {
-      case HttpStatus.BAD_REQUEST:
-        return ErrorCode.BAD_REQUEST;
-      case HttpStatus.UNAUTHORIZED:
-        return ErrorCode.UNAUTHORIZED;
-      case HttpStatus.FORBIDDEN:
-        return ErrorCode.FORBIDDEN;
-      case HttpStatus.NOT_FOUND:
-        return ErrorCode.NOT_FOUND;
-      case HttpStatus.CONFLICT:
-        return ErrorCode.CONFLICT;
-      case HttpStatus.UNPROCESSABLE_ENTITY:
-        return ErrorCode.UNPROCESSABLE_ENTITY;
-      case HttpStatus.INTERNAL_SERVER_ERROR:
-        return ErrorCode.INTERNAL_SERVER_ERROR;
-      default:
-        return 'UNKNOWN_ERROR';
-    }
-  }
-
-  private logSecurityEvent(exception: unknown, request: Request, status: number, code: string): void {
-    const userId = (request as any).user?.id;
-    const ip = request.ip || request.connection.remoteAddress;
-
-    if (status >= 400 && status < 500) {
-      this.loggerService.logSecurityEvent(
-        'api_error',
-        {
-          message: exception instanceof Error ? exception.message : String(exception),
-          status,
-          code,
-          url: request.url,
-          method: request.method,
-        },
-        userId,
-        ip,
-      );
-    }
+    return statusToErrorCode[status] || ErrorCode.INTERNAL_SERVER_ERROR;
   }
 }
