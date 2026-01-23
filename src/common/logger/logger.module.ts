@@ -4,6 +4,7 @@ import { LoggerService } from './logger.service';
 import { ConfigService } from '@nestjs/config';
 import * as winston from 'winston';
 import * as DailyRotateFile from 'winston-daily-rotate-file';
+import { LoggingInterceptor } from './logging.interceptor';
 
 @Global()
 @Module({
@@ -24,10 +25,7 @@ import * as DailyRotateFile from 'winston-daily-rotate-file';
         transports: [
           // Console transport for development
           new winston.transports.Console({
-            format: winston.format.combine(
-              winston.format.colorize(),
-              winston.format.simple(),
-            ),
+            format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
           }),
 
           // File transport for errors
@@ -60,7 +58,7 @@ import * as DailyRotateFile from 'winston-daily-rotate-file';
       }),
     }),
   ],
-  providers: [LoggerService],
-  exports: [LoggerService, WinstonModule],
+  providers: [LoggerService, LoggingInterceptor],
+  exports: [LoggerService, WinstonModule, LoggingInterceptor],
 })
 export class LoggerModule {}
