@@ -15,8 +15,9 @@ import { BlockchainModule } from './blockchain/blockchain.module';
 import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
+import { DocumentsModule } from './documents/documents.module'; // Added missing import
 import { AuthRateLimitMiddleware } from './auth/middleware/auth.middleware';
-import { PropertiesModule } from './properties/properties.module';
+import { PaginationModule } from './common/pagination/pagination.module'; // Added PaginationModule
 import configuration from './config/configuration';
 
 @Module({
@@ -33,6 +34,7 @@ import configuration from './config/configuration';
     LoggerModule,
     PrismaModule,
     HealthModule,
+    PaginationModule, // Registering Pagination globally
 
     // Security and rate limiting
     ThrottlerModule.forRootAsync({

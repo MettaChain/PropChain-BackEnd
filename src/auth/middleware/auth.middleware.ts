@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import * as rateLimit from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit'; // Changed from * as rateLimit
 
 @Injectable()
 export class AuthRateLimitMiddleware implements NestMiddleware {
@@ -15,7 +15,8 @@ export class AuthRateLimitMiddleware implements NestMiddleware {
         legacyHeaders: false,
       });
       
-      return limiter(req, res, next);
+      // Use 'as any' if the compiler still grumbles about the middleware signature
+      return (limiter as any)(req, res, next);
     }
     
     next();
