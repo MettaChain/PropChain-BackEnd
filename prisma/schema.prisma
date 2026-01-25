@@ -16,6 +16,8 @@ model User {
   walletAddress String?   @unique @map("wallet_address")
   role          UserRole  @default(USER)
   roleId        String?   @map("role_id")
+  password      String?
+  isVerified    Boolean   @default(false) @map("is_verified")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

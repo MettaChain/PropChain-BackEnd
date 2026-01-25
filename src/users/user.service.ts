@@ -37,9 +37,7 @@ export class UserService {
       },
     });
 
-    // Return user without password
-    const { password: _, ...result } = user;
-    return result;
+    return user;
   }
 
   async findByEmail(email: string) {
@@ -57,9 +55,7 @@ export class UserService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
     
-    // Return user without password
-    const { password: _, ...result } = user;
-    return result;
+    return user;
   }
 
   async findByWalletAddress(walletAddress: string) {

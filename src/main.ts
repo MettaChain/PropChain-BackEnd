@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { LoggerService } from './common/logger/logger.service';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { AppExceptionFilter } from './common/errors/error.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
@@ -44,7 +44,7 @@ async function bootstrap() {
   );
 
   // Global filters and interceptors
-  app.useGlobalFilters(new AllExceptionsFilter(configService, logger));
+  app.useGlobalFilters(new AppExceptionFilter(configService, logger));
   app.useGlobalInterceptors(new ResponseInterceptor(logger));
 
   // API prefix
