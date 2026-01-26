@@ -4,7 +4,6 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { RedisService } from '../common/services/redis.service';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -38,13 +37,14 @@ export class AuthService {
     let user = await this.userService.findByWalletAddress(walletAddress);
     
     if (!user) {
-      // FIX: Cast to any because the DTO expects firstName/lastName/password which we don't use
+      // Cast to any because the DTO expects fields we don't use for wallet-only users
       user = await this.userService.create({
         email: `${walletAddress}@wallet.auth`,
         walletAddress,
       } as any);
     }
-
+    
+    return user;
   }
 
   async refreshToken(refreshToken: string) {
@@ -76,18 +76,25 @@ export class AuthService {
   private generateTokens(user: any) {
     const payload = { sub: user.id, email: user.email };
 
+    // FIX: Cast expiresIn to 'any' to satisfy the JwtSignOptions overload requirements
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '24h',
     });
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') as any) || '7d',
     });
 
-    this.redisService.set(
+    // FIX: Ensure parseInt only receives the string and radix
+    const refreshExpiresInSeconds = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN_SECONDS') || '604800';
+    const expiresSeconds = parseInt(refreshExpiresInSeconds, 10);
+    
+    this.redisService.setex(
       `refresh_token:${user.id}`,
-      refreshToken,
-      parseInt(this.configService.get<string>('JWT_REFRESH_EXPIRES_IN_SECONDS') || '604800')
+      expiresSeconds,
+      refreshToken
     );
 
     return {
