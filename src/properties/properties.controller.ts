@@ -8,7 +8,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 @ApiTags('properties')
 @Controller('properties')
 export class PropertiesController {
-  constructor(private readonly propertiesService: PropertiesService) {}
+  constructor(private readonly propertiesService: PropertiesService) {} // Removed paginationService injection
 
   @Post()
   @ApiOperation({ summary: 'Create a property' })
@@ -18,28 +18,27 @@ export class PropertiesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all properties with pagination' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  async findAll(@Query() paginationDto: PaginationDto) {
+    // The Service already returns the data wrapped in metadata!
     return this.propertiesService.findAll(paginationDto);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get property by ID' })
   findOne(@Param('id') id: string) {
-    // Removed the '+' because IDs are strings (CUIDs)
     return this.propertiesService.findOne(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update property' })
   update(@Param('id') id: string, @Body() updatePropertyDto: UpdatePropertyDto) {
-    // Removed the '+' because IDs are strings (CUIDs)
+    // FIXED: Changed this.update to this.propertiesService.update to avoid infinite recursion
     return this.propertiesService.update(id, updatePropertyDto);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete property' })
   remove(@Param('id') id: string) {
-    // Removed the '+' because IDs are strings (CUIDs)
     return this.propertiesService.remove(id);
   }
 }

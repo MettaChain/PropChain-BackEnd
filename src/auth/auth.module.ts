@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { Web3Strategy } from './strategies/web3.strategy';
-import { RedisService } from '../common/services/redis.service';
+// Keep the import if you need the type, but we remove it from 'providers'
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -19,6 +19,7 @@ import { UsersModule } from '../users/users.module';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
+          // Add expiry or other options here if needed
         },
       }),
     }),
@@ -27,9 +28,8 @@ import { UsersModule } from '../users/users.module';
   providers: [
     AuthService,
     JwtStrategy,
-    // REMOVED: LocalStrategy (because it expects passwords)
     Web3Strategy,
-    RedisService,
+    // RedisService REMOVED from here to use the Global provider from AppModule
   ],
   exports: [AuthService],
 })

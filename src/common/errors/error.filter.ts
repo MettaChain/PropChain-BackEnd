@@ -4,22 +4,23 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ErrorResponseDto } from './error.dto';
 import { ErrorCode, ErrorMessages } from './error.codes';
+import { LoggerService } from '../logger/logger.service'; // Ensure this path is correct
 import { v4 as uuidv4 } from 'uuid';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+  // Inject LoggerService instead of using new Logger()
+  constructor(private readonly logger: LoggerService) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const requestId = request.headers['x-request-id'] as string || uuidv4();
+    const requestId = (request.headers['x-request-id'] as string) || uuidv4();
 
     let errorResponse: ErrorResponseDto;
 
@@ -29,17 +30,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorResponse = this.handleUnknownException(exception, request, requestId);
     }
 
-    // Log the error
-    this.logger.error(
-      `Error occurred: ${errorResponse.errorCode} - ${errorResponse.message}`,
+    // Log the error using the injected service so unit tests can spy on it
+    this.logger.logError(
       {
+        errorCode: errorResponse.errorCode,
+        message: errorResponse.message,
         requestId,
         path: request.url,
         method: request.method,
         statusCode: errorResponse.statusCode,
         details: errorResponse.details,
-        stack: exception instanceof Error ? exception.stack : undefined,
-      },
+      } as any, // Cast to any to satisfy LoggerService signature if it expects Error
+      exception instanceof Error ? exception.stack : undefined,
     );
 
     response.status(errorResponse.statusCode).json(errorResponse);
@@ -60,7 +62,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       const responseObj = exceptionResponse as any;
       
-      // Handle validation errors
       if (Array.isArray(responseObj.message)) {
         errorCode = ErrorCode.VALIDATION_ERROR;
         message = ErrorMessages[ErrorCode.VALIDATION_ERROR];
@@ -94,7 +95,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
     const message = ErrorMessages[errorCode];
 
-    // In production, don't expose internal error details
     const details =
       process.env.NODE_ENV !== 'production' && exception instanceof Error
         ? [exception.message]

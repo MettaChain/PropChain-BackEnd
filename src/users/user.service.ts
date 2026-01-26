@@ -11,19 +11,24 @@ export class UserService {
     private readonly paginationService: PaginationService,
   ) {}
 
+  /**
+   * Get all users with pagination, sorting, and metadata
+   */
   async findAll(paginationDto: PaginationDto) {
     const { page, limit, sort } = paginationDto;
+    
+    // 1. Calculate offset
     const skip = (page - 1) * limit;
 
-    const [field, order] = sort?.split(':') || ['createdAt', 'desc'];
+    // 2. Parse sort string (e.g., "email:asc") using the helper service
+    const orderBy = this.paginationService.parseSort(sort);
 
+    // 3. Execute data fetch and count in parallel for performance
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         skip,
         take: limit,
-        orderBy: {
-          [field]: order.toLowerCase() as 'asc' | 'desc',
-        },
+        orderBy,
         select: {
           id: true,
           email: true,
@@ -37,6 +42,7 @@ export class UserService {
       this.prisma.user.count(),
     ]);
 
+    // 4. Return data wrapped in standardized pagination metadata
     return this.paginationService.paginate(users, total, paginationDto);
   }
 

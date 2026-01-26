@@ -4,7 +4,7 @@ import { Redis } from 'ioredis';
 @Injectable()
 export class RedisService {
   constructor(
-    // Injecting using the default connection name as a string
+    // This string 'default' must match the namespace in AppModule
     @Inject('default') private readonly redis: Redis
   ) {}
 
