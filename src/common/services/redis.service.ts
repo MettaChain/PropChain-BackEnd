@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRedis, getRedisToken } from '@liaoliaots/nestjs-redis';
 import { Redis } from 'ioredis';
 
 @Injectable()
 export class RedisService {
-  constructor(@InjectRedis() private readonly redis: Redis) {}
+  private readonly redis: Redis;
+
+  constructor(private readonly redisService: NestRedisService) {
+    this.redis = this.redisService.getOrThrow();
+  }
 
   async get(key: string): Promise<string | null> {
     return await this.redis.get(key);

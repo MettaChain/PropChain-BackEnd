@@ -45,7 +45,6 @@ export class AuthService {
       } as any);
     }
 
-    return user;
   }
 
   async refreshToken(refreshToken: string) {
@@ -79,14 +78,10 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
-      // FIX: Cast to any to satisfy the StringValue | number type requirement
-      expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '15m',
     });
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      // FIX: Cast to any to satisfy the StringValue | number type requirement
-      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') as any) || '7d',
     });
 
     this.redisService.set(

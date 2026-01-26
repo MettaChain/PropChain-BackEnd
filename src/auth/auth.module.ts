@@ -19,8 +19,6 @@ import { UsersModule } from '../users/users.module';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          // FIX: Cast to any to handle the string/number type mismatch for the build
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') as any) || '15m',
         },
       }),
     }),

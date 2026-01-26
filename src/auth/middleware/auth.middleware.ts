@@ -1,7 +1,5 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { rateLimit } from 'express-rate-limit'; // Changed from * as rateLimit
-
 @Injectable()
 export class AuthRateLimitMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
