@@ -35,25 +35,58 @@ model User {
 }
 
 model Property {
-  id          String         @id @default(cuid())
-  title       String
-  description String?
-  location    String
-  price       Decimal
-  status      PropertyStatus @default(DRAFT)
-  ownerId     String         @map("owner_id")
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  id                String         @id @default(cuid())
+  title             String
+  description       String?
+  location          String
+  price             Decimal
+  status            PropertyStatus @default(DRAFT)
+  ownerId           String         @map("owner_id")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
-  documents    Document[]
+  // Valuation fields
+  estimatedValue    Decimal?       @map("estimated_value")
+  valuationDate     DateTime?      @map("valuation_date")
+  valuationConfidence Float?        @map("valuation_confidence")
+  valuationSource   String?        @map("valuation_source")
+  lastValuationId   String?        @map("last_valuation_id")
+  
+  // Property features for valuation
+  bedrooms          Int?
+  bathrooms         Int?
+  squareFootage     Decimal?       @map("square_footage")
+  yearBuilt         Int?           @map("year_built")
+  propertyType      String?        @map("property_type")
+  lotSize           Decimal?       @map("lot_size")
+  
+  owner             User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  valuations        PropertyValuation[]
+  documents         Document[]
 
   @@index([ownerId])
   @@index([status])
   @@index([createdAt])
   @@index([location])
   @@map("properties")
+}
+
+model PropertyValuation {
+  id              String   @id @default(cuid())
+  propertyId      String   @map("property_id")
+  estimatedValue  Decimal  @map("estimated_value")
+  confidenceScore Float    @map("confidence_score")
+  valuationDate   DateTime @map("valuation_date")
+  source          String
+  marketTrend     String?  @map("market_trend")
+  featuresUsed    Json?    @map("features_used")
+  rawData         Json?    @map("raw_data")
+  createdAt       DateTime @default(now())
+  
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  @@map("property_valuations")
 }
 
 model Transaction {

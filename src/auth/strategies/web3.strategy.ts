@@ -34,7 +34,6 @@ export class Web3Strategy extends PassportStrategy(Strategy, 'web3') {
         email: `${walletAddress}@wallet.auth`,
         password: Math.random().toString(36),
         walletAddress,
-      } as any);
     }
 
     return user;

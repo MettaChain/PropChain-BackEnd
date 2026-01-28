@@ -92,7 +92,7 @@
     "sharp": "^0.33.1",
     "uuid": "^9.0.1",
     "web3": "^4.3.0",
-    "winston": "^3.19.0",
+    "winston": "^3.11.0",
     "winston-daily-rotate-file": "^4.7.1",
     "xlsx": "^0.18.5"
   },
@@ -141,7 +141,10 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "roots": [
+      "src",
+      "test"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
@@ -152,7 +155,8 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapping": {
-      "^src/(.*)$": "<rootDir>/$1"
+      "^src/(.*)$": "<rootDir>/../src/$1",
+      "^test/(.*)$": "<rootDir>/../test/$1"
     }
   },
   "engines": {

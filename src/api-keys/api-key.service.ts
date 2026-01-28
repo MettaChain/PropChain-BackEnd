@@ -204,8 +204,6 @@ export class ApiKeyService {
   }
 
   private validateScopes(scopes: string[]): void {
-    // FIX: Using 'as any' to allow string comparison against the Enum/Array
-    const invalidScopes = scopes.filter(scope => !Object.values(API_KEY_SCOPES).includes(scope as any));
     
     if (invalidScopes.length > 0) {
       throw new BadRequestException(

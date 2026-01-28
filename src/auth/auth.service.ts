@@ -41,7 +41,6 @@ export class AuthService {
       user = await this.userService.create({
         email: `${walletAddress}@wallet.auth`,
         walletAddress,
-      } as any);
     }
     
     return user;

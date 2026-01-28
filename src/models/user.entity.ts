@@ -12,13 +12,18 @@ export class User implements PrismaUser {
     isVerified: boolean;     // Added to fix TS2420
     role: UserRole;
     roleId: string | null;
+    password: string | null;
+    isVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
 
 export type CreateUserInput = {
     email: string;
+    password?: string;
     walletAddress?: string;
+    firstName: string;
+    lastName: string;
     role?: UserRole;
     roleId?: string;
 };

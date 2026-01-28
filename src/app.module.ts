@@ -15,20 +15,17 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
+import { ValuationModule } from './valuation/valuation.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AuthRateLimitMiddleware } from './auth/middleware/auth.middleware';
-import { PaginationModule } from './common/pagination/pagination.module';
-import { RedisService } from './common/services/redis.service'; 
-import configuration from './config/configuration';
-import Redis from 'ioredis'; // Added import for the manual provider
 
 @Global()
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration],
+      load: [configuration, valuationConfig],
       envFilePath: ['.env.local', '.env.development', '.env'],
     }),
     ConfigurationModule,
@@ -85,6 +82,7 @@ import Redis from 'ioredis'; // Added import for the manual provider
     TransactionsModule,
     BlockchainModule,
     FilesModule,
+    ValuationModule,
     DocumentsModule,
   ],
   controllers: [],

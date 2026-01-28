@@ -1,76 +1,82 @@
 export enum ErrorCode {
-  // Validation Errors (4000-4099)
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
   INVALID_INPUT = 'INVALID_INPUT',
   MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD',
   INVALID_FORMAT = 'INVALID_FORMAT',
   
-  // Authentication Errors (4100-4199)
-  UNAUTHORIZED = 'UNAUTHORIZED',
+  // Authentication Errors
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   TOKEN_EXPIRED = 'TOKEN_EXPIRED',
   TOKEN_INVALID = 'TOKEN_INVALID',
   AUTHENTICATION_REQUIRED = 'AUTHENTICATION_REQUIRED',
   
-  // Authorization Errors (4300-4399)
-  FORBIDDEN = 'FORBIDDEN',
+  // Authorization Errors
   INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
   ACCESS_DENIED = 'ACCESS_DENIED',
   
-  // Resource Errors (4400-4499)
-  NOT_FOUND = 'NOT_FOUND',
+  // Resource Errors
   RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
   USER_NOT_FOUND = 'USER_NOT_FOUND',
-  PROPERTY_NOT_FOUND = 'PROPERTY_NOT_FOUND',
   
-  // Conflict Errors (4090-4099)
-  CONFLICT = 'CONFLICT',
+  // Conflict Errors
   DUPLICATE_ENTRY = 'DUPLICATE_ENTRY',
   RESOURCE_ALREADY_EXISTS = 'RESOURCE_ALREADY_EXISTS',
   
-  // Server Errors (5000-5099)
-  INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR',
+  // Server Errors
   DATABASE_ERROR = 'DATABASE_ERROR',
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
   
-  // Business Logic Errors (5100-5199)
+  // Business Logic Errors
   BUSINESS_RULE_VIOLATION = 'BUSINESS_RULE_VIOLATION',
   OPERATION_NOT_ALLOWED = 'OPERATION_NOT_ALLOWED',
   INVALID_STATE = 'INVALID_STATE',
 }
 
 export const ErrorMessages: Record<ErrorCode, string> = {
-  // Validation
+  // General
+  [ErrorCode.INTERNAL_SERVER_ERROR]: 'An unexpected error occurred. Please try again later',
   [ErrorCode.VALIDATION_ERROR]: 'The provided data is invalid',
+  [ErrorCode.NOT_FOUND]: 'The requested resource was not found',
+  [ErrorCode.BAD_REQUEST]: 'The request is invalid',
+  [ErrorCode.UNAUTHORIZED]: 'You are not authorized to access this resource',
+  [ErrorCode.FORBIDDEN]: 'You do not have permission to perform this action',
+  [ErrorCode.CONFLICT]: 'A conflict occurred while processing your request',
+  [ErrorCode.UNPROCESSABLE_ENTITY]: 'The request was well-formed but was unable to be followed due to semantic errors',
+
+  // Auth
+  [ErrorCode.AUTH_INVALID_CREDENTIALS]: 'Invalid credentials provided',
+  [ErrorCode.AUTH_USER_NOT_FOUND]: 'User not found',
+  [ErrorCode.AUTH_TOKEN_EXPIRED]: 'Authentication token has expired',
+  [ErrorCode.AUTH_TOKEN_INVALID]: 'Invalid authentication token',
+  [ErrorCode.AUTH_ACCOUNT_LOCKED]: 'Account is locked',
+
+  // Domain Specific
+  [ErrorCode.PROPERTY_NOT_FOUND]: 'Property not found',
+  [ErrorCode.TRANSACTION_FAILED]: 'Transaction failed',
+
+  // Validation
   [ErrorCode.INVALID_INPUT]: 'The input data contains invalid values',
   [ErrorCode.MISSING_REQUIRED_FIELD]: 'Required field is missing',
   [ErrorCode.INVALID_FORMAT]: 'The data format is incorrect',
   
   // Authentication
-  [ErrorCode.UNAUTHORIZED]: 'You are not authorized to access this resource',
   [ErrorCode.INVALID_CREDENTIALS]: 'The provided credentials are invalid',
   [ErrorCode.TOKEN_EXPIRED]: 'Your session has expired. Please login again',
   [ErrorCode.TOKEN_INVALID]: 'Invalid authentication token',
   [ErrorCode.AUTHENTICATION_REQUIRED]: 'Authentication is required to access this resource',
   
   // Authorization
-  [ErrorCode.FORBIDDEN]: 'You do not have permission to perform this action',
   [ErrorCode.INSUFFICIENT_PERMISSIONS]: 'You lack the necessary permissions',
   [ErrorCode.ACCESS_DENIED]: 'Access to this resource is denied',
   
   // Resource
-  [ErrorCode.NOT_FOUND]: 'The requested resource was not found',
   [ErrorCode.RESOURCE_NOT_FOUND]: 'The specified resource does not exist',
   [ErrorCode.USER_NOT_FOUND]: 'User not found',
-  [ErrorCode.PROPERTY_NOT_FOUND]: 'Property not found',
   
   // Conflict
-  [ErrorCode.CONFLICT]: 'A conflict occurred while processing your request',
   [ErrorCode.DUPLICATE_ENTRY]: 'This entry already exists',
   [ErrorCode.RESOURCE_ALREADY_EXISTS]: 'A resource with this identifier already exists',
   
   // Server
-  [ErrorCode.INTERNAL_SERVER_ERROR]: 'An unexpected error occurred. Please try again later',
   [ErrorCode.DATABASE_ERROR]: 'A database error occurred',
   [ErrorCode.EXTERNAL_SERVICE_ERROR]: 'An external service is currently unavailable',
   
