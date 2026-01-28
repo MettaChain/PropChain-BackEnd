@@ -204,7 +204,7 @@ export class ApiKeyService {
   }
 
   private validateScopes(scopes: string[]): void {
-    const invalidScopes = scopes.filter(scope => !API_KEY_SCOPES.includes(scope));
+    const invalidScopes = scopes.filter(scope => !API_KEY_SCOPES.includes(scope as any));
     
     if (invalidScopes.length > 0) {
       throw new BadRequestException(

@@ -5,15 +5,23 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  Inject,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { ErrorResponseDto } from './error.dto';
 import { ErrorCode, ErrorMessages } from './error.codes';
 import { v4 as uuidv4 } from 'uuid';
+import { LoggerService } from '../logger/logger.service';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
+
+  constructor(
+    @Inject(ConfigService) private readonly configService?: ConfigService,
+    @Inject(LoggerService) private readonly loggerService?: LoggerService,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -123,3 +131,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return statusToErrorCode[status] || ErrorCode.INTERNAL_SERVER_ERROR;
   }
 }
+
+// Export alias for backward compatibility
+export { AllExceptionsFilter as AppExceptionFilter };

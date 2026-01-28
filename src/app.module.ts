@@ -14,17 +14,19 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
+import { ValuationModule } from './valuation/valuation.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AuthRateLimitMiddleware } from './auth/middleware/auth.middleware';
 import configuration from './config/configuration';
+import valuationConfig from './config/valuation.config';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration],
+      load: [configuration, valuationConfig],
       envFilePath: ['.env.local', '.env.development', '.env'],
     }),
     ConfigurationModule,
@@ -83,6 +85,7 @@ import configuration from './config/configuration';
     TransactionsModule,
     BlockchainModule,
     FilesModule,
+    ValuationModule,
     DocumentsModule,
   ],
   controllers: [],

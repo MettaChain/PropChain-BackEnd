@@ -13,6 +13,19 @@ export class Property implements PrismaProperty {
     ownerId: string;
     createdAt: Date;
     updatedAt: Date;
+    // Valuation fields
+    estimatedValue: Decimal | null;
+    valuationDate: Date | null;
+    valuationConfidence: number | null;
+    valuationSource: string | null;
+    lastValuationId: string | null;
+    // Property features
+    bedrooms: number | null;
+    bathrooms: number | null;
+    squareFootage: Decimal | null;
+    yearBuilt: number | null;
+    propertyType: string | null;
+    lotSize: Decimal | null;
 }
 
 export type CreatePropertyInput = {
@@ -22,6 +35,12 @@ export type CreatePropertyInput = {
     price: number | Decimal;
     status?: PropertyStatus;
     ownerId: string;
+    bedrooms?: number;
+    bathrooms?: number;
+    squareFootage?: number | Decimal;
+    yearBuilt?: number;
+    propertyType?: string;
+    lotSize?: number | Decimal;
 };
 
 export type UpdatePropertyInput = Partial<Omit<CreatePropertyInput, 'ownerId'>>;

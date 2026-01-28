@@ -42,6 +42,7 @@ export interface JoiSchemaConfig {
   // Rate Limiting
   THROTTLE_TTL: number;
   THROTTLE_LIMIT: number;
+  API_KEY_RATE_LIMIT_PER_MINUTE: number;
 
   // File Upload
   MAX_FILE_SIZE: number;

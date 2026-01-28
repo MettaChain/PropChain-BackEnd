@@ -77,6 +77,8 @@ export class AuthService {
         email: `${walletAddress}@wallet.auth`,
         password: Math.random().toString(36),
         walletAddress,
+        firstName: `User-${walletAddress.slice(0, 8)}`,
+        lastName: `Wallet-${walletAddress.slice(0, 8)}`,
       });
     }
 

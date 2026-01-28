@@ -8,13 +8,18 @@ export class User implements PrismaUser {
     walletAddress: string | null;
     role: UserRole;
     roleId: string | null;
+    password: string | null;
+    isVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
 
 export type CreateUserInput = {
     email: string;
+    password?: string;
     walletAddress?: string;
+    firstName: string;
+    lastName: string;
     role?: UserRole;
     roleId?: string;
 };

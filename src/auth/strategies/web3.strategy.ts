@@ -33,6 +33,8 @@ export class Web3Strategy extends PassportStrategy(Strategy, 'web3') {
         email: `${walletAddress}@wallet.auth`,
         password: Math.random().toString(36),
         walletAddress,
+        firstName: `User-${walletAddress.slice(0, 8)}`,
+        lastName: `Wallet-${walletAddress.slice(0, 8)}`,
       });
     }
 

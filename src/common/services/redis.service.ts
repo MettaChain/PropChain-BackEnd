@@ -51,4 +51,12 @@ export class RedisService {
   async hdel(key: string, field: string): Promise<number> {
     return await this.redis.hdel(key, field);
   }
+
+  async ttl(key: string): Promise<number> {
+    return await this.redis.ttl(key);
+  }
+
+  async incr(key: string): Promise<number> {
+    return await this.redis.incr(key);
+  }
 }
