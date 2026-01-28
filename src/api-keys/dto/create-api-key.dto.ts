@@ -1,14 +1,16 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, IsInt, Min, ArrayMinSize } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsArray, IsOptional, IsInt, Min, ArrayMinSize, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ApiKeyScope } from '../enums/api-key-scope.enum';
 
 export class CreateApiKeyDto {
   @ApiProperty({
     description: 'Friendly name for the API key',
     example: 'Production Integration Key',
+    maxLength: 100,
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'Name must be a string' })
+  @IsNotEmpty({ message: 'Name is required' })
+  @MaxLength(100, { message: 'Name must not exceed 100 characters' })
   name: string;
 
   @ApiProperty({
@@ -17,18 +19,18 @@ export class CreateApiKeyDto {
     enum: ApiKeyScope,
     isArray: true,
   })
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsString({ each: true })
+  @IsArray({ message: 'Scopes must be an array' })
+  @ArrayMinSize(1, { message: 'At least one scope is required' })
+  @IsString({ each: true, message: 'Each scope must be a string' })
   scopes: string[];
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Rate limit (requests per minute) for this key. If not provided, uses global default.',
     example: 100,
-    required: false,
+    minimum: 1,
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'Rate limit must be an integer' })
+  @Min(1, { message: 'Rate limit must be at least 1' })
   rateLimit?: number;
 }

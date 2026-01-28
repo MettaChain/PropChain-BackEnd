@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,136 +12,35 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader, ApiConsumes } from '@nestjs/swagger';
 import {
   DocumentAccessContext,
-  DocumentAccessLevel,
   DocumentMetadataInput,
   DocumentSearchFilters,
-  DocumentType,
 } from './document.model';
 import { DocumentService } from './document.service';
+import {
+  UploadDocumentDto,
+  UpdateMetadataDto,
+  DocumentQueryDto,
+  DownloadQueryDto,
+  DocumentResponseDto,
+  DownloadUrlResponseDto,
+} from './dto';
 
-class UploadDocumentDto {
-  @IsOptional()
-  @IsString()
-  propertyId?: string;
-
-  @IsOptional()
-  @IsEnum(DocumentType)
-  type?: DocumentType;
-
-  @IsOptional()
-  @IsString()
-  title?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsString()
-  tags?: string;
-
-  @IsOptional()
-  @IsEnum(DocumentAccessLevel)
-  accessLevel?: DocumentAccessLevel;
-
-  @IsOptional()
-  @IsString()
-  allowedUserIds?: string;
-
-  @IsOptional()
-  @IsString()
-  allowedRoles?: string;
-
-  @IsOptional()
-  @IsString()
-  customFields?: string;
-}
-
-class UpdateMetadataDto {
-  @IsOptional()
-  @IsString()
-  propertyId?: string;
-
-  @IsOptional()
-  @IsEnum(DocumentType)
-  type?: DocumentType;
-
-  @IsOptional()
-  @IsString()
-  title?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsString()
-  tags?: string;
-
-  @IsOptional()
-  @IsEnum(DocumentAccessLevel)
-  accessLevel?: DocumentAccessLevel;
-
-  @IsOptional()
-  @IsString()
-  allowedUserIds?: string;
-
-  @IsOptional()
-  @IsString()
-  allowedRoles?: string;
-
-  @IsOptional()
-  @IsString()
-  customFields?: string;
-}
-
-class DocumentQueryDto {
-  @IsOptional()
-  @IsString()
-  propertyId?: string;
-
-  @IsOptional()
-  @IsEnum(DocumentType)
-  type?: DocumentType;
-
-  @IsOptional()
-  @IsEnum(DocumentAccessLevel)
-  accessLevel?: DocumentAccessLevel;
-
-  @IsOptional()
-  @IsString()
-  tag?: string;
-
-  @IsOptional()
-  @IsString()
-  uploadedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  mimeType?: string;
-
-  @IsOptional()
-  @IsString()
-  createdAfter?: string;
-
-  @IsOptional()
-  @IsString()
-  createdBefore?: string;
-
-  @IsOptional()
-  @IsString()
-  search?: string;
-}
-
+@ApiTags('documents')
 @Controller('documents')
 export class DocumentController {
   constructor(private readonly documentService: DocumentService) {}
 
   @Post('upload')
   @UseInterceptors(FilesInterceptor('files'))
+  @ApiOperation({ summary: 'Upload documents with metadata' })
+  @ApiConsumes('multipart/form-data')
+  @ApiHeader({ name: 'x-user-id', description: 'User ID', required: true })
+  @ApiHeader({ name: 'x-user-roles', description: 'Comma-separated user roles', required: false })
+  @ApiResponse({ status: 201, description: 'Documents uploaded successfully.', type: [DocumentResponseDto] })
+  @ApiResponse({ status: 400, description: 'Invalid input data.' })
   async uploadDocuments(
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: UploadDocumentDto,
@@ -156,6 +54,13 @@ export class DocumentController {
 
   @Post(':id/version')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Add a new version to existing document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', description: 'Document ID' })
+  @ApiHeader({ name: 'x-user-id', description: 'User ID', required: true })
+  @ApiHeader({ name: 'x-user-roles', description: 'Comma-separated user roles', required: false })
+  @ApiResponse({ status: 201, description: 'Version added successfully.', type: DocumentResponseDto })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
   async addVersion(
     @Param('id') documentId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -167,6 +72,13 @@ export class DocumentController {
   }
 
   @Patch(':id/metadata')
+  @ApiOperation({ summary: 'Update document metadata' })
+  @ApiParam({ name: 'id', description: 'Document ID' })
+  @ApiHeader({ name: 'x-user-id', description: 'User ID', required: true })
+  @ApiHeader({ name: 'x-user-roles', description: 'Comma-separated user roles', required: false })
+  @ApiResponse({ status: 200, description: 'Metadata updated successfully.', type: DocumentResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid input data.' })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
   async updateMetadata(
     @Param('id') documentId: string,
     @Body() body: UpdateMetadataDto,
@@ -179,6 +91,12 @@ export class DocumentController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get document details' })
+  @ApiParam({ name: 'id', description: 'Document ID' })
+  @ApiHeader({ name: 'x-user-id', description: 'User ID', required: true })
+  @ApiHeader({ name: 'x-user-roles', description: 'Comma-separated user roles', required: false })
+  @ApiResponse({ status: 200, description: 'Document found.', type: DocumentResponseDto })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
   async getDocument(
     @Param('id') documentId: string,
     @Headers('x-user-id') userId: string,
@@ -189,21 +107,27 @@ export class DocumentController {
   }
 
   @Get(':id/download')
+  @ApiOperation({ summary: 'Get download URL for document' })
+  @ApiParam({ name: 'id', description: 'Document ID' })
+  @ApiHeader({ name: 'x-user-id', description: 'User ID', required: true })
+  @ApiHeader({ name: 'x-user-roles', description: 'Comma-separated user roles', required: false })
+  @ApiResponse({ status: 200, description: 'Download URL generated.', type: DownloadUrlResponseDto })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
   async downloadDocument(
     @Param('id') documentId: string,
-    @Query('version') version: string | undefined,
+    @Query() query: DownloadQueryDto,
     @Headers('x-user-id') userId: string,
     @Headers('x-user-roles') rolesHeader?: string,
   ) {
     const context = this.buildAccessContext(userId, rolesHeader);
-    const versionNumber = version ? Number(version) : undefined;
-    if (version && Number.isNaN(versionNumber)) {
-      throw new BadRequestException('Version must be a number');
-    }
-    return this.documentService.getDownloadUrl(documentId, versionNumber, context);
+    return this.documentService.getDownloadUrl(documentId, query.version, context);
   }
 
   @Get()
+  @ApiOperation({ summary: 'List documents with filters' })
+  @ApiHeader({ name: 'x-user-id', description: 'User ID', required: true })
+  @ApiHeader({ name: 'x-user-roles', description: 'Comma-separated user roles', required: false })
+  @ApiResponse({ status: 200, description: 'List of documents.', type: [DocumentResponseDto] })
   async listDocuments(
     @Query() query: DocumentQueryDto,
     @Headers('x-user-id') userId: string,

@@ -1,36 +1,88 @@
-import { IsEmail, IsString, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, IsNotEmpty, ValidateIf } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEthereumAddress } from '../../common/validators';
 
-export class LoginDto {
+/**
+ * DTO for email/password login
+ */
+export class LoginEmailDto {
   @ApiProperty({
-    example: 'john.doe@example.com',
     description: 'User email address',
+    example: 'john.doe@example.com',
   })
-  @IsEmail()
-  @IsOptional()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email: string;
+
+  @ApiProperty({
+    description: 'User password',
+    example: 'SecureP@ss123',
+    minLength: 8,
+  })
+  @IsString({ message: 'Password must be a string' })
+  @IsNotEmpty({ message: 'Password is required' })
+  password: string;
+}
+
+/**
+ * DTO for Web3 wallet login
+ */
+export class LoginWeb3Dto {
+  @ApiProperty({
+    description: 'Ethereum wallet address',
+    example: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+  })
+  @IsEthereumAddress({ message: 'Invalid Ethereum wallet address' })
+  @IsNotEmpty({ message: 'Wallet address is required' })
+  walletAddress: string;
+
+  @ApiProperty({
+    description: 'Signature from wallet for authentication',
+    example: '0x...',
+  })
+  @IsString({ message: 'Signature must be a string' })
+  @IsNotEmpty({ message: 'Signature is required' })
+  signature: string;
+}
+
+/**
+ * Combined DTO for backward compatibility - supports both email and Web3 login
+ * Uses conditional validation based on which fields are provided
+ */
+export class LoginDto {
+  @ApiPropertyOptional({
+    description: 'User email address (required for email login)',
+    example: 'john.doe@example.com',
+  })
+  @ValidateIf((o) => !o.walletAddress)
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsNotEmpty({ message: 'Email is required when not using Web3 login' })
   email?: string;
 
-  @ApiProperty({
-    example: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-    description: 'Wallet address for Web3 authentication',
+  @ApiPropertyOptional({
+    description: 'User password (required for email login)',
+    example: 'SecureP@ss123',
   })
-  @IsString()
-  @IsOptional()
-  walletAddress?: string;
-
-  @ApiProperty({
-    example: 'securePassword123',
-    description: 'User password (required if using email)',
-  })
-  @IsString()
-  @IsOptional()
+  @ValidateIf((o) => !o.walletAddress)
+  @IsString({ message: 'Password must be a string' })
+  @IsNotEmpty({ message: 'Password is required when not using Web3 login' })
   password?: string;
 
-  @ApiProperty({
-    example: 'signature_from_wallet',
-    description: 'Signature from wallet for Web3 authentication',
+  @ApiPropertyOptional({
+    description: 'Ethereum wallet address (required for Web3 login)',
+    example: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
   })
-  @IsString()
-  @IsOptional()
+  @ValidateIf((o) => !o.email)
+  @IsEthereumAddress({ message: 'Invalid Ethereum wallet address' })
+  @IsNotEmpty({ message: 'Wallet address is required for Web3 login' })
+  walletAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'Signature from wallet (required for Web3 login)',
+    example: '0x...',
+  })
+  @ValidateIf((o) => !o.email)
+  @IsString({ message: 'Signature must be a string' })
+  @IsNotEmpty({ message: 'Signature is required for Web3 login' })
   signature?: string;
 }

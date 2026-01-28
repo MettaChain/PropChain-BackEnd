@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
+import { PropertyQueryDto } from './dto/property-query.dto';
 
 @Injectable()
 export class PropertiesService {
@@ -8,7 +9,8 @@ export class PropertiesService {
     return 'This action adds a new property';
   }
 
-  findAll() {
+  findAll(query?: PropertyQueryDto) {
+    // TODO: Implement filtering with query params
     return `This action returns all properties`;
   }
 
