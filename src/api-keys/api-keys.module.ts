@@ -2,12 +2,15 @@ import { Module } from '@nestjs/common';
 import { ApiKeyService } from './api-key.service';
 import { ApiKeyController } from './api-key.controller';
 import { PrismaModule } from '../database/prisma/prisma.module';
-import { RedisService } from '../common/services/redis.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    // Note: We do NOT import RedisModule or RedisService here.
+    // They should be provided globally in AppModule.
+  ],
   controllers: [ApiKeyController],
-  providers: [ApiKeyService, RedisService],
+  providers: [ApiKeyService],
   exports: [ApiKeyService],
 })
 export class ApiKeysModule {}

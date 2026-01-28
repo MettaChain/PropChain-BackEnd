@@ -1,19 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PropertiesService } from './properties.service';
+import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../database/prisma/prisma.service';
 import { PaginationService } from '../common/pagination/pagination.service';
 
-describe('PropertiesService', () => {
-  let service: PropertiesService;
+describe('TransactionsService', () => {
+  let service: TransactionsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PropertiesService,
+        TransactionsService,
         {
           provide: PrismaService,
           useValue: {
-            property: {
+            transaction: {
               findMany: jest.fn().mockResolvedValue([]),
               count: jest.fn().mockResolvedValue(0),
             },
@@ -29,7 +29,7 @@ describe('PropertiesService', () => {
       ],
     }).compile();
 
-    service = module.get<PropertiesService>(PropertiesService);
+    service = module.get<TransactionsService>(TransactionsService);
   });
 
   it('should be defined', () => {

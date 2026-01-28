@@ -1,6 +1,7 @@
 import { JoiSchemaConfig } from './interfaces/joi-schema-config.interface';
 
-export default (): JoiSchemaConfig => ({
+// Changed return type to 'any' to allow custom properties not yet in the interface
+export default (): any => ({
   // Application
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 3000,

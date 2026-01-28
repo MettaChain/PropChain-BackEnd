@@ -20,7 +20,7 @@ export class ApiKeyService {
     private readonly configService: ConfigService,
   ) {
     this.encryptionKey = this.configService.get<string>('ENCRYPTION_KEY');
-    this.globalRateLimit = this.configService.get<number>('API_KEY_RATE_LIMIT_PER_MINUTE');
+    this.globalRateLimit = this.configService.get<number>('API_KEY_RATE_LIMIT_PER_MINUTE') || 60;
     
     if (!this.encryptionKey) {
       throw new Error('ENCRYPTION_KEY must be set in environment variables');
@@ -138,7 +138,6 @@ export class ApiKeyService {
     }
 
     await this.checkRateLimit(apiKey);
-
     await this.trackUsage(apiKey.id, keyPrefix);
 
     return {
@@ -162,6 +161,7 @@ export class ApiKeyService {
 
     const ttl = await this.redis.ttl(redisKey);
     
+    // Using the methods we added to RedisService
     if (ttl === -1 || ttl === -2) {
       await this.redis.setex(redisKey, 60, '1');
     } else {
@@ -204,11 +204,10 @@ export class ApiKeyService {
   }
 
   private validateScopes(scopes: string[]): void {
-    const invalidScopes = scopes.filter(scope => !API_KEY_SCOPES.includes(scope as any));
     
     if (invalidScopes.length > 0) {
       throw new BadRequestException(
-        `Invalid scopes: ${invalidScopes.join(', ')}. Valid scopes are: ${API_KEY_SCOPES.join(', ')}`
+        `Invalid scopes: ${invalidScopes.join(', ')}. Valid scopes are: ${Object.values(API_KEY_SCOPES).join(', ')}`
       );
     }
   }

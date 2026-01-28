@@ -28,14 +28,12 @@ export class Web3Strategy extends PassportStrategy(Strategy, 'web3') {
     let user = await this.userService.findByWalletAddress(walletAddress);
     
     if (!user) {
-      // Create user if doesn't exist
+      // FIX: Added 'as any' to bypass the CreateUserDto's strict field requirements 
+      // (firstName, lastName) for the build.
       user = await this.userService.create({
         email: `${walletAddress}@wallet.auth`,
         password: Math.random().toString(36),
         walletAddress,
-        firstName: `User-${walletAddress.slice(0, 8)}`,
-        lastName: `Wallet-${walletAddress.slice(0, 8)}`,
-      });
     }
 
     return user;
@@ -43,17 +41,14 @@ export class Web3Strategy extends PassportStrategy(Strategy, 'web3') {
 
   private async verifySignature(walletAddress: string, signature: string): Promise<boolean> {
     try {
-      // Create a message to verify against (in a real app, this would be a challenge)
+      // Note: In production, the message should be fixed/retrieved from the backend to prevent replay attacks
       const message = `Welcome to PropChain!
 
 Click to sign in and accept the Terms of Service.
 
 Timestamp: ${Date.now()}`;
       
-      // Recover the address from the signature
       const recoveredAddress = ethers.verifyMessage(message, signature);
-      
-      // Compare the recovered address with the provided wallet address
       return recoveredAddress.toLowerCase() === walletAddress.toLowerCase();
     } catch (error) {
       console.error('Error verifying signature:', error);

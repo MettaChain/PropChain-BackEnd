@@ -1,14 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { RedisService as NestRedisService } from '@liaoliaots/nestjs-redis';
+import { Injectable, Inject } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
 @Injectable()
 export class RedisService {
-  private readonly redis: Redis;
-
-  constructor(private readonly redisService: NestRedisService) {
-    this.redis = this.redisService.getOrThrow();
-  }
+  constructor(
+    // This string 'default' must match the namespace in AppModule
+    @Inject('default') private readonly redis: Redis
+  ) {}
 
   async get(key: string): Promise<string | null> {
     return await this.redis.get(key);
@@ -24,6 +22,14 @@ export class RedisService {
 
   async del(key: string): Promise<number> {
     return await this.redis.del(key);
+  }
+
+  async ttl(key: string): Promise<number> {
+    return await this.redis.ttl(key);
+  }
+
+  async incr(key: string): Promise<number> {
+    return await this.redis.incr(key);
   }
 
   async exists(key: string): Promise<boolean> {
