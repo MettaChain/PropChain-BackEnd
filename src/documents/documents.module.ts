@@ -8,11 +8,13 @@ import {
   STORAGE_CONFIG,
   STORAGE_PROVIDER,
 } from './document.service';
+import { FileStorageService } from './storage/file-storage.service';
 
 @Module({
   controllers: [DocumentController],
   providers: [
     DocumentService,
+    FileStorageService,
     {
       provide: STORAGE_CONFIG,
       useFactory: storageConfig,

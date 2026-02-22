@@ -7,6 +7,9 @@ import * as bcrypt from 'bcrypt';
 import { RedisService } from '../common/services/redis.service';
 import { v4 as uuidv4 } from 'uuid';
 import { StructuredLoggerService } from '../common/logging/logger.service';
+import { AuthUser, JwtPayload, AuthTokens } from './auth.types';
+import { PrismaUser } from '../types/prisma.types';
+import { isObject, isString } from '../types/guards';
 
 @Injectable()
 export class AuthService {
@@ -28,8 +31,9 @@ export class AuthService {
       return {
         message: 'User registered successfully. Please check your email for verification.',
       };
-    } catch (error) {
-      this.logger.error('User registration failed', error.stack, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error('User registration failed', errorMessage, {
         email: createUserDto.email,
       });
       throw error;
@@ -81,8 +85,9 @@ export class AuthService {
 
       this.logger.logAuth('User login successful', { userId: user.id });
       return this.generateTokens(user);
-    } catch (error) {
-      this.logger.error('User login failed', error.stack, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error('User login failed', errorMessage, {
         email: credentials.email,
       });
       throw error;

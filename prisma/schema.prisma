@@ -65,6 +65,11 @@ model Property {
   valuations        PropertyValuation[]
   documents         Document[]
 
+  latitude   Float?
+  longitude  Float?
+
+
+  @@index([latitude, longitude])
   @@index([ownerId])
   @@index([status])
   @@index([createdAt])
@@ -183,6 +188,7 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+
 model SystemLog {
   id        String   @id @default(cuid())
   logLevel  String   @map("log_level")
@@ -192,6 +198,9 @@ model SystemLog {
 
   @@map("system_logs")
 }
+
+
+
 
 enum UserRole {
   ADMIN
@@ -210,6 +219,7 @@ enum PropertyStatus {
   LISTED
   SOLD
   REMOVED
+  PUBLISHED
 }
 
 enum TransactionStatus {

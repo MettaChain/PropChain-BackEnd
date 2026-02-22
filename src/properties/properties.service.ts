@@ -4,6 +4,8 @@ import { CreatePropertyDto, PropertyStatus as DTOPropertyStatus } from './dto/cr
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PropertyQueryDto } from './dto/property-query.dto';
 import { ConfigService } from '@nestjs/config';
+import { PrismaProperty, PrismaUser } from '../types/prisma.types';
+import { isObject } from '../types/guards';
 
 @Injectable()
 export class PropertiesService {
@@ -20,7 +22,7 @@ export class PropertiesService {
   async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
     try {
       // Validate owner exists
-      const owner = await (this.prisma as any).user.findUnique({
+      const owner = await this.prisma.user.findUnique({
         where: { id: ownerId },
       });
 

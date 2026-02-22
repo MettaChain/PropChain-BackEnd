@@ -1,9 +1,9 @@
-import { Property as PrismaProperty, PropertyStatus } from '@prisma/client';
+import { PropertyStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export { PropertyStatus };
 
-export class Property implements PrismaProperty {
+export class Property {
   id: string;
   title: string;
   description: string | null;

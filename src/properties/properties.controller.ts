@@ -3,14 +3,18 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@ne
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto, UpdatePropertyDto, PropertyQueryDto, PropertyResponseDto, PropertyStatus } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PropertySearchService } from './search/property-search.service';
+import { PropertySearchDto } from './dto/property-search.dto';
 
 @ApiTags('properties')
 @Controller('properties')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class PropertiesController {
-  constructor(private readonly propertiesService: PropertiesService) {}
-
+constructor(
+  private readonly propertiesService: PropertiesService,
+  private readonly propertySearchService: PropertySearchService,
+) {}
   @Post()
   @ApiOperation({ summary: 'Create a new property' })
   @ApiResponse({ status: 201, description: 'Property created successfully.', type: PropertyResponseDto })
@@ -26,17 +30,12 @@ export class PropertiesController {
     return this.propertiesService.findAll(query);
   }
 
-  @Get('search/nearby')
-  @ApiOperation({ summary: 'Search properties near a location' })
-  @ApiResponse({ status: 200, description: 'Properties found nearby.' })
-  searchNearby(
-    @Query('latitude') latitude: number,
-    @Query('longitude') longitude: number,
-    @Query('radiusKm') radiusKm?: number,
-    @Query() query?: PropertyQueryDto,
-  ) {
-    return this.propertiesService.searchNearby(latitude, longitude, radiusKm, query);
-  }
+ @Get('search')
+@ApiOperation({ summary: 'Advanced property search (geospatial + filters)' })
+@ApiResponse({ status: 200, description: 'Search results.' })
+search(@Query() dto: PropertySearchDto, @Request() req) {
+  return this.propertySearchService.search(dto, req.user.id);
+}
 
   @Get('statistics')
   @ApiOperation({ summary: 'Get property statistics' })

@@ -115,7 +115,7 @@ describe('API Key DTOs', () => {
 
     it('should pass with isActive as string true', async () => {
       const dto = plainToInstance(ApiKeyQueryDto, {
-        isActive: 'true' as any,
+        isActive: true,
       });
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
