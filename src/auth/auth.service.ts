@@ -171,7 +171,7 @@ export class AuthService {
         }
       }
     }
-    
+
     // Remove refresh token
     await this.redisService.del(`refresh_token:${userId}`);
     this.logger.logAuth('User logged out successfully', { userId });
@@ -246,14 +246,14 @@ export class AuthService {
   async getActiveSessions(userId: string): Promise<any[]> {
     const sessionKeys = await this.redisService.keys(`active_session:${userId}:*`);
     const sessions = [];
-    
+
     for (const key of sessionKeys) {
       const sessionData = await this.redisService.get(key);
       if (sessionData) {
         sessions.push(JSON.parse(sessionData));
       }
     }
-    
+
     return sessions;
   }
 
@@ -267,7 +267,7 @@ export class AuthService {
     return sessions.map(session => ({
       ...session,
       isActive: true,
-      expiresIn: this.getSessionExpiry(session.createdAt)
+      expiresIn: this.getSessionExpiry(session.createdAt),
     }));
   }
 
@@ -298,10 +298,10 @@ export class AuthService {
 
   private generateTokens(user: any) {
     const jti = uuidv4(); // JWT ID for blacklisting
-    const payload = { 
-      sub: user.id, 
+    const payload = {
+      sub: user.id,
       email: user.email,
-      jti: jti
+      jti,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -315,15 +315,19 @@ export class AuthService {
     });
 
     this.redisService.set(`refresh_token:${user.id}`, refreshToken);
-    
+
     // Store active session
     const sessionExpiry = this.configService.get<number>('SESSION_TIMEOUT', 3600);
-    this.redisService.setex(`active_session:${user.id}:${jti}`, sessionExpiry, JSON.stringify({
-      userId: user.id,
-      createdAt: new Date().toISOString(),
-      userAgent: 'unknown', // Would be captured from request in real implementation
-      ip: 'unknown'
-    }));
+    this.redisService.setex(
+      `active_session:${user.id}:${jti}`,
+      sessionExpiry,
+      JSON.stringify({
+        userId: user.id,
+        createdAt: new Date().toISOString(),
+        userAgent: 'unknown', // Would be captured from request in real implementation
+        ip: 'unknown',
+      }),
+    );
 
     this.logger.debug('Generated new tokens for user', { userId: user.id, jti });
 

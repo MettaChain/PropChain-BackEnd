@@ -7,7 +7,7 @@ export class PasswordValidator {
 
   validatePassword(password: string): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
-    
+
     // Length validation
     const minLength = this.configService.get<number>('PASSWORD_MIN_LENGTH', 12);
     if (password.length < minLength) {
@@ -39,14 +39,7 @@ export class PasswordValidator {
     }
 
     // Common password patterns to avoid
-    const commonPatterns = [
-      /password/i,
-      /123456/,
-      /qwerty/,
-      /abc123/,
-      /admin/,
-      /welcome/
-    ];
+    const commonPatterns = [/password/i, /123456/, /qwerty/, /abc123/, /admin/, /welcome/];
 
     for (const pattern of commonPatterns) {
       if (pattern.test(password)) {
@@ -57,7 +50,7 @@ export class PasswordValidator {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 

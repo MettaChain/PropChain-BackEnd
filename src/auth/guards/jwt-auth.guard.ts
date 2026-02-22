@@ -10,11 +10,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   async canActivate(context: any): Promise<boolean> {
     const result = (await super.canActivate(context)) as boolean;
-    
+
     if (result) {
       const request = context.switchToHttp().getRequest();
       const user = request.user;
-      
+
       // Check if token is blacklisted
       if (user && user.jti) {
         const isBlacklisted = await this.authService.isTokenBlacklisted(user.jti);
@@ -23,7 +23,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         }
       }
     }
-    
+
     return result;
   }
 }

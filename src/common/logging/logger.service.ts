@@ -2,7 +2,7 @@ import { Injectable, Scope, LoggerService as NestLoggerService } from '@nestjs/c
 import * as winston from 'winston';
 import { ConfigService } from '@nestjs/config';
 import { createWinstonLogger, LOG_CATEGORIES } from './logging.config';
-import { getCorrelationId } from './correlation-id';
+import { getCorrelationId, getTraceId } from './correlation-id';
 
 /**
  * Structured logging service with Winston
@@ -162,13 +162,12 @@ export class StructuredLoggerService implements NestLoggerService {
     });
   }
 
-  /**
-   * Build consistent metadata structure for all logs
-   */
   private buildLogMetadata(metadata?: Record<string, any>): Record<string, any> {
     const correlationId = getCorrelationId();
+    const traceId = getTraceId();
     return {
       correlationId,
+      traceId,
       context: this.context,
       timestamp: new Date().toISOString(),
       ...metadata,

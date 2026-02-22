@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Decimal } from '@prisma/client/runtime/library';
 import { CacheService } from '../common/services/cache.service';
 import { withResilience } from 'src/common/utils/resilence.util';
+import { getCorrelationId, getTraceId } from 'src/common/logging/correlation-id';
 
 export interface PropertyFeatures {
   id?: string;
@@ -157,7 +158,8 @@ export class ValuationService {
     }
 
     try {
-      // Mock implementation - in real scenario, this would call Zillow's actual API
+      const correlationId = getCorrelationId();
+      const traceId = getTraceId();
       const response = await axios.post(
         `${this.externalApis.zillow.baseUrl}/valuation`,
         {
@@ -171,6 +173,8 @@ export class ValuationService {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            'x-correlation-id': correlationId,
+            'x-trace-id': traceId,
           },
           timeout: this.configService.get('valuation.valuation.timeout'),
         },
@@ -203,7 +207,8 @@ export class ValuationService {
     }
 
     try {
-      // Mock implementation - in real scenario, this would call Redfin's actual API
+      const correlationId = getCorrelationId();
+      const traceId = getTraceId();
       const response = await axios.get(`${this.externalApis.redfin.baseUrl}/home-value`, {
         params: {
           location: features.location,
@@ -213,6 +218,8 @@ export class ValuationService {
         },
         headers: {
           'X-API-Key': apiKey,
+          'x-correlation-id': correlationId,
+          'x-trace-id': traceId,
         },
         timeout: this.configService.get('valuation.valuation.timeout'),
       });
@@ -244,7 +251,8 @@ export class ValuationService {
     }
 
     try {
-      // Mock implementation - in real scenario, this would call CoreLogic's actual API
+      const correlationId = getCorrelationId();
+      const traceId = getTraceId();
       const response = await axios.post(
         `${this.externalApis.corelogic.baseUrl}/property-valuations`,
         {
@@ -260,6 +268,8 @@ export class ValuationService {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            'x-correlation-id': correlationId,
+            'x-trace-id': traceId,
           },
           timeout: this.configService.get('valuation.valuation.timeout'),
         },
