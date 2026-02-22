@@ -33,13 +33,13 @@ export class LoginAttemptsGuard extends AuthGuard('local') {
 
     try {
       const result = (await super.canActivate(context)) as boolean;
-      
+
       if (result) {
         // Successful login - reset attempt counters
         await this.resetLoginAttempts(email, ip);
         this.logger.logAuth('Successful login', { email, ip });
       }
-      
+
       return result;
     } catch (error) {
       // Failed login - increment attempt counters
@@ -73,7 +73,7 @@ export class LoginAttemptsGuard extends AuthGuard('local') {
 
     // Increment email attempts
     await this.incrementLoginAttempts(`login_attempts:${email}`, lockoutDuration);
-    
+
     // Increment IP attempts
     await this.incrementLoginAttempts(`login_attempts:ip:${ip}`, lockoutDuration);
   }

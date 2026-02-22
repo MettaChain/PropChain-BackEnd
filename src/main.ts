@@ -5,14 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import * as compression from 'compression';
 import { AppModule } from './app.module';
-
-// --- NEW LOGGING IMPORTS ---
 import { StructuredLoggerService } from './common/logging/logger.service';
-import { LoggingInterceptor } from './common/logging/logging.interceptor';
-// ---------------------------
-
-// FIX: Corrected import name from AppExceptionFilter to AllExceptionsFilter
-import { AllExceptionsFilter } from './common/errors/error.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
@@ -22,7 +15,6 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Use our new StructuredLoggerService
   const logger = await app.resolve(StructuredLoggerService);
   app.useLogger(logger);
 
@@ -60,18 +52,12 @@ async function bootstrap() {
     }),
   );
 
-  // Global filters and interceptors
-  // FIX: Removed arguments from AllExceptionsFilter because the constructor expects 0
-  app.useGlobalFilters(new AllExceptionsFilter());
-
-  // Using 'as any' to bypass the strict LoggerService interface mismatch
-  app.useGlobalInterceptors(new ResponseInterceptor(logger as any), new LoggingInterceptor(logger as any));
+  app.useGlobalInterceptors(new ResponseInterceptor(logger as any));
 
   // API prefix
   const apiPrefix = configService.get('API_PREFIX', 'api');
   app.setGlobalPrefix(apiPrefix);
 
-  // Swagger documentation
   if (configService.get('SWAGGER_ENABLED', true)) {
     const config = new DocumentBuilder()
       .setTitle('PropChain API')
@@ -104,7 +90,6 @@ async function bootstrap() {
   logger.log(`🏠 Environment: ${configService.get('NODE_ENV', 'development')}`);
   logger.log(`📊 Health check: http://${host}:${port}/${apiPrefix}/health`);
 
-  // Graceful shutdown
   process.on('SIGTERM', async () => {
     logger.log('SIGTERM signal received: closing HTTP server');
     await app.close();
@@ -118,7 +103,7 @@ async function bootstrap() {
   });
 }
 
-bootstrap().catch(async (error) => {
+bootstrap().catch(async error => {
   // Use a temporary logger since the app hasn't started
   const tempLogger = new (await import('./common/logging/logger.service')).StructuredLoggerService(null);
   tempLogger.setContext('Main');

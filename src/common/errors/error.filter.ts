@@ -1,26 +1,27 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger, Inject } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { ErrorResponseDto } from './error.dto';
 import { ErrorCode, ErrorMessages } from './error.codes';
 import { v4 as uuidv4 } from 'uuid';
-import { LoggerService } from '../logger/logger.service';
 import { StructuredLoggerService } from '../logging/logger.service';
+import { ErrorMonitoringService } from '../logging/error-monitoring.service';
+import { getCorrelationId, getTraceId } from '../logging/correlation-id';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
-
   constructor(
-    @Inject(ConfigService) private readonly configService?: ConfigService,
-    @Inject(StructuredLoggerService) private readonly loggerService?: StructuredLoggerService,
+    private readonly configService: ConfigService,
+    private readonly loggerService: StructuredLoggerService,
+    private readonly errorMonitoringService: ErrorMonitoringService,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const requestId = (request.headers['x-request-id'] as string) || uuidv4();
+    const correlationId = getCorrelationId();
+    const requestId = correlationId || (request.headers['x-request-id'] as string) || uuidv4();
 
     let errorResponse: ErrorResponseDto;
 
@@ -30,14 +31,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorResponse = this.handleUnknownException(exception, request, requestId);
     }
 
-    // Log the error
-    this.logger.error(`Error occurred: ${errorResponse.errorCode} - ${errorResponse.message}`, {
+    this.loggerService.error(
+      `Error occurred: ${errorResponse.errorCode} - ${errorResponse.message}`,
+      exception instanceof Error ? exception.stack : undefined,
+      {
+        requestId,
+        correlationId,
+        traceId: getTraceId(),
+        path: request.url,
+        method: request.method,
+        statusCode: errorResponse.statusCode,
+        details: errorResponse.details,
+      },
+    );
+
+    this.errorMonitoringService.captureException(exception, {
       requestId,
+      correlationId,
+      traceId: getTraceId(),
       path: request.url,
       method: request.method,
       statusCode: errorResponse.statusCode,
-      details: errorResponse.details,
-      stack: exception instanceof Error ? exception.stack : undefined,
     });
 
     response.status(errorResponse.statusCode).json(errorResponse);

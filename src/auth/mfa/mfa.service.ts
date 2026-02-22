@@ -19,7 +19,7 @@ export class MfaService {
     // Generate a new secret
     const secret = speakeasy.generateSecret({
       name: `PropChain (${email})`,
-      issuer: 'PropChain'
+      issuer: 'PropChain',
     });
 
     // Generate QR code for authenticator apps
@@ -30,25 +30,25 @@ export class MfaService {
     await this.redisService.setex(`mfa_setup:${userId}`, expiry, secret.base32);
 
     this.logger.logAuth('MFA secret generated', { userId });
-    
+
     return {
       secret: secret.base32,
-      qrCode
+      qrCode,
     };
   }
 
   async verifyMfaSetup(userId: string, token: string): Promise<boolean> {
     const secret = await this.redisService.get(`mfa_setup:${userId}`);
-    
+
     if (!secret) {
       throw new BadRequestException('MFA setup session expired or not found');
     }
 
     const verified = speakeasy.totp.verify({
-      secret: secret,
+      secret,
       encoding: 'base32',
-      token: token,
-      window: 2 // Allow 2 time periods of tolerance
+      token,
+      window: 2, // Allow 2 time periods of tolerance
     });
 
     if (verified) {
@@ -65,16 +65,16 @@ export class MfaService {
 
   async verifyMfaToken(userId: string, token: string): Promise<boolean> {
     const secret = await this.redisService.get(`mfa_secret:${userId}`);
-    
+
     if (!secret) {
       throw new UnauthorizedException('MFA not enabled for this user');
     }
 
     const verified = speakeasy.totp.verify({
-      secret: secret,
+      secret,
       encoding: 'base32',
-      token: token,
-      window: 2
+      token,
+      window: 2,
     });
 
     if (verified) {
@@ -118,14 +118,14 @@ export class MfaService {
 
   async verifyBackupCode(userId: string, code: string): Promise<boolean> {
     const codesData = await this.redisService.get(`mfa_backup_codes:${userId}`);
-    
+
     if (!codesData) {
       return false;
     }
 
     const codes = JSON.parse(codesData);
     const index = codes.indexOf(code.toUpperCase());
-    
+
     if (index !== -1) {
       // Remove used code
       codes.splice(index, 1);
@@ -144,7 +144,7 @@ export class MfaService {
 
     return {
       enabled,
-      hasBackupCodes
+      hasBackupCodes,
     };
   }
 }

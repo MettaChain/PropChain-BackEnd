@@ -28,16 +28,16 @@ export class MfaController {
   async verifyMfa(@Req() req: Request, @Body('token') token: string) {
     const user = req['user'] as any;
     const verified = await this.mfaService.verifyMfaSetup(user.id, token);
-    
+
     if (verified) {
       // Generate backup codes after successful setup
       const backupCodes = await this.mfaService.generateBackupCodes(user.id);
       return {
         message: 'MFA setup completed successfully',
-        backupCodes
+        backupCodes,
       };
     }
-    
+
     throw new Error('Invalid MFA token');
   }
 
@@ -82,11 +82,11 @@ export class MfaController {
   async verifyBackupCode(@Req() req: Request, @Body('code') code: string) {
     const user = req['user'] as any;
     const verified = await this.mfaService.verifyBackupCode(user.id, code);
-    
+
     if (!verified) {
       throw new Error('Invalid backup code');
     }
-    
+
     return { message: 'Backup code verified successfully' };
   }
 }

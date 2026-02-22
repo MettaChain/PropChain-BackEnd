@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
@@ -8,7 +14,7 @@ import { PasswordValidator } from '../common/validators/password.validator';
 export class UserService {
   constructor(
     private prisma: PrismaService,
-    private readonly passwordValidator: PasswordValidator
+    private readonly passwordValidator: PasswordValidator,
   ) {}
 
   async create(createUserDto: CreateUserDto) {

@@ -4,6 +4,7 @@ import { HealthCheck, HealthCheckService, HttpHealthIndicator } from '@nestjs/te
 import { DatabaseHealthIndicator } from './indicators/database.health';
 import { RedisHealthIndicator } from './indicators/redis.health';
 import { BlockchainHealthIndicator } from './indicators/blockchain.health';
+import { MetricsService } from '../common/logging/metrics.service';
 
 @ApiTags('health')
 @Controller('health')
@@ -14,6 +15,7 @@ export class HealthController {
     private dbHealth: DatabaseHealthIndicator,
     private redisHealth: RedisHealthIndicator,
     private blockchainHealth: BlockchainHealthIndicator,
+    private readonly metricsService: MetricsService,
   ) {}
 
   @Get()
@@ -60,5 +62,13 @@ export class HealthController {
   @ApiResponse({ status: 503, description: 'Service is not ready' })
   readiness() {
     return this.health.check([() => this.dbHealth.isHealthy('database'), () => this.redisHealth.isHealthy('redis')]);
+  }
+
+  @Get('metrics')
+  @HealthCheck()
+  @ApiOperation({ summary: 'Application performance metrics' })
+  @ApiResponse({ status: 200, description: 'Current metrics snapshot' })
+  metrics() {
+    return this.metricsService.getMetrics();
   }
 }

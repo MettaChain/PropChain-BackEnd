@@ -5,11 +5,30 @@ import axios from 'axios';
 import { Decimal } from '@prisma/client/runtime/library';
 import { CacheService } from '../common/services/cache.service';
 import { withResilience } from 'src/common/utils/resilence.util';
-import { PropertyFeatures, ValuationResult } from './valuation.types';
-import { PrismaProperty, PrismaPropertyValuation } from '../types/prisma.types';
-import { isObject, isString, isNumber } from '../types/guards';
+import { getCorrelationId, getTraceId } from 'src/common/logging/correlation-id';
 
-// Remove the inline interfaces since we're importing them from valuation.types.ts
+export interface PropertyFeatures {
+  id?: string;
+  location: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  yearBuilt?: number;
+  propertyType?: string;
+  lotSize?: number;
+  [key: string]: any;
+}
+
+export interface ValuationResult {
+  propertyId: string;
+  estimatedValue: number;
+  confidenceScore: number;
+  valuationDate: Date;
+  source: string;
+  marketTrend?: string;
+  featuresUsed?: PropertyFeatures;
+  rawData?: any;
+}
 
 @Injectable()
 export class ValuationService {
@@ -67,7 +86,7 @@ export class ValuationService {
           throw new NotFoundException(`Property with ID ${propertyId} not found`);
         }
 
-        const prop = property as PrismaProperty;
+        const prop = property as any;
         features = {
           id: prop.id,
           location: prop.location,
@@ -122,9 +141,8 @@ export class ValuationService {
       this.logger.log(`Successfully cached valuation for property ${propertyId}`);
 
       return savedValuation;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error(`Valuation failed for property ${propertyId}: ${errorMessage}`);
+    } catch (error) {
+      this.logger.error(`Valuation failed for property ${propertyId}: ${error.message}`);
       throw error;
     }
   }
@@ -140,7 +158,8 @@ export class ValuationService {
     }
 
     try {
-      // Mock implementation - in real scenario, this would call Zillow's actual API
+      const correlationId = getCorrelationId();
+      const traceId = getTraceId();
       const response = await axios.post(
         `${this.externalApis.zillow.baseUrl}/valuation`,
         {
@@ -154,6 +173,8 @@ export class ValuationService {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            'x-correlation-id': correlationId,
+            'x-trace-id': traceId,
           },
           timeout: this.configService.get('valuation.valuation.timeout'),
         },
@@ -169,9 +190,8 @@ export class ValuationService {
         featuresUsed: features,
         rawData: response.data,
       };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error(`Zillow API error: ${errorMessage}`);
+    } catch (error) {
+      this.logger.error(`Zillow API error: ${error.message}`);
       return null;
     }
   }
@@ -187,7 +207,8 @@ export class ValuationService {
     }
 
     try {
-      // Mock implementation - in real scenario, this would call Redfin's actual API
+      const correlationId = getCorrelationId();
+      const traceId = getTraceId();
       const response = await axios.get(`${this.externalApis.redfin.baseUrl}/home-value`, {
         params: {
           location: features.location,
@@ -197,6 +218,8 @@ export class ValuationService {
         },
         headers: {
           'X-API-Key': apiKey,
+          'x-correlation-id': correlationId,
+          'x-trace-id': traceId,
         },
         timeout: this.configService.get('valuation.valuation.timeout'),
       });
@@ -228,7 +251,8 @@ export class ValuationService {
     }
 
     try {
-      // Mock implementation - in real scenario, this would call CoreLogic's actual API
+      const correlationId = getCorrelationId();
+      const traceId = getTraceId();
       const response = await axios.post(
         `${this.externalApis.corelogic.baseUrl}/property-valuations`,
         {
@@ -244,6 +268,8 @@ export class ValuationService {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            'x-correlation-id': correlationId,
+            'x-trace-id': traceId,
           },
           timeout: this.configService.get('valuation.valuation.timeout'),
         },
@@ -340,24 +366,19 @@ export class ValuationService {
     }
 
     // Simple majority vote for market trend
-    const trendCounts: Record<string, number> = {};
+    const trendCounts = {};
     for (const trend of trends) {
       trendCounts[trend] = (trendCounts[trend] || 0) + 1;
     }
 
-    const trendEntries = Object.entries(trendCounts);
-    if (trendEntries.length === 0) {
-      return 'stable';
-    }
-    
-    return trendEntries.reduce((a, b) => (a[1] > b[1] ? a : b))[0] as 'up' | 'down' | 'stable';
+    return Object.keys(trendCounts).reduce((a, b) => (trendCounts[a] > trendCounts[b] ? a : b));
   }
 
   /**
    * Save valuation to database
    */
   private async saveValuation(valuation: ValuationResult) {
-    const saved = await this.prisma.propertyValuation.create({
+    const saved = await (this.prisma as any).propertyValuation.create({
       data: {
         propertyId: valuation.propertyId,
         estimatedValue: new Decimal(valuation.estimatedValue.toString()),
@@ -424,7 +445,7 @@ export class ValuationService {
 
     this.logger.log(`Cache MISS for property history ${propertyId}, fetching fresh data`);
 
-    const valuations = await this.prisma.propertyValuation?.findMany({
+    const valuations = await (this.prisma as any).propertyValuation?.findMany({
       where: { propertyId },
       orderBy: { valuationDate: 'desc' },
     });
@@ -454,7 +475,7 @@ export class ValuationService {
     // This would typically integrate with market analysis APIs
     // For now, returning mock data
 
-    const valuations = await this.prisma.propertyValuation?.findMany({
+    const valuations = await (this.prisma as any).propertyValuation?.findMany({
       where: {
         property: {
           location: {
@@ -646,7 +667,7 @@ export class ValuationService {
    */
   private async getRecentValuedProperties(limit: number = 10): Promise<Array<{ propertyId: string }>> {
     try {
-      const recentValuations = await this.prisma.propertyValuation?.findMany({
+      const recentValuations = await (this.prisma as any).propertyValuation?.findMany({
         orderBy: { valuationDate: 'desc' },
         take: limit,
         select: {
@@ -679,7 +700,7 @@ export class ValuationService {
           throw new NotFoundException(`Property with ID ${propertyId} not found`);
         }
 
-        const prop = property as PrismaProperty;
+        const prop = property as any;
         features = {
           id: prop.id,
           location: prop.location,

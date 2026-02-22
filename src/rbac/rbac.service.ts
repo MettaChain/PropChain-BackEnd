@@ -70,7 +70,11 @@ export class RbacService {
 
       return false;
     } catch (error) {
-      this.logger.error('Error checking permission:', error.stack, { userId: userId, resource: resource, action: action });
+      this.logger.error('Error checking permission:', error.stack, {
+        userId,
+        resource,
+        action,
+      });
       return false;
     }
   }
@@ -321,7 +325,11 @@ export class RbacService {
           return false;
       }
     } catch (error) {
-      this.logger.error('Error validating resource ownership:', error.stack, { userId: userId, resourceType: resourceType, resourceId: resourceId });
+      this.logger.error('Error validating resource ownership:', error.stack, {
+        userId,
+        resourceType,
+        resourceId,
+      });
       return false;
     }
   }
