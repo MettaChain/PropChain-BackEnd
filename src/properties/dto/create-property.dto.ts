@@ -29,7 +29,6 @@ export enum PropertyStatus {
   PENDING = 'PENDING',
   SOLD = 'SOLD',
   RENTED = 'RENTED',
-  
 }
 
 export class AddressDto {

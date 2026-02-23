@@ -6,13 +6,13 @@ import { PropertySearchDto } from '../dto/property-search.dto';
 export class SearchAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-//   async logSearch(userId: string | undefined, dto: PropertySearchDto, resultCount: number) {
-//     await this.prisma.searchLog.create({
-//       data: {
-//         userId: userId ?? null,
-//         filters: dto,
-//         resultCount,
-//       },
-//     });
-//   }
+  //   async logSearch(userId: string | undefined, dto: PropertySearchDto, resultCount: number) {
+  //     await this.prisma.searchLog.create({
+  //       data: {
+  //         userId: userId ?? null,
+  //         filters: dto,
+  //         resultCount,
+  //       },
+  //     });
+  //   }
 }

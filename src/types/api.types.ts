@@ -113,12 +113,15 @@ export interface ApiSecurityScheme {
   in?: 'query' | 'header' | 'cookie';
   scheme?: string;
   bearerFormat?: string;
-  flows?: Record<string, {
-    authorizationUrl?: string;
-    tokenUrl?: string;
-    refreshUrl?: string;
-    scopes: Record<string, string>;
-  }>;
+  flows?: Record<
+    string,
+    {
+      authorizationUrl?: string;
+      tokenUrl?: string;
+      refreshUrl?: string;
+      scopes: Record<string, string>;
+    }
+  >;
   openIdConnectUrl?: string;
 }
 
@@ -143,10 +146,13 @@ export interface ApiGatewayConfig {
       points: number;
       duration: number;
     };
-    perEndpoint: Record<string, {
-      points: number;
-      duration: number;
-    }>;
+    perEndpoint: Record<
+      string,
+      {
+        points: number;
+        duration: number;
+      }
+    >;
   };
   authentication: {
     jwt: {

@@ -349,7 +349,7 @@ export class ValuationService {
     if (trendEntries.length === 0) {
       return 'stable';
     }
-    
+
     return trendEntries.reduce((a, b) => (a[1] > b[1] ? a : b))[0] as 'up' | 'down' | 'stable';
   }
 

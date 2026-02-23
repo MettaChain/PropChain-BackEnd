@@ -6,10 +6,10 @@ import { SearchAnalyticsService } from './search-analytics.service';
 
 @Injectable()
 export class PropertySearchService {
-constructor(
-  private readonly prisma: PrismaService,
-  private readonly analytics: SearchAnalyticsService,
-) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly analytics: SearchAnalyticsService,
+  ) {}
   async search(dto: PropertySearchDto, userId?: string) {
     const {
       latitude,
@@ -64,21 +64,21 @@ constructor(
   }
 
   private async geoSearch(dto: PropertySearchDto) {
-  const {
-    latitude,
-    longitude,
-    radiusKm = 5,
-    page = 1,
-    limit = 10,
-    minPrice,
-    maxPrice,
-    location,
-    status = PropertyStatus.PUBLISHED,
-  } = dto;
+    const {
+      latitude,
+      longitude,
+      radiusKm = 5,
+      page = 1,
+      limit = 10,
+      minPrice,
+      maxPrice,
+      location,
+      status = PropertyStatus.PUBLISHED,
+    } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  return this.prisma.$queryRawUnsafe(`
+    return this.prisma.$queryRawUnsafe(`
     SELECT *,
       ST_Distance(
         coordinates,
@@ -98,30 +98,23 @@ constructor(
     LIMIT ${limit}
     OFFSET ${offset};
   `);
-}
+  }
 
-private async normalSearch(dto: PropertySearchDto) {
-  const {
-    page = 1,
-    limit = 10,
-    minPrice,
-    maxPrice,
-    location,
-    status = PropertyStatus.PUBLISHED,
-  } = dto;
+  private async normalSearch(dto: PropertySearchDto) {
+    const { page = 1, limit = 10, minPrice, maxPrice, location, status = PropertyStatus.PUBLISHED } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  return this.prisma.property.findMany({
-    where: {
-      status,
-      ...(location && { location: { contains: location, mode: 'insensitive' } }),
-      ...(minPrice && { price: { gte: minPrice } }),
-      ...(maxPrice && { price: { lte: maxPrice } }),
-    },
-    skip: offset,
-    take: limit,
-    orderBy: { createdAt: 'desc' },
-  });
-}
+    return this.prisma.property.findMany({
+      where: {
+        status,
+        ...(location && { location: { contains: location, mode: 'insensitive' } }),
+        ...(minPrice && { price: { gte: minPrice } }),
+        ...(maxPrice && { price: { lte: maxPrice } }),
+      },
+      skip: offset,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

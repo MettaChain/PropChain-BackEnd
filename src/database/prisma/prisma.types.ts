@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 export type PrismaModelNames = Prisma.ModelName;
 
 // Type-safe query builders
-export type PrismaSelect<T> = T extends Prisma.ModelName 
+export type PrismaSelect<T> = T extends Prisma.ModelName
   ? Prisma.TypeMap['model'][T]['findUnique']['args']['select']
   : never;
 
@@ -51,7 +51,7 @@ export class PrismaQueryBuilder {
       orderBy?: any;
       select?: any;
       include?: any;
-    }
+    },
   ): { findMany: any; count: any } {
     const page = Math.max(1, options.page || 1);
     const limit = Math.min(100, Math.max(1, options.limit || 20));
@@ -77,7 +77,7 @@ export class PrismaQueryBuilder {
     modelName: string,
     queryOptions: PrismaQueryOptions,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<PrismaPaginatedResult<T>> {
     const skip = (page - 1) * limit;
 
@@ -121,10 +121,7 @@ export const PrismaEnums = {
 } as const;
 
 // Type-safe enum validation
-export function isValidPrismaEnum<T extends Record<string, string>>(
-  enumObj: T,
-  value: string
-): value is T[keyof T] {
+export function isValidPrismaEnum<T extends Record<string, string>>(enumObj: T, value: string): value is T[keyof T] {
   return Object.values(enumObj).includes(value as T[keyof T]);
 }
 
@@ -145,7 +142,7 @@ export class PrismaErrorHandler {
         meta: prismaError.meta,
       };
     }
-    
+
     return {
       code: 'UNKNOWN_ERROR',
       message: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -168,7 +165,7 @@ export class PrismaErrorHandler {
 // Type-safe Prisma transaction helpers
 export async function withPrismaTransaction<T>(
   prisma: any,
-  operation: (tx: Prisma.TransactionClient) => Promise<T>
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   try {
     return await prisma.$transaction(operation);
@@ -190,7 +187,7 @@ export class PrismaBulkOperations {
     prisma: any,
     modelName: string,
     data: T[],
-    options: BulkOperationOptions = {}
+    options: BulkOperationOptions = {},
   ): Promise<T[]> {
     const batchSize = options.batchSize || 1000;
     const results: T[] = [];
@@ -212,7 +209,7 @@ export class PrismaBulkOperations {
     modelName: string,
     where: any,
     data: Partial<T>,
-    options: BulkOperationOptions = {}
+    options: BulkOperationOptions = {},
   ): Promise<number> {
     const result = await prisma[modelName].updateMany({
       where,
@@ -225,7 +222,7 @@ export class PrismaBulkOperations {
     prisma: any,
     modelName: string,
     where: any,
-    options: BulkOperationOptions = {}
+    options: BulkOperationOptions = {},
   ): Promise<number> {
     const result = await prisma[modelName].deleteMany({
       where,

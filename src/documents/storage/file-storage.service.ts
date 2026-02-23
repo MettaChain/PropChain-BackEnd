@@ -6,11 +6,7 @@ import * as path from 'path';
 export class FileStorageService {
   private basePath = path.join(process.cwd(), 'uploads', 'documents');
 
-  async saveFile(
-    documentId: string,
-    version: number,
-    file: Express.Multer.File,
-  ): Promise<string> {
+  async saveFile(documentId: string, version: number, file: Express.Multer.File): Promise<string> {
     const docFolder = path.join(this.basePath, documentId);
 
     if (!fs.existsSync(docFolder)) {

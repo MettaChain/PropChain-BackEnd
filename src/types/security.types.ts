@@ -107,7 +107,7 @@ export interface SecurityEvent {
   resolvedBy?: string;
 }
 
-export type SecurityEventType = 
+export type SecurityEventType =
   | 'failed_login'
   | 'successful_login'
   | 'password_reset'

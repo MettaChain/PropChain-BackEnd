@@ -85,24 +85,30 @@ export function isSafeInteger(value: unknown): value is number {
 
 // Email validation type guard
 export function isEmail(value: unknown): value is string {
-  if (!isString(value)) return false;
-  
+  if (!isString(value)) {
+    return false;
+  }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(value) && value.length <= 254;
 }
 
 // UUID validation type guard
 export function isUUID(value: unknown): value is string {
-  if (!isString(value)) return false;
-  
+  if (!isString(value)) {
+    return false;
+  }
+
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(value);
 }
 
 // URL validation type guard
 export function isUrl(value: unknown): value is string {
-  if (!isString(value)) return false;
-  
+  if (!isString(value)) {
+    return false;
+  }
+
   try {
     new URL(value);
     return true;
@@ -113,8 +119,10 @@ export function isUrl(value: unknown): value is string {
 
 // JSON validation type guard
 export function isJsonString(value: unknown): value is string {
-  if (!isString(value)) return false;
-  
+  if (!isString(value)) {
+    return false;
+  }
+
   try {
     JSON.parse(value);
     return true;
@@ -148,24 +156,26 @@ export function hasMaxLength<T>(value: T[], maxLength: number): value is T[] {
 // Object utility type guards
 export function hasProperty<T extends Record<string, unknown>, K extends string>(
   obj: T,
-  key: K
+  key: K,
 ): obj is T & Record<K, unknown> {
   return key in obj;
 }
 
 export function hasOwnProperty<T extends Record<string, unknown>, K extends string>(
   obj: T,
-  key: K
+  key: K,
 ): obj is T & Record<K, unknown> {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
 export function isObjectOfType<T extends Record<string, unknown>>(
   value: unknown,
-  schema: Record<keyof T, (value: unknown) => boolean>
+  schema: Record<keyof T, (value: unknown) => boolean>,
 ): value is T {
-  if (!isObject(value)) return false;
-  
+  if (!isObject(value)) {
+    return false;
+  }
+
   return Object.keys(schema).every(key => {
     const validator = schema[key as keyof T];
     return validator && hasProperty(value, key) && validator(value[key]);
@@ -239,9 +249,9 @@ export function asBoolean(value: unknown, defaultValue = false): boolean {
 }
 
 export function asArray<T>(value: unknown, defaultValue: T[] = []): T[] {
-  return isArray(value) ? value as T[] : defaultValue;
+  return isArray(value) ? (value as T[]) : defaultValue;
 }
 
 export function asObject<T extends Record<string, unknown>>(value: unknown, defaultValue: T): T {
-  return isObject(value) ? value as T : defaultValue;
+  return isObject(value) ? (value as T) : defaultValue;
 }

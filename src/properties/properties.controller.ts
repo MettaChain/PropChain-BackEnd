@@ -11,10 +11,10 @@ import { PropertySearchDto } from './dto/property-search.dto';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class PropertiesController {
-constructor(
-  private readonly propertiesService: PropertiesService,
-  private readonly propertySearchService: PropertySearchService,
-) {}
+  constructor(
+    private readonly propertiesService: PropertiesService,
+    private readonly propertySearchService: PropertySearchService,
+  ) {}
   @Post()
   @ApiOperation({ summary: 'Create a new property' })
   @ApiResponse({ status: 201, description: 'Property created successfully.', type: PropertyResponseDto })
@@ -30,12 +30,12 @@ constructor(
     return this.propertiesService.findAll(query);
   }
 
- @Get('search')
-@ApiOperation({ summary: 'Advanced property search (geospatial + filters)' })
-@ApiResponse({ status: 200, description: 'Search results.' })
-search(@Query() dto: PropertySearchDto, @Request() req) {
-  return this.propertySearchService.search(dto, req.user.id);
-}
+  @Get('search')
+  @ApiOperation({ summary: 'Advanced property search (geospatial + filters)' })
+  @ApiResponse({ status: 200, description: 'Search results.' })
+  search(@Query() dto: PropertySearchDto, @Request() req) {
+    return this.propertySearchService.search(dto, req.user.id);
+  }
 
   @Get('statistics')
   @ApiOperation({ summary: 'Get property statistics' })

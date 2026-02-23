@@ -5,7 +5,17 @@ import { ConfigService } from '@nestjs/config';
 import { CreatePropertyDto, PropertyStatus, PropertyType } from '../../src/properties/dto/create-property.dto';
 import { UpdatePropertyDto } from '../../src/properties/dto/update-property.dto';
 import { PropertyQueryDto } from '../../src/properties/dto/property-query.dto';
-import { Property, PropertyStatus as PrismaPropertyStatus } from '@prisma/client';
+import { PrismaProperty } from '../../src/types/prisma.types';
+
+// Mock Prisma PropertyStatus enum
+const PrismaPropertyStatus = {
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  LISTED: 'LISTED',
+  SOLD: 'SOLD',
+  REMOVED: 'REMOVED',
+} as const;
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -20,7 +30,7 @@ describe('PropertiesService', () => {
     role: 'USER',
   };
 
-  const mockProperty: Property = {
+  const mockProperty: PrismaProperty = {
     id: 'prop_123',
     title: 'Test Property',
     description: 'Test Description',

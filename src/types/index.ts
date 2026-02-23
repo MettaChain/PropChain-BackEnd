@@ -1,9 +1,9 @@
 /**
  * Type Definitions Index
- * 
+ *
  * This module exports all type definitions used throughout the PropChain backend.
  * It provides a centralized location for importing types across the application.
- * 
+ *
  * @module types
  * @since 1.0.0
  */

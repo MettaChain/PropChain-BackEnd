@@ -1,11 +1,11 @@
 // Comprehensive validation utilities and decorators
 
-import { 
-  ValidationOptions, 
-  registerDecorator, 
+import {
+  ValidationOptions,
+  registerDecorator,
   ValidationArguments,
   ValidatorConstraint,
-  ValidatorConstraintInterface
+  ValidatorConstraintInterface,
 } from 'class-validator';
 
 // Custom validation decorators
@@ -18,18 +18,20 @@ export function IsEmailCustom(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isEmailCustom',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (typeof value !== 'string') return false;
+          if (typeof value !== 'string') {
+            return false;
+          }
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           return emailRegex.test(value) && value.length <= 254;
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a valid email address`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -42,18 +44,20 @@ export function IsUUIDCustom(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isUUIDCustom',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (typeof value !== 'string') return false;
+          if (typeof value !== 'string') {
+            return false;
+          }
           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
           return uuidRegex.test(value);
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a valid UUID`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -66,11 +70,13 @@ export function IsUrlCustom(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isUrlCustom',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (typeof value !== 'string') return false;
+          if (typeof value !== 'string') {
+            return false;
+          }
           try {
             new URL(value);
             return true;
@@ -80,8 +86,8 @@ export function IsUrlCustom(validationOptions?: ValidationOptions) {
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a valid URL`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -94,7 +100,7 @@ export function IsPositiveNumber(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isPositiveNumber',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
@@ -102,8 +108,8 @@ export function IsPositiveNumber(validationOptions?: ValidationOptions) {
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a positive number`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -116,7 +122,7 @@ export function IsNonNegativeNumber(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isNonNegativeNumber',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
@@ -124,8 +130,8 @@ export function IsNonNegativeNumber(validationOptions?: ValidationOptions) {
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a non-negative number`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -138,7 +144,7 @@ export function IsAlphanumericCustom(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isAlphanumericCustom',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
@@ -146,8 +152,8 @@ export function IsAlphanumericCustom(validationOptions?: ValidationOptions) {
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must contain only alphanumeric characters`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -160,7 +166,7 @@ export function MatchesCustom(pattern: RegExp, validationOptions?: ValidationOpt
     registerDecorator({
       name: 'matchesCustom',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
@@ -168,8 +174,8 @@ export function MatchesCustom(pattern: RegExp, validationOptions?: ValidationOpt
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must match the required pattern`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -182,17 +188,19 @@ export function ArrayUniqueCustom(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'arrayUniqueCustom',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (!Array.isArray(value)) return false;
+          if (!Array.isArray(value)) {
+            return false;
+          }
           return new Set(value).size === value.length;
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must contain unique elements`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -205,17 +213,19 @@ export function IsFutureDate(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isFutureDate',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (!(value instanceof Date)) return false;
+          if (!(value instanceof Date)) {
+            return false;
+          }
           return value > new Date();
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a future date`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -228,17 +238,19 @@ export function IsPastDate(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isPastDate',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (!(value instanceof Date)) return false;
+          if (!(value instanceof Date)) {
+            return false;
+          }
           return value < new Date();
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a past date`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -251,7 +263,7 @@ export function IsInRange(min: number, max: number, validationOptions?: Validati
     registerDecorator({
       name: 'isInRange',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
@@ -259,8 +271,8 @@ export function IsInRange(min: number, max: number, validationOptions?: Validati
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be between ${min} and ${max}`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -273,19 +285,21 @@ export function IsPhoneNumber(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isPhoneNumber',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (typeof value !== 'string') return false;
+          if (typeof value !== 'string') {
+            return false;
+          }
           // Basic phone number validation (international format)
           const phoneRegex = /^\+?[1-9]\d{1,14}$/;
           return phoneRegex.test(value);
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a valid phone number`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -298,22 +312,28 @@ export function IsCreditCard(validationOptions?: ValidationOptions) {
     registerDecorator({
       name: 'isCreditCard',
       target: object.constructor,
-      propertyName: propertyName,
+      propertyName,
       options: validationOptions,
       validator: {
         validate(value: any) {
-          if (typeof value !== 'string') return false;
+          if (typeof value !== 'string') {
+            return false;
+          }
           // Luhn algorithm for credit card validation
           const sanitized = value.replace(/\s+/g, '');
-          if (!/^\d{13,19}$/.test(sanitized)) return false;
-          
+          if (!/^\d{13,19}$/.test(sanitized)) {
+            return false;
+          }
+
           let sum = 0;
           let isEven = false;
           for (let i = sanitized.length - 1; i >= 0; i--) {
             let digit = parseInt(sanitized.charAt(i), 10);
             if (isEven) {
               digit *= 2;
-              if (digit > 9) digit -= 9;
+              if (digit > 9) {
+                digit -= 9;
+              }
             }
             sum += digit;
             isEven = !isEven;
@@ -322,8 +342,8 @@ export function IsCreditCard(validationOptions?: ValidationOptions) {
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} must be a valid credit card number`;
-        }
-      }
+        },
+      },
     });
   };
 }
@@ -333,16 +353,16 @@ export function IsCreditCard(validationOptions?: ValidationOptions) {
 @ValidatorConstraint({ name: 'customText', async: false })
 export class CustomTextValidator implements ValidatorConstraintInterface {
   validate(text: string, args: ValidationArguments) {
-    if (typeof text !== 'string') return false;
-    
+    if (typeof text !== 'string') {
+      return false;
+    }
+
     // Custom validation logic
     const minLength = (args.constraints[0] as any).minLength || 1;
     const maxLength = (args.constraints[0] as any).maxLength || 1000;
     const allowedChars = (args.constraints[0] as any).allowedChars || /^[a-zA-Z0-9\s\-_.,!?]+$/;
-    
-    return text.length >= minLength && 
-           text.length <= maxLength && 
-           allowedChars.test(text);
+
+    return text.length >= minLength && text.length <= maxLength && allowedChars.test(text);
   }
 
   defaultMessage(args: ValidationArguments) {
@@ -353,14 +373,18 @@ export class CustomTextValidator implements ValidatorConstraintInterface {
 @ValidatorConstraint({ name: 'businessHours', async: false })
 export class BusinessHoursValidator implements ValidatorConstraintInterface {
   validate(time: string, args: ValidationArguments) {
-    if (typeof time !== 'string') return false;
-    
+    if (typeof time !== 'string') {
+      return false;
+    }
+
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRegex.test(time)) return false;
-    
+    if (!timeRegex.test(time)) {
+      return false;
+    }
+
     const [hours, minutes] = time.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes;
-    
+
     // Business hours: 9 AM to 5 PM (540 to 1020 minutes)
     return totalMinutes >= 540 && totalMinutes <= 1020;
   }
