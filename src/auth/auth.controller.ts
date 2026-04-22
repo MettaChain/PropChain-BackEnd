@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { FacebookAuthGuard } from './guards/facebook-auth.guard';
 import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
@@ -128,5 +129,25 @@ export class AuthController {
   @Post('password-reset/reset')
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+/**
+   * Initiates Facebook OAuth2 login flow.
+   * Redirects the user to Facebook for authentication.
+   */
+  @Get('facebook')
+  @UseGuards(FacebookAuthGuard)
+  facebookLogin() {
+    // Guard handles the redirect to Facebook
+  }
+
+  /**
+   * Facebook OAuth2 callback route.
+   * Called by Facebook after the user authenticates.
+   * Returns JWT tokens for the authenticated user.
+   */
+  @Get('facebook/callback')
+  @UseGuards(FacebookAuthGuard)
+  facebookCallback(@Req() req: any) {
+    return this.authService.facebookLogin(req.user);
   }
 }

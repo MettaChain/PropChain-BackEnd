@@ -737,10 +737,74 @@ export class AuthService {
       if (historyEntries.length > 0) {
         await tx.passwordHistory.deleteMany({
           where: {
-            id: { in: historyEntries.map(entry => entry.id) },
+            id: { in: historyEntries.map((entry: { id: string }) => entry.id) },
           },
         });
       }
     });
+  }
+
+  /**
+   * Validates or creates a user from a Facebook OAuth2 profile.
+   * Links Facebook account to existing user if email matches,
+   * otherwise creates a new account.
+   */
+  async validateFacebookUser(profile: {
+    facebookId: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+  }) {
+    // Check if user already linked this Facebook account
+    const existingByFacebookId = await this.prisma.user.findUnique({
+      where: { facebookId: profile.facebookId },
+    });
+
+    if (existingByFacebookId) {
+      return existingByFacebookId;
+    }
+
+    // Check if user exists with same email — link accounts
+    if (profile.email) {
+      const existingByEmail = await this.prisma.user.findUnique({
+        where: { email: profile.email },
+      });
+
+      if (existingByEmail) {
+        return this.prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            facebookId: profile.facebookId,
+            avatar: existingByEmail.avatar ?? profile.avatar,
+            isVerified: true,
+          },
+        });
+      }
+    }
+
+    // Create new account from Facebook profile
+    return this.prisma.user.create({
+      data: {
+        email: profile.email ?? `fb_${profile.facebookId}@facebook.com`,
+        password: await hashPassword(randomToken(32), this.bcryptRounds),
+        firstName: profile.firstName ?? 'Facebook',
+        lastName: profile.lastName ?? 'User',
+        facebookId: profile.facebookId,
+        avatar: profile.avatar,
+        isVerified: true,
+      },
+    });
+  }
+
+  /**
+   * Handle Facebook OAuth2 login — issues JWT tokens for the user.
+   */
+  async facebookLogin(user: any) {
+    const tokens = await this.issueTokenPair(user);
+    return {
+      user: sanitizeUser(user),
+      ...tokens,
+    };
   }
 }

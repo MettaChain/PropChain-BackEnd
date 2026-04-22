@@ -7,11 +7,21 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { FacebookAuthGuard } from './guards/facebook-auth.guard';
+import { FacebookStrategy } from './strategies/facebook.strategy';
 
 @Module({
   imports: [PrismaModule, UsersModule, EmailModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, ApiKeyAuthGuard, RolesGuard],
+  providers: [
+    AuthService,
+    JwtAuthGuard,
+    ApiKeyAuthGuard,
+    RolesGuard,
+    FacebookAuthGuard,
+    FacebookStrategy,
+  ],
   exports: [AuthService, RolesGuard],
 })
 export class AuthModule {}
+

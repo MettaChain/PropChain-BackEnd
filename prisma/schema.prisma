@@ -74,6 +74,7 @@ model User {
   twoFactorSecret  String? @map("two_factor_secret")
   twoFactorBackupCodes String[] @default([]) @map("two_factor_backup_codes")
   avatar        String?
+  facebookId    String?   @unique @map("facebook_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
