@@ -17,9 +17,9 @@ import { AuthService } from '../auth.service';
 export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
   constructor(private readonly authService: AuthService) {
     super({
-      clientID: process.env.FACEBOOK_APP_ID,
-      clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: process.env.FACEBOOK_CALLBACK_URL,
+      clientID: process.env.FACEBOOK_APP_ID ?? '',
+      clientSecret: process.env.FACEBOOK_APP_SECRET ?? '',
+      callbackURL: process.env.FACEBOOK_CALLBACK_URL ?? '',
       profileFields: ['id', 'emails', 'name', 'picture'],
       scope: ['email'],
     });
