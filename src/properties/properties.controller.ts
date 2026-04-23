@@ -6,7 +6,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../types/prisma.types';
 
 @Controller('properties')
 export class PropertiesController {
@@ -14,10 +14,7 @@ export class PropertiesController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(
-    @Body() createPropertyDto: CreatePropertyDto,
-    @CurrentUser() user: AuthUserPayload,
-  ) {
+  create(@Body() createPropertyDto: CreatePropertyDto, @CurrentUser() user: AuthUserPayload) {
     return this.propertiesService.create(createPropertyDto, user.sub);
   }
 

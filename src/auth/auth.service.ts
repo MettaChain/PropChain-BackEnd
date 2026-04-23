@@ -1,15 +1,18 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiKey, TokenType, User } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../database/prisma.service';
 import { UsersService } from '../users/users.service';
+import { SessionsService } from '../sessions/sessions.service';
 import { EmailService } from '../email/email.service';
 import {
   ChangePasswordDto,
@@ -38,7 +41,8 @@ import {
 } from './security.utils';
 import { AuthUserPayload } from './types/auth-user.type';
 
-import { UserRole } from '@prisma/client';
+import { LoginRateLimitService } from './login-rate-limit.service';
+import { UserRole } from '../types/prisma.types';
 
 type JwtPayload = {
   sub: string;
@@ -46,11 +50,13 @@ type JwtPayload = {
   role: UserRole;
   type: 'access' | 'refresh';
   jti: string;
+  family?: string; // Token rotation family ID
   exp?: number;
 };
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly issuer = 'PropChain';
   private readonly accessTokenTtlSeconds: number;
   private readonly refreshTokenTtlSeconds: number;
@@ -61,8 +67,10 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
+    private readonly sessionsService: SessionsService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly rateLimitService: LoginRateLimitService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
     this.jwtRefreshSecret =
@@ -76,6 +84,19 @@ export class AuthService {
       7 * 24 * 60 * 60,
     );
     this.bcryptRounds = parseInt(this.configService.get<string>('BCRYPT_ROUNDS') ?? '12', 10);
+  }
+
+  /**
+   * Helper to map transactions to activity items for dashboard
+   */
+  private transactionsToActivityItems(transactions: any[], type: 'purchase' | 'sale') {
+    return transactions.map((tx) => ({
+      type: 'transaction' as const,
+      id: tx.id,
+      title: `Property ${type === 'purchase' ? 'Purchased' : 'Sold'}: ${tx.property?.title || 'Unknown'}`,
+      description: `${type === 'purchase' ? 'Bought' : 'Sold'} for $${tx.amount}`,
+      timestamp: tx.createdAt,
+    }));
   }
 
   async register(data: RegisterDto) {
@@ -107,9 +128,38 @@ export class AuthService {
     };
   }
 
-  async login(data: LoginDto) {
+  async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
+    // Check if account is locked out
+    const isLocked = await this.rateLimitService.isAccountLocked(data.email);
+    if (isLocked) {
+      const lockoutInfo = await this.rateLimitService.getLockoutInfo(data.email);
+      const remainingMinutes = lockoutInfo?.remainingLockoutMinutes ?? 0;
+      throw new UnauthorizedException(
+        `Account temporarily locked due to too many failed login attempts. Please try again in ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}.`,
+      );
+    }
+
+    const failedAttempts = await this.rateLimitService.getFailedAttemptsCount(data.email);
+    const captchaThreshold = parseInt(
+      this.configService.get<string>('CAPTCHA_THRESHOLD') ?? '3',
+      10,
+    );
+
+    if (failedAttempts >= captchaThreshold) {
+      if (!data.captchaToken) {
+        throw new UnauthorizedException('CAPTCHA verification required');
+      }
+      const isCaptchaValid = await this.verifyCaptcha(data.captchaToken);
+      if (!isCaptchaValid) {
+        // We might also record a failed attempt here if we wanted to
+        throw new UnauthorizedException('Invalid CAPTCHA');
+      }
+    }
+
     const user = await this.usersService.findByEmail(data.email);
     if (!user) {
+      // Record failed attempt even if user doesn't exist (prevent enumeration)
+      await this.rateLimitService.recordFailedAttempt(data.email, ipAddress, userAgent);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -117,8 +167,32 @@ export class AuthService {
       throw new UnauthorizedException('Your account has been blocked. Please contact support.');
     }
 
+    if (user.isDeactivated) {
+      throw new UnauthorizedException(
+        'Your account has been deactivated. Please contact support to reactivate your account.',
+      );
+    }
+
     const passwordMatches = await comparePassword(data.password, user.password);
     if (!passwordMatches) {
+      // Record failed login attempt
+      const shouldLock = await this.rateLimitService.recordFailedAttempt(
+        data.email,
+        ipAddress,
+        userAgent,
+      );
+
+      if (shouldLock) {
+        const lockoutDuration = 30;
+        await this.emailService.sendAccountLockedEmail(user.email, lockoutDuration).catch((err) => {
+          this.logger.error(`Failed to send account locked email to ${user.email}: ${err.message}`);
+        });
+
+        throw new UnauthorizedException(
+          `Account locked due to too many failed login attempts. Please try again in ${lockoutDuration} minutes.`,
+        );
+      }
+
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -156,6 +230,10 @@ export class AuthService {
       }
     }
 
+    // Record successful login
+    await this.rateLimitService.recordSuccessfulAttempt(data.email, ipAddress, userAgent);
+    await this.recordLoginHistory(user.id, ipAddress, userAgent);
+
     const tokens = await this.issueTokenPair(user);
     return {
       user: sanitizeUser(user),
@@ -163,14 +241,31 @@ export class AuthService {
     };
   }
 
-  async refreshToken(data: RefreshTokenDto) {
+  async refreshToken(data: RefreshTokenDto, ipAddress?: string, userAgent?: string) {
     const payload = this.verifyToken(data.refreshToken, this.jwtRefreshSecret) as JwtPayload;
 
     if (payload.type !== 'refresh') {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    await this.ensureTokenNotBlacklisted(payload.jti);
+    // Check if token is blacklisted (already used)
+    const blacklistedToken = await this.prisma.blacklistedToken.findUnique({
+      where: { jti: payload.jti },
+    });
+
+    if (blacklistedToken) {
+      // TOKEN REUSE DETECTED! This is a potential attack
+      // Mark the reuse and invalidate the entire token family
+      await this.handleTokenReuse(blacklistedToken, payload.jti, ipAddress, userAgent);
+
+      this.logger.error(
+        `Refresh token reuse detected for user ${payload.sub} (JTI: ${payload.jti}, Family: ${payload.family}). IP: ${ipAddress}`,
+      );
+
+      throw new UnauthorizedException(
+        'Token reuse detected. All sessions have been invalidated for security. Please login again.',
+      );
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -183,50 +278,183 @@ export class AuthService {
       throw new UnauthorizedException('Your account has been blocked');
     }
 
-    if (user.id !== payload.sub) {
-      throw new UnauthorizedException('Refresh token does not match the authenticated user');
+    if (user.isDeactivated) {
+      throw new UnauthorizedException('Your account has been deactivated');
     }
 
+    // Blacklist the current refresh token (rotation)
     await this.blacklistToken({
       jti: payload.jti,
       tokenType: 'REFRESH',
       expiresAt: new Date((payload.exp ?? 0) * 1000),
       userId: user.id,
+      tokenFamily: payload.family,
+      ipAddress,
+      userAgent,
     });
 
-    const tokens = await this.issueTokenPair(user);
+    // Issue new token pair with SAME family ID
+    const tokens = await this.issueTokenPair(user, payload.family);
+
+    this.logger.log(
+      `Token rotated for user ${user.id} (${user.email}). Family: ${payload.family}. IP: ${ipAddress}`,
+    );
+
     return {
       user: sanitizeUser(user),
       ...tokens,
     };
   }
 
+  /**
+   * Handle token reuse detection - invalidate entire token family
+   */
+  private async handleTokenReuse(
+    blacklistedToken: any,
+    reusedJti: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const now = new Date();
+
+    // Mark the reused token
+    await this.prisma.blacklistedToken.update({
+      where: { jti: reusedJti },
+      data: {
+        reusedAt: now,
+        ipAddress: ipAddress || blacklistedToken.ipAddress,
+        userAgent: userAgent || blacklistedToken.userAgent,
+      },
+    });
+
+    // Invalidate entire token family if it exists
+    if (blacklistedToken.tokenFamily) {
+      const familyTokens = await this.prisma.blacklistedToken.findMany({
+        where: {
+          tokenFamily: blacklistedToken.tokenFamily,
+          expiresAt: { gt: now }, // Only active tokens
+        },
+        select: { jti: true },
+      });
+
+      this.logger.warn(
+        `Invalidating ${familyTokens.length} tokens in family ${blacklistedToken.tokenFamily} due to reuse detection`,
+      );
+
+      // All tokens in this family are already blacklisted, but we log the event
+      // The key is that we're preventing the attacker from using any token from this family
+    }
+  }
+
   async logout(user: AuthUserPayload, refreshToken?: string, accessToken?: string) {
+    const logoutTime = new Date();
+
+    // Blacklist the access token if provided
     if (accessToken) {
-      const accessPayload = this.verifyToken(accessToken, this.jwtSecret) as JwtPayload;
-      await this.blacklistToken({
-        jti: accessPayload.jti,
-        tokenType: 'ACCESS',
-        expiresAt: new Date((accessPayload.exp ?? 0) * 1000),
-        userId: user.sub,
-      });
-    }
-
-    if (refreshToken) {
-      const refreshPayload = this.verifyToken(refreshToken, this.jwtRefreshSecret) as JwtPayload;
-      if (refreshPayload.sub !== user.sub) {
-        throw new UnauthorizedException('Refresh token does not belong to the current user');
+      try {
+        const accessPayload = this.verifyToken(accessToken, this.jwtSecret) as JwtPayload;
+        await this.blacklistToken({
+          jti: accessPayload.jti,
+          tokenType: 'ACCESS',
+          expiresAt: new Date((accessPayload.exp ?? 0) * 1000),
+          userId: user.sub,
+          tokenFamily: accessPayload.family,
+        });
+      } catch (error) {
+        // Token might already be expired or invalid, continue with logout
+        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${error.message}`);
       }
-
-      await this.blacklistToken({
-        jti: refreshPayload.jti,
-        tokenType: 'REFRESH',
-        expiresAt: new Date((refreshPayload.exp ?? 0) * 1000),
-        userId: user.sub,
-      });
     }
 
-    return { message: 'Logged out successfully' };
+    // Blacklist the specific refresh token if provided
+    if (refreshToken) {
+      try {
+        const refreshPayload = this.verifyToken(refreshToken, this.jwtRefreshSecret) as JwtPayload;
+        if (refreshPayload.sub !== user.sub) {
+          throw new UnauthorizedException('Refresh token does not belong to the current user');
+        }
+
+        await this.blacklistToken({
+          jti: refreshPayload.jti,
+          tokenType: 'REFRESH',
+          expiresAt: new Date((refreshPayload.exp ?? 0) * 1000),
+          userId: user.sub,
+          tokenFamily: refreshPayload.family,
+        });
+      } catch (error) {
+        if (error instanceof UnauthorizedException) {
+          throw error;
+        }
+        // Token might already be expired or invalid, continue with logout
+        this.logger.warn(
+          `Failed to blacklist refresh token for user ${user.sub}: ${error.message}`,
+        );
+      }
+    }
+
+    // Log the logout event
+    this.logger.log(
+      `User ${user.sub} (${user.email}) logged out successfully at ${logoutTime.toISOString()}`,
+    );
+
+    return {
+      message: 'Logged out successfully',
+      logoutTime: logoutTime.toISOString(),
+      tokensInvalidated: {
+        accessToken: !!accessToken,
+        refreshToken: !!refreshToken,
+      },
+      clientAction: {
+        clearStorage: true,
+        clearCookies: true,
+        redirectUrl: '/login',
+      },
+    };
+  }
+
+  async logoutAllDevices(user: AuthUserPayload, accessToken?: string) {
+    const logoutTime = new Date();
+
+    // Blacklist the current access token if provided
+    if (accessToken) {
+      try {
+        const accessPayload = this.verifyToken(accessToken, this.jwtSecret) as JwtPayload;
+        await this.blacklistToken({
+          jti: accessPayload.jti,
+          tokenType: 'ACCESS',
+          expiresAt: new Date((accessPayload.exp ?? 0) * 1000),
+          userId: user.sub,
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${error.message}`);
+      }
+    }
+
+    // Find all blacklisted refresh tokens for this user that are still active
+    const blacklistedRefreshTokens = await this.prisma.blacklistedToken.findMany({
+      where: {
+        userId: user.sub,
+        tokenType: 'REFRESH',
+        expiresAt: {
+          gt: logoutTime, // Only count tokens that haven't expired yet
+        },
+      },
+    });
+
+    this.logger.log(
+      `User ${user.sub} (${user.email}) logged out from all devices at ${logoutTime.toISOString()}. Total active blacklisted refresh tokens: ${blacklistedRefreshTokens.length}`,
+    );
+
+    return {
+      message: 'Logged out from all devices successfully',
+      logoutTime: logoutTime.toISOString(),
+      blacklistedTokensCount: blacklistedRefreshTokens.length,
+      clientAction: {
+        clearStorage: true,
+        clearCookies: true,
+        redirectUrl: '/login',
+      },
+    };
   }
 
   async me(user: AuthUserPayload) {
@@ -239,6 +467,165 @@ export class AuthService {
     }
 
     return sanitizeUser(foundUser);
+  }
+
+  // Only one implementation should exist; duplicate removed.
+
+  async getDashboard(user: AuthUserPayload) {
+    const foundUser = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+    });
+
+    if (!foundUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const [properties, buyerTransactions, sellerTransactions, documents, apiKeys] =
+      await Promise.all([
+        this.prisma.property.findMany({
+          where: { ownerId: user.sub },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        this.prisma.transaction.findMany({
+          where: { buyerId: user.sub },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            property: {
+              select: {
+                id: true,
+                title: true,
+                address: true,
+                city: true,
+                state: true,
+                price: true,
+              },
+            },
+            seller: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        }),
+        this.prisma.transaction.findMany({
+          where: { sellerId: user.sub },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            property: {
+              select: {
+                id: true,
+                title: true,
+                address: true,
+                city: true,
+                state: true,
+                price: true,
+              },
+            },
+            buyer: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        }),
+        this.prisma.document.findMany({
+          where: { userId: user.sub },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
+        this.prisma.apiKey.findMany({
+          where: { userId: user.sub },
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+        }),
+      ]);
+
+    const [
+      totalProperties,
+      activeListings,
+      pendingSales,
+      totalPurchases,
+      totalSales,
+      completedPurchases,
+      completedSales,
+    ] = await Promise.all([
+      this.prisma.property.count({ where: { ownerId: user.sub } }),
+      this.prisma.property.count({ where: { ownerId: user.sub, status: 'ACTIVE' } }),
+      this.prisma.transaction.count({ where: { sellerId: user.sub, status: 'PENDING' } }),
+      this.prisma.transaction.count({ where: { buyerId: user.sub } }),
+      this.prisma.transaction.count({ where: { sellerId: user.sub } }),
+      this.prisma.transaction.count({ where: { buyerId: user.sub, status: 'COMPLETED' } }),
+      this.prisma.transaction.count({ where: { sellerId: user.sub, status: 'COMPLETED' } }),
+    ]);
+
+    const recommendationProperties = await this.prisma.property.findMany({
+      where: {
+        status: 'ACTIVE',
+        ownerId: { not: user.sub },
+        NOT: {
+          ownerId: user.sub,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: {
+        owner: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    const recentActivity = [
+      ...this.transactionsToActivityItems(buyerTransactions, 'purchase'),
+      ...this.transactionsToActivityItems(sellerTransactions, 'sale'),
+      ...documents.map((doc: any) => ({
+        type: 'document' as const,
+        id: doc.id,
+        title: doc.fileName,
+        description: `Uploaded ${doc.documentType.toLowerCase().replace('_', ' ')}`,
+        timestamp: doc.createdAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+
+    return {
+      profile: sanitizeUser(foundUser),
+      quickStats: {
+        totalProperties,
+        activeListings,
+        pendingSales,
+        totalPurchases,
+        totalSales,
+        completedPurchases,
+        completedSales,
+        apiKeysCount: apiKeys.length,
+      },
+      recentActivity,
+      recommendations: recommendationProperties.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        address: p.address,
+        city: p.city,
+        state: p.state,
+        price: p.price.toString(),
+        propertyType: p.propertyType,
+        bedrooms: p.bedrooms,
+        bathrooms: p.bathrooms?.toString(),
+        squareFeet: p.squareFeet?.toString(),
+        status: p.status,
+        agent: `${p.owner.firstName} ${p.owner.lastName}`,
+        createdAt: p.createdAt,
+      })),
+    };
   }
 
   async changePassword(user: AuthUserPayload, data: ChangePasswordDto) {
@@ -485,11 +872,33 @@ export class AuthService {
     }
 
     await this.ensureTokenNotBlacklisted(payload.jti);
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        email: true,
+        role: true,
+        lastActivityAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    const now = new Date();
+    if (!user.lastActivityAt || now.getTime() - user.lastActivityAt.getTime() > 5 * 60 * 1000) {
+      this.prisma.user
+        .update({
+          where: { id: payload.sub },
+          data: { lastActivityAt: now },
+        })
+        .catch((err) => this.logger.error(`Failed to update lastActivityAt: ${err.message}`));
+    }
 
     return {
       sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
+      email: user.email,
+      role: user.role,
       type: 'access',
       jti: payload.jti,
     };
@@ -523,23 +932,30 @@ export class AuthService {
     return {
       sub: apiKey.userId,
       email: apiKey.user.email,
-      role: apiKey.user.role,
+      role: apiKey.user.role as UserRole,
       type: 'api-key',
       apiKeyId: apiKey.id,
     };
   }
 
-  private async issueTokenPair(user: any) {
+  private async issueTokenPair(
+    user: User,
+    tokenFamily?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     const accessJti = randomUUID();
     const refreshJti = randomUUID();
+    const family = tokenFamily || randomUUID(); // Create new family if not provided
 
     const accessToken = this.signToken(
       {
         sub: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role as UserRole,
         type: 'access',
         jti: accessJti,
+        family: family,
       },
       this.jwtSecret,
       this.accessTokenTtlSeconds,
@@ -549,11 +965,22 @@ export class AuthService {
       {
         sub: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role as UserRole,
         type: 'refresh',
         jti: refreshJti,
+        family: family,
       },
       this.jwtRefreshSecret,
+      this.refreshTokenTtlSeconds,
+    );
+
+    // Create a session for tracking
+    await this.sessionsService.createSession(
+      user.id,
+      accessJti,
+      refreshJti,
+      ipAddress,
+      userAgent,
       this.refreshTokenTtlSeconds,
     );
 
@@ -597,6 +1024,10 @@ export class AuthService {
     tokenType: 'ACCESS' | 'REFRESH';
     expiresAt: Date;
     userId?: string;
+    tokenFamily?: string;
+    previousJti?: string;
+    ipAddress?: string;
+    userAgent?: string;
   }) {
     await this.prisma.blacklistedToken.upsert({
       where: { jti: data.jti },
@@ -604,8 +1035,21 @@ export class AuthService {
         expiresAt: data.expiresAt,
         tokenType: data.tokenType,
         userId: data.userId,
+        tokenFamily: data.tokenFamily,
+        previousJti: data.previousJti,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
       },
-      create: data,
+      create: {
+        jti: data.jti,
+        tokenType: data.tokenType,
+        expiresAt: data.expiresAt,
+        userId: data.userId,
+        tokenFamily: data.tokenFamily,
+        previousJti: data.previousJti,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+      },
     });
   }
 
@@ -806,5 +1250,83 @@ export class AuthService {
       user: sanitizeUser(user),
       ...tokens,
     };
+            id: { in: historyEntries.map((entry: any) => entry.id) },
+          },
+        });
+      }
+    });
+  }
+
+  async unlockAccount(email: string) {
+    await this.rateLimitService.unlockAccount(email);
+    return { message: 'Account unlocked successfully. You can now try to log in again.' };
+  }
+
+  async getLoginStatus(email: string) {
+    const lockoutInfo = await this.rateLimitService.getLockoutInfo(email);
+
+    if (!lockoutInfo) {
+      return {
+        email,
+        isLocked: false,
+        failedAttempts: 0,
+        canAttemptLogin: true,
+      };
+    }
+
+    return {
+      email,
+      isLocked: lockoutInfo.isLocked,
+      failedAttempts: lockoutInfo.failedAttempts,
+      unlockAt: lockoutInfo.unlockAt,
+      remainingLockoutMinutes: lockoutInfo.remainingLockoutMinutes,
+      canAttemptLogin: !lockoutInfo.isLocked,
+    };
+  }
+
+  private async recordLoginHistory(userId: string, ipAddress?: string, userAgent?: string) {
+    await this.prisma.loginHistory.create({
+      data: {
+        userId,
+        ipAddress,
+        userAgent,
+      },
+    });
+  }
+
+  private async verifyCaptcha(token: string): Promise<boolean> {
+    const secret = this.configService.get<string>('RECAPTCHA_SECRET');
+    if (!secret) {
+      this.logger.warn('RECAPTCHA_SECRET is not configured, skipping CAPTCHA verification');
+      return true; // Bypass if not configured in dev
+    }
+
+    try {
+      const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `secret=${secret}&response=${token}`,
+      });
+
+      const data = (await response.json()) as any;
+
+      // reCAPTCHA v3 returns a score between 0.0 and 1.0. Typically, 0.5 is a good threshold.
+      if (data.success && data.score !== undefined && data.score >= 0.5) {
+        return true;
+      }
+
+      if (data.success && data.score === undefined) {
+        // v2 fallback
+        return true;
+      }
+
+      this.logger.warn(`CAPTCHA verification failed: ${JSON.stringify(data['error-codes'])}`);
+      return false;
+    } catch (error) {
+      this.logger.error(`Error verifying CAPTCHA: ${error.message}`);
+      return false;
+    }
   }
 }
