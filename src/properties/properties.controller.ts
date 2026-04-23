@@ -15,7 +15,7 @@ export class PropertiesController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPropertyDto: CreatePropertyDto, @CurrentUser() user: AuthUserPayload) {
-    return this.propertiesService.create(createPropertyDto, user.sub);
+    return this.propertiesService.create(createPropertyDto, user);
   }
 
   @Get()
@@ -31,8 +31,12 @@ export class PropertiesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.AGENT, UserRole.ADMIN)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updatePropertyDto: UpdatePropertyDto) {
-    return this.propertiesService.update(id, updatePropertyDto);
+  update(
+    @Param('id') id: string,
+    @Body() updatePropertyDto: UpdatePropertyDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.propertiesService.update(id, updatePropertyDto, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

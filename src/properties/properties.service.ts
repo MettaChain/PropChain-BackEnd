@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
+import { AuthUserPayload } from '../auth/types/auth-user.type';
+import { FraudService } from '../fraud/fraud.service';
 import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
 
 interface FindAllParams {
@@ -12,22 +15,28 @@ interface FindAllParams {
 
 @Injectable()
 export class PropertiesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly fraudService: FraudService,
+  ) {}
 
-  async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
+  async create(createPropertyDto: CreatePropertyDto, user: AuthUserPayload) {
     const { price, squareFeet, lotSize, ...rest } = createPropertyDto;
 
-    return this.prisma.property.create({
+    const property = await this.prisma.property.create({
       data: {
         ...rest,
         price: new Decimal(price.toString()),
         squareFeet: squareFeet ? new Decimal(squareFeet.toString()) : null,
         lotSize: lotSize ? new Decimal(lotSize.toString()) : null,
         owner: {
-          connect: { id: ownerId },
+          connect: { id: user.sub },
         },
       },
     });
+
+    await this.fraudService.analyzePropertyListing(property.id, user.role as UserRole);
+    return property;
   }
 
   async findAll(params?: FindAllParams) {
@@ -67,10 +76,10 @@ export class PropertiesService {
     });
   }
 
-  async update(id: string, updatePropertyDto: UpdatePropertyDto) {
+  async update(id: string, updatePropertyDto: UpdatePropertyDto, user: AuthUserPayload) {
     const { price, squareFeet, lotSize, ...rest } = updatePropertyDto;
 
-    return this.prisma.property.update({
+    const property = await this.prisma.property.update({
       where: { id },
       data: {
         ...rest,
@@ -79,6 +88,9 @@ export class PropertiesService {
         lotSize: lotSize ? new Decimal(lotSize.toString()) : undefined,
       },
     });
+
+    await this.fraudService.analyzePropertyListing(property.id, user.role as UserRole);
+    return this.findOne(property.id);
   }
 
   async remove(id: string) {

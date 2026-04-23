@@ -14,6 +14,7 @@ import { PrismaService } from '../database/prisma.service';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { EmailService } from '../email/email.service';
+import { FraudService } from '../fraud/fraud.service';
 import {
   ChangePasswordDto,
   CreateApiKeyDto,
@@ -71,6 +72,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: LoginRateLimitService,
+    private readonly fraudService: FraudService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
     this.jwtRefreshSecret =
@@ -132,6 +134,12 @@ export class AuthService {
     // Check if account is locked out
     const isLocked = await this.rateLimitService.isAccountLocked(data.email);
     if (isLocked) {
+      await this.fraudService.analyzeFailedLogin({
+        email: data.email,
+        ipAddress,
+        userAgent,
+        reason: 'account_locked',
+      });
       const lockoutInfo = await this.rateLimitService.getLockoutInfo(data.email);
       const remainingMinutes = lockoutInfo?.remainingLockoutMinutes ?? 0;
       throw new UnauthorizedException(
@@ -143,6 +151,12 @@ export class AuthService {
     if (!user) {
       // Record failed attempt even if user doesn't exist (prevent enumeration)
       await this.rateLimitService.recordFailedAttempt(data.email, ipAddress, userAgent);
+      await this.fraudService.analyzeFailedLogin({
+        email: data.email,
+        ipAddress,
+        userAgent,
+        reason: 'unknown_user',
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -164,6 +178,14 @@ export class AuthService {
         ipAddress,
         userAgent,
       );
+
+      await this.fraudService.analyzeFailedLogin({
+        email: data.email,
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        reason: shouldLock ? 'account_locked' : 'invalid_password',
+      });
 
       if (shouldLock) {
         throw new UnauthorizedException(
@@ -212,7 +234,13 @@ export class AuthService {
     await this.rateLimitService.recordSuccessfulAttempt(data.email, ipAddress, userAgent);
     await this.recordLoginHistory(user.id, ipAddress, userAgent);
 
-    const tokens = await this.issueTokenPair(user);
+    const tokens = await this.issueTokenPair(user, undefined, ipAddress, userAgent);
+    await this.fraudService.analyzeSuccessfulLogin({
+      userId: user.id,
+      email: user.email,
+      ipAddress,
+      userAgent,
+    });
     return {
       user: sanitizeUser(user),
       ...tokens,
@@ -235,6 +263,13 @@ export class AuthService {
       // TOKEN REUSE DETECTED! This is a potential attack
       // Mark the reuse and invalidate the entire token family
       await this.handleTokenReuse(blacklistedToken, payload.jti, ipAddress, userAgent);
+      await this.fraudService.handleTokenReuseDetection({
+        userId: payload.sub,
+        tokenFamily: payload.family,
+        jti: payload.jti,
+        ipAddress,
+        userAgent,
+      });
 
       this.logger.error(
         `Refresh token reuse detected for user ${payload.sub} (JTI: ${payload.jti}, Family: ${payload.family}). IP: ${ipAddress}`,
@@ -272,7 +307,7 @@ export class AuthService {
     });
 
     // Issue new token pair with SAME family ID
-    const tokens = await this.issueTokenPair(user, payload.family);
+    const tokens = await this.issueTokenPair(user, payload.family, ipAddress, userAgent);
 
     this.logger.log(
       `Token rotated for user ${user.id} (${user.email}). Family: ${payload.family}. IP: ${ipAddress}`,
@@ -855,11 +890,21 @@ export class AuthService {
       select: {
         email: true,
         role: true,
+        isBlocked: true,
+        isDeactivated: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User no longer exists');
+    }
+
+    if (user.isBlocked) {
+      throw new UnauthorizedException('Your account has been blocked');
+    }
+
+    if (user.isDeactivated) {
+      throw new UnauthorizedException('Your account has been deactivated');
     }
 
     return {

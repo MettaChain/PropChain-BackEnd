@@ -8,6 +8,17 @@ export interface EmailOptions {
   text?: string;
 }
 
+export interface FraudAlertEmailPayload {
+  alertId?: string;
+  title: string;
+  severity: string;
+  description: string;
+  userId?: string;
+  entityType: string;
+  entityId?: string;
+  autoBlocked?: boolean;
+}
+
 @Injectable()
 export class EmailService {
   constructor(private readonly configService: ConfigService) {}
@@ -45,6 +56,43 @@ export class EmailService {
 
         Best regards,
         The PropChain Team
+      `,
+    };
+
+    await this.sendEmail(emailOptions);
+  }
+
+  async sendFraudAlertEmail(payload: FraudAlertEmailPayload): Promise<void> {
+    const recipient = this.configService.get<string>('FRAUD_ALERT_EMAIL');
+    if (!recipient) {
+      return;
+    }
+
+    const emailOptions: EmailOptions = {
+      to: recipient,
+      subject: `[PropChain] ${payload.severity} fraud alert: ${payload.title}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #b42318;">Fraud Alert Triggered</h2>
+          <p><strong>Severity:</strong> ${payload.severity}</p>
+          <p><strong>Title:</strong> ${payload.title}</p>
+          <p><strong>Description:</strong> ${payload.description}</p>
+          <p><strong>Entity:</strong> ${payload.entityType}${payload.entityId ? ` (${payload.entityId})` : ''}</p>
+          <p><strong>User:</strong> ${payload.userId ?? 'N/A'}</p>
+          <p><strong>Alert ID:</strong> ${payload.alertId ?? 'N/A'}</p>
+          <p><strong>Protective action:</strong> ${payload.autoBlocked ? 'Automatic block applied' : 'Review required'}</p>
+        </div>
+      `,
+      text: `
+        Fraud Alert Triggered
+
+        Severity: ${payload.severity}
+        Title: ${payload.title}
+        Description: ${payload.description}
+        Entity: ${payload.entityType}${payload.entityId ? ` (${payload.entityId})` : ''}
+        User: ${payload.userId ?? 'N/A'}
+        Alert ID: ${payload.alertId ?? 'N/A'}
+        Protective action: ${payload.autoBlocked ? 'Automatic block applied' : 'Review required'}
       `,
     };
 
