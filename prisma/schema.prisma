@@ -70,6 +70,9 @@ model User {
   role          UserRole  @default(USER)
   isVerified    Boolean   @default(false) @map("is_verified")
   isBlocked     Boolean   @default(false) @map("is_blocked")
+  isDeactivated Boolean   @default(false) @map("is_deactivated")
+  deactivatedAt DateTime? @map("deactivated_at")
+  scheduledDeletionAt DateTime? @map("scheduled_deletion_at")
   twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
   twoFactorSecret  String? @map("two_factor_secret")
   twoFactorBackupCodes String[] @default([]) @map("two_factor_backup_codes")
@@ -77,6 +80,12 @@ model User {
   facebookId    String?   @unique @map("facebook_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
+  preferredChannel String?  @map("preferred_channel")
+  languagePreference String? @map("language_preference")
+  timezone String? @map("timezone")
+  contactHours Json? @map("contact_hours")
+  referralCode String? @unique @map("referral_code")
+  referredById String? @map("referred_by_id")
 
   // Relations
   properties    Property[]
@@ -86,10 +95,17 @@ model User {
   apiKeys       ApiKey[]
   passwordHistory PasswordHistory[]
   blacklistedTokens BlacklistedToken[]
+  sessions      Session[]
   passwordResetTokens PasswordResetToken[]
+  loginHistory  LoginHistory[]
+  referrals     User[] @relation("Referrals")
+  referredBy    User?  @relation("Referrals", fields: [referredById], references: [id])
 
   @@index([email])
   @@index([role])
+  @@index([isDeactivated])
+  @@index([scheduledDeletionAt])
+  @@index([referralCode])
   @@map("users")
 }
 
@@ -130,12 +146,19 @@ model BlacklistedToken {
   jti       String    @unique
   tokenType TokenType @map("token_type")
   expiresAt DateTime  @map("expires_at")
+  tokenFamily String? @map("token_family") // Track token rotation family
+  previousJti String? @map("previous_jti") // Link to previous token in rotation
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  reusedAt   DateTime? @map("reused_at") // When token reuse was detected
   createdAt DateTime  @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([tokenFamily])
+  @@index([tokenFamily, createdAt])
   @@map("blacklisted_tokens")
 }
 
@@ -153,6 +176,37 @@ model PasswordResetToken {
   @@index([token])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+// Login attempt tracking for rate limiting
+model LoginAttempt {
+  id          String   @id @default(uuid())
+  email       String   // Track by email to prevent enumeration
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  success     Boolean  @default(false)
+  lockedOut   Boolean  @default(false) @map("locked_out")
+  attemptTime DateTime @default(now()) @map("attempt_time")
+  unlockAt    DateTime? @map("unlock_at") // When the account will be auto-unlocked
+
+  @@index([email, attemptTime])
+  @@index([email, lockedOut])
+  @@index([unlockAt])
+  @@map("login_attempts")
+}
+
+// Successful login history
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  timestamp DateTime @default(now())
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@map("login_history")
 }
 
 // Property model
@@ -243,4 +297,27 @@ model Document {
   @@index([userId])
   @@index([documentType])
   @@map("documents")
+}
+
+// Session model for tracking user sessions
+model Session {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  accessTokenJti String  @map("access_token_jti")
+  refreshTokenJti String? @map("refresh_token_jti")
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  isRevoked     Boolean   @default(false) @map("is_revoked")
+  revokedAt     DateTime? @map("revoked_at")
+  expiresAt     DateTime  @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isRevoked])
+  @@map("sessions")
 }
