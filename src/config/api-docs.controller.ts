@@ -78,9 +78,7 @@ export class ApiDocsController {
             'Enhanced security with JWT tokens',
             'Support for multiple authentication methods',
           ],
-          breaking_changes: [
-            'Some fields now require explicit version headers',
-          ],
+          breaking_changes: ['Some fields now require explicit version headers'],
         },
         {
           version: 'v1',
@@ -271,7 +269,7 @@ export class ApiDocsController {
             method: 'GET',
             url: '/api/users',
             headers: {
-              'Authorization': 'Bearer jwt-token',
+              Authorization: 'Bearer jwt-token',
               'API-Version': 'v2',
             },
           },
@@ -280,7 +278,7 @@ export class ApiDocsController {
             method: 'GET',
             url: '/api/v2/users',
             headers: {
-              'Authorization': 'Bearer jwt-token',
+              Authorization: 'Bearer jwt-token',
             },
           },
           {
@@ -288,8 +286,8 @@ export class ApiDocsController {
             method: 'GET',
             url: '/api/users',
             headers: {
-              'Accept': 'application/json;version=v2',
-              'Authorization': 'Bearer jwt-token',
+              Accept: 'application/json;version=v2',
+              Authorization: 'Bearer jwt-token',
             },
           },
         ],

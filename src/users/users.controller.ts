@@ -53,6 +53,12 @@ export class UsersController {
     return this.usersService.search(query);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('me/statistics')
+  getStatistics(@CurrentUser() user: AuthUserPayload) {
+    return this.usersService.getUserStatistics(user.sub);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Get(':id')

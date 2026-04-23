@@ -92,13 +92,7 @@ export class VersionedPaginationDto<T = any> extends VersionedResponse<T[]> {
   total: number;
   totalPages: number;
 
-  constructor(
-    data: T[],
-    version: ApiVersionEnum,
-    page: number,
-    limit: number,
-    total: number,
-  ) {
+  constructor(data: T[], version: ApiVersionEnum, page: number, limit: number, total: number) {
     super(data, version);
     this.page = page;
     this.limit = limit;

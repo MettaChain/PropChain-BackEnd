@@ -93,6 +93,30 @@ export class EmailService {
         User: ${payload.userId ?? 'N/A'}
         Alert ID: ${payload.alertId ?? 'N/A'}
         Protective action: ${payload.autoBlocked ? 'Automatic block applied' : 'Review required'}
+  async sendAccountLockedEmail(email: string, lockoutDuration: number): Promise<void> {
+    const emailOptions: EmailOptions = {
+      to: email,
+      subject: 'Account Locked - PropChain',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #d9534f;">Account Locked</h2>
+          <p>Your PropChain account has been temporarily locked due to multiple failed login attempts.</p>
+          <p>The lockout will automatically expire in ${lockoutDuration} minutes.</p>
+          <p>If you did not attempt to log in, please reset your password immediately or contact our support team.</p>
+          <p>Best regards,<br>The PropChain Team</p>
+        </div>
+      `,
+      text: `
+        Account Locked
+
+        Your PropChain account has been temporarily locked due to multiple failed login attempts.
+
+        The lockout will automatically expire in ${lockoutDuration} minutes.
+
+        If you did not attempt to log in, please reset your password immediately or contact our support team.
+
+        Best regards,
+        The PropChain Team
       `,
     };
 

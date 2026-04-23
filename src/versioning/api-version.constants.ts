@@ -77,6 +77,8 @@ export function getDaysUntilSunset(version: ApiVersionEnum): number | null {
   if (!metadata?.sunsetDate) return null;
 
   const now = new Date();
-  const daysUntil = Math.ceil((metadata.sunsetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const daysUntil = Math.ceil(
+    (metadata.sunsetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
   return daysUntil > 0 ? daysUntil : 0;
 }

@@ -41,7 +41,9 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
           if (!Array.isArray(data)) {
             data._deprecationInfo = {
               deprecated: true,
-              message: deprecationMessage || 'This endpoint is deprecated. Please migrate to a newer version.',
+              message:
+                deprecationMessage ||
+                'This endpoint is deprecated. Please migrate to a newer version.',
             };
           }
         }

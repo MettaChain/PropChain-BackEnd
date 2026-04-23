@@ -147,6 +147,23 @@ export class AuthService {
       );
     }
 
+    const failedAttempts = await this.rateLimitService.getFailedAttemptsCount(data.email);
+    const captchaThreshold = parseInt(
+      this.configService.get<string>('CAPTCHA_THRESHOLD') ?? '3',
+      10,
+    );
+
+    if (failedAttempts >= captchaThreshold) {
+      if (!data.captchaToken) {
+        throw new UnauthorizedException('CAPTCHA verification required');
+      }
+      const isCaptchaValid = await this.verifyCaptcha(data.captchaToken);
+      if (!isCaptchaValid) {
+        // We might also record a failed attempt here if we wanted to
+        throw new UnauthorizedException('Invalid CAPTCHA');
+      }
+    }
+
     const user = await this.usersService.findByEmail(data.email);
     if (!user) {
       // Record failed attempt even if user doesn't exist (prevent enumeration)
@@ -188,8 +205,13 @@ export class AuthService {
       });
 
       if (shouldLock) {
+        const lockoutDuration = 30;
+        await this.emailService.sendAccountLockedEmail(user.email, lockoutDuration).catch((err) => {
+          this.logger.error(`Failed to send account locked email to ${user.email}: ${err.message}`);
+        });
+
         throw new UnauthorizedException(
-          'Account locked due to too many failed login attempts. Please try again in 15 minutes.',
+          `Account locked due to too many failed login attempts. Please try again in ${lockoutDuration} minutes.`,
         );
       }
 
@@ -892,6 +914,7 @@ export class AuthService {
         role: true,
         isBlocked: true,
         isDeactivated: true,
+        lastActivityAt: true,
       },
     });
 
@@ -905,6 +928,14 @@ export class AuthService {
 
     if (user.isDeactivated) {
       throw new UnauthorizedException('Your account has been deactivated');
+    const now = new Date();
+    if (!user.lastActivityAt || now.getTime() - user.lastActivityAt.getTime() > 5 * 60 * 1000) {
+      this.prisma.user
+        .update({
+          where: { id: payload.sub },
+          data: { lastActivityAt: now },
+        })
+        .catch((err) => this.logger.error(`Failed to update lastActivityAt: ${err.message}`));
     }
 
     return {
@@ -1235,5 +1266,41 @@ export class AuthService {
         userAgent,
       },
     });
+  }
+
+  private async verifyCaptcha(token: string): Promise<boolean> {
+    const secret = this.configService.get<string>('RECAPTCHA_SECRET');
+    if (!secret) {
+      this.logger.warn('RECAPTCHA_SECRET is not configured, skipping CAPTCHA verification');
+      return true; // Bypass if not configured in dev
+    }
+
+    try {
+      const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `secret=${secret}&response=${token}`,
+      });
+
+      const data = (await response.json()) as any;
+
+      // reCAPTCHA v3 returns a score between 0.0 and 1.0. Typically, 0.5 is a good threshold.
+      if (data.success && data.score !== undefined && data.score >= 0.5) {
+        return true;
+      }
+
+      if (data.success && data.score === undefined) {
+        // v2 fallback
+        return true;
+      }
+
+      this.logger.warn(`CAPTCHA verification failed: ${JSON.stringify(data['error-codes'])}`);
+      return false;
+    } catch (error) {
+      this.logger.error(`Error verifying CAPTCHA: ${error.message}`);
+      return false;
+    }
   }
 }

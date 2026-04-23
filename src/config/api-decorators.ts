@@ -17,10 +17,7 @@ import {
 /**
  * Decorator for public endpoints (no authentication required)
  */
-export function ApiPublicEndpoint(
-  summary: string,
-  description: string,
-) {
+export function ApiPublicEndpoint(summary: string, description: string) {
   return applyDecorators(
     ApiOperation({
       summary,
@@ -44,10 +41,7 @@ export function ApiPublicEndpoint(
 /**
  * Decorator for protected endpoints (authentication required)
  */
-export function ApiProtectedEndpoint(
-  summary: string,
-  description: string,
-) {
+export function ApiProtectedEndpoint(summary: string, description: string) {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
@@ -86,10 +80,7 @@ export function ApiProtectedEndpoint(
 /**
  * Decorator for admin-only endpoints
  */
-export function ApiAdminEndpoint(
-  summary: string,
-  description: string,
-) {
+export function ApiAdminEndpoint(summary: string, description: string) {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
@@ -115,10 +106,7 @@ export function ApiAdminEndpoint(
 /**
  * Decorator for paginated list endpoints
  */
-export function ApiPaginatedEndpoint(
-  summary: string,
-  description: string,
-) {
+export function ApiPaginatedEndpoint(summary: string, description: string) {
   return applyDecorators(
     ApiOperation({
       summary,
@@ -162,10 +150,7 @@ export function ApiPaginatedEndpoint(
 /**
  * Decorator for endpoints with path parameters
  */
-export function ApiWithPathParam(
-  paramName: string,
-  paramType: 'string' | 'number' = 'string',
-) {
+export function ApiWithPathParam(paramName: string, paramType: 'string' | 'number' = 'string') {
   return ApiParam({
     name: paramName,
     description: `The ${paramName} identifier`,
@@ -192,10 +177,10 @@ export function ApiDeprecatedEndpoint(
       status: 200,
       description: 'Success (but endpoint is deprecated)',
       headers: {
-        'Deprecation': {
+        Deprecation: {
           description: 'Deprecation flag',
         },
-        'Sunset': {
+        Sunset: {
           description: 'Sunset date',
         },
       },
@@ -228,10 +213,7 @@ export function ApiVersionedEndpoint(
 /**
  * Decorator for endpoints with rate limiting
  */
-export function ApiRateLimited(
-  limit: number,
-  window: string,
-) {
+export function ApiRateLimited(limit: number, window: string) {
   return ApiResponse({
     status: 429,
     description: `Rate limited: ${limit} requests per ${window}`,
@@ -241,10 +223,7 @@ export function ApiRateLimited(
 /**
  * Decorator for search/filter endpoints
  */
-export function ApiSearchEndpoint(
-  summary: string,
-  description: string,
-) {
+export function ApiSearchEndpoint(summary: string, description: string) {
   return applyDecorators(
     ApiOperation({
       summary,

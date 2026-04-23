@@ -26,7 +26,7 @@ async function bootstrap() {
 
   // Apply version header interceptor globally
   app.useGlobalInterceptors(new VersionHeaderInterceptor());
-  
+
   // Apply deprecation warning interceptor
   app.useGlobalInterceptors(new DeprecationWarningInterceptor(app.get('Reflector')));
 

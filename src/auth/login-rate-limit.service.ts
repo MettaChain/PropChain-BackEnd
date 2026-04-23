@@ -14,7 +14,7 @@ export class LoginRateLimitService {
   constructor(private readonly prisma: PrismaService) {
     this.config = {
       maxAttempts: 5,
-      lockoutDurationMinutes: 15,
+      lockoutDurationMinutes: 30,
     };
   }
 

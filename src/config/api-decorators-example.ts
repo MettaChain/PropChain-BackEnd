@@ -40,10 +40,7 @@ export class ExampleUsersControllerDocumentation {
     'List all users',
     'Retrieve a paginated list of all users. Requires authentication.',
   )
-  @ApiPaginatedEndpoint(
-    'List users',
-    'Get paginated list of users with sorting and filtering',
-  )
+  @ApiPaginatedEndpoint('List users', 'Get paginated list of users with sorting and filtering')
   findAll() {
     return [];
   }
@@ -52,10 +49,7 @@ export class ExampleUsersControllerDocumentation {
    * Example: Get by ID with path parameter
    */
   @Get(':id')
-  @ApiProtectedEndpoint(
-    'Get user by ID',
-    'Retrieve a specific user by their ID',
-  )
+  @ApiProtectedEndpoint('Get user by ID', 'Retrieve a specific user by their ID')
   @ApiWithPathParam('id', 'string')
   findOne(@Param('id') id: string) {
     return { id, name: 'User Name' };
@@ -78,11 +72,7 @@ export class ExampleUsersControllerDocumentation {
    * Example: Deprecated endpoint
    */
   @Get('old-list')
-  @ApiDeprecatedEndpoint(
-    'Get users (old)',
-    'This is an old way to get users',
-    'GET /users',
-  )
+  @ApiDeprecatedEndpoint('Get users (old)', 'This is an old way to get users', 'GET /users')
   oldListEndpoint() {
     return [];
   }
@@ -91,11 +81,7 @@ export class ExampleUsersControllerDocumentation {
    * Example: Versioned endpoint
    */
   @Post()
-  @ApiVersionedEndpoint(
-    'Create user',
-    'Create a new user account',
-    ['v1', 'v2'],
-  )
+  @ApiVersionedEndpoint('Create user', 'Create a new user account', ['v1', 'v2'])
   create(@Body() createUserDto: any) {
     return { id: '1', ...createUserDto };
   }
@@ -104,10 +90,7 @@ export class ExampleUsersControllerDocumentation {
    * Example: Rate-limited endpoint
    */
   @Get(':id/activity')
-  @ApiProtectedEndpoint(
-    'Get user activity',
-    'Retrieve user activity logs',
-  )
+  @ApiProtectedEndpoint('Get user activity', 'Retrieve user activity logs')
   @ApiRateLimited(100, '1 hour')
   @ApiWithPathParam('id', 'string')
   getUserActivity(@Param('id') id: string) {
@@ -118,10 +101,7 @@ export class ExampleUsersControllerDocumentation {
    * Example: Search endpoint
    */
   @Get('search/by-email')
-  @ApiSearchEndpoint(
-    'Search users by email',
-    'Search for users by email address with filters',
-  )
+  @ApiSearchEndpoint('Search users by email', 'Search for users by email address with filters')
   searchByEmail() {
     return [];
   }
@@ -134,14 +114,8 @@ export class ExamplePropertiesControllerDocumentation {
    * Example: Public list endpoint
    */
   @Get()
-  @ApiPublicEndpoint(
-    'List properties',
-    'Retrieve a list of public properties',
-  )
-  @ApiPaginatedEndpoint(
-    'List properties',
-    'Get paginated list of properties',
-  )
+  @ApiPublicEndpoint('List properties', 'Retrieve a list of public properties')
+  @ApiPaginatedEndpoint('List properties', 'Get paginated list of properties')
   findAll() {
     return [];
   }
@@ -150,10 +124,7 @@ export class ExamplePropertiesControllerDocumentation {
    * Example: Protected create endpoint
    */
   @Post()
-  @ApiProtectedEndpoint(
-    'Create property',
-    'Create a new property listing',
-  )
+  @ApiProtectedEndpoint('Create property', 'Create a new property listing')
   create(@Body() createPropertyDto: any) {
     return { id: '1', ...createPropertyDto };
   }
@@ -162,16 +133,9 @@ export class ExamplePropertiesControllerDocumentation {
    * Example: Update endpoint with version support
    */
   @Put(':id')
-  @ApiVersionedEndpoint(
-    'Update property',
-    'Update property details',
-    ['v2'],
-  )
+  @ApiVersionedEndpoint('Update property', 'Update property details', ['v2'])
   @ApiWithPathParam('id', 'string')
-  update(
-    @Param('id') id: string,
-    @Body() updatePropertyDto: any,
-  ) {
+  update(@Param('id') id: string, @Body() updatePropertyDto: any) {
     return { id, ...updatePropertyDto };
   }
 }

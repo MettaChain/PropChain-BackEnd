@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, SearchUsersDto, UpdatePreferencesDto, UpdateUserDto } from './dto/user.dto';
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
@@ -33,6 +33,35 @@ export class UsersService implements OnModuleInit {
         this.logger.log(`Deleted expired export file: ${file}`);
       }
     });
+  }
+
+  async getUserStatistics(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        properties: true,
+        buyerTransactions: true,
+        sellerTransactions: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const propertiesCount = user.properties.length;
+    const transactionsCount = user.buyerTransactions.length + user.sellerTransactions.length;
+    
+    const now = new Date();
+    const createdAt = new Date(user.createdAt);
+    const accountAgeDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
+    return {
+      propertiesCount,
+      transactionsCount,
+      accountAgeDays,
+      lastActivityAt: user.lastActivityAt,
+    };
   }
 
   async create(data: CreateUserDto) {
@@ -565,4 +594,5 @@ export class UsersService implements OnModuleInit {
       },
     });
   }
+
 }

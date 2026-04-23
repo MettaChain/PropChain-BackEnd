@@ -14,8 +14,11 @@ import {
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { Roles } from './decorators/roles.decorator';
 import { AuthUserPayload } from './types/auth-user.type';
+import { UserRole } from '../types/prisma.types';
 import { Request } from 'express';
 
 @Controller('auth')
@@ -141,6 +144,8 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post('unlock-account')
   unlockAccount(@Body() data: { email: string }) {
     return this.authService.unlockAccount(data.email);

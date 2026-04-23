@@ -47,6 +47,10 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   backupCode?: string;
+
+  @IsOptional()
+  @IsString()
+  captchaToken?: string;
 }
 
 export class RefreshTokenDto {

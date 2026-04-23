@@ -83,7 +83,11 @@ export class UsersControllerExample {
    */
   @Put(':id')
   @ApiVersion([ApiVersionEnum.V1, ApiVersionEnum.V2])
-  update(@Param('id') id: string, @Body() updateUserDto: any, @GetVersion() version: ApiVersionEnum) {
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: any,
+    @GetVersion() version: ApiVersionEnum,
+  ) {
     return {
       id,
       ...updateUserDto,
