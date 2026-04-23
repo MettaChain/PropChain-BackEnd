@@ -8,6 +8,8 @@ import { TrustScoreModule } from './trust-score/trust-score.module';
 import { PropertiesModule } from './properties/properties.module';
 import { PrismaModule } from './database/prisma.module';
 import { AppController } from './app.controller';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { AppController } from './app.controller';
     SessionsModule,
     TrustScoreModule,
     PropertiesModule,
+    WebhooksModule,
+    MonitoringModule,
   ],
   controllers: [AppController],
 })

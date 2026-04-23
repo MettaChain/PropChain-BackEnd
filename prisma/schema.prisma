@@ -402,3 +402,23 @@ model VerificationDocument {
   @@index([documentType])
   @@map("verification_documents")
 }
+// API Usage monitoring model
+model ApiRequestLog {
+  id           String   @id @default(uuid())
+  method       String
+  path         String
+  statusCode   Int      @map("status_code")
+  responseTime Int      @map("response_time") // milliseconds
+  userId       String?  @map("user_id")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([path])
+  @@index([statusCode])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([responseTime])
+  @@map("api_request_logs")
+}
