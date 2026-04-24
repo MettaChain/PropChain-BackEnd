@@ -110,6 +110,7 @@ model User {
   activityLogs  ActivityLog[]
   verificationDocuments VerificationDocument[]
   sessions      Session[]
+  webhooks      Webhook[]
   passwordResetTokens PasswordResetToken[]
   loginHistory  LoginHistory[]
   referrals     User[] @relation("Referrals")
@@ -421,4 +422,67 @@ model ApiRequestLog {
   @@index([createdAt])
   @@index([responseTime])
   @@map("api_request_logs")
+}
+// Webhook event types
+enum WebhookEventType {
+  PROPERTY_CREATED
+  PROPERTY_UPDATED
+  PROPERTY_STATUS_CHANGED
+  TRANSACTION_CREATED
+  TRANSACTION_UPDATED
+  TRANSACTION_COMPLETED
+  USER_VERIFIED
+}
+
+// Webhook delivery status
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+// Webhook registration model
+model Webhook {
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  url         String
+  secret      String
+  eventTypes  WebhookEventType[] @map("event_types")
+  isActive    Boolean          @default(true) @map("is_active")
+  description String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries  WebhookDelivery[]
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("webhooks")
+}
+
+// Webhook delivery tracking model
+model WebhookDelivery {
+  id             String                @id @default(uuid())
+  webhookId      String                @map("webhook_id")
+  eventType      WebhookEventType      @map("event_type")
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  maxAttempts    Int                   @default(3) @map("max_attempts")
+  nextRetryAt    DateTime?             @map("next_retry_at")
+  responseStatus Int?                  @map("response_status")
+  responseBody   String?               @map("response_body")
+  errorMessage   String?               @map("error_message")
+  deliveredAt    DateTime?             @map("delivered_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  webhook        Webhook               @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@map("webhook_deliveries")
 }
