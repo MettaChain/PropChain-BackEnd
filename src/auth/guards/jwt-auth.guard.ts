@@ -3,7 +3,7 @@ import { AuthService } from '../auth.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly authService: AuthService) {}
+  constructor(protected readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -19,7 +19,7 @@ export class JwtAuthGuard implements CanActivate {
     return true;
   }
 
-  private extractBearerToken(header?: string): string | null {
+  protected extractBearerToken(header?: string): string | null {
     if (!header) {
       return null;
     }

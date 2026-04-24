@@ -7,4 +7,5 @@ export type AuthUserPayload = {
   type: 'access' | 'refresh' | 'api-key';
   jti?: string;
   apiKeyId?: string;
+  apiKeyPermissions?: string[];
 };

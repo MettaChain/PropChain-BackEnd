@@ -51,10 +51,12 @@ export class UsersService implements OnModuleInit {
 
     const propertiesCount = user.properties.length;
     const transactionsCount = user.buyerTransactions.length + user.sellerTransactions.length;
-    
+
     const now = new Date();
     const createdAt = new Date(user.createdAt);
-    const accountAgeDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const accountAgeDays = Math.floor(
+      (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     return {
       propertiesCount,
@@ -594,5 +596,4 @@ export class UsersService implements OnModuleInit {
       },
     });
   }
-
 }

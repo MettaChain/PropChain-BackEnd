@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
@@ -10,6 +10,7 @@ import {
   RegisterDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
+  UpdateApiKeyPermissionsDto,
   VerifyTwoFactorDto,
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -132,6 +133,22 @@ export class AuthController {
   @Post('api-keys/:id/revoke')
   revokeApiKey(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
     return this.authService.revokeApiKey(user, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('api-keys/:id/permissions')
+  updateApiKeyPermissions(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id') id: string,
+    @Body() updateApiKeyPermissionsDto: UpdateApiKeyPermissionsDto,
+  ) {
+    return this.authService.updateApiKeyPermissions(user, id, updateApiKeyPermissionsDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('api-keys/:id/usage')
+  getApiKeyUsage(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
+    return this.authService.getApiKeyUsage(user, id);
   }
 
   @Post('password-reset/request')

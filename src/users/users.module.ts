@@ -6,6 +6,7 @@ import { UserPreferencesController } from './user-preferences.controller';
 import { ActivityLogService } from './activity-log.service';
 import { ActivityLogController, AdminActivityLogController } from './activity-log.controller';
 import { PrismaModule } from '../database/prisma.module';
+import { UsersResolver } from './users.resolver';
 
 @Module({
   imports: [PrismaModule],
@@ -15,7 +16,7 @@ import { PrismaModule } from '../database/prisma.module';
     ActivityLogController,
     AdminActivityLogController,
   ],
-  providers: [UsersService, UserPreferencesService, ActivityLogService],
+  providers: [UsersService, UserPreferencesService, ActivityLogService, UsersResolver],
   exports: [UsersService, UserPreferencesService, ActivityLogService],
 })
 export class UsersModule {}

@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsDateString,
   IsEmail,
   IsNotEmpty,
@@ -89,8 +90,19 @@ export class CreateApiKeyDto {
   name: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  permissions?: string[];
+
+  @IsOptional()
   @IsDateString()
   expiresAt?: string;
+}
+
+export class UpdateApiKeyPermissionsDto {
+  @IsArray()
+  @IsString({ each: true })
+  permissions: string[];
 }
 
 export class RequestPasswordResetDto {
