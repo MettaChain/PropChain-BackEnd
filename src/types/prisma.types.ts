@@ -8,14 +8,28 @@ export interface User {
   phone: string | null;
   role: string;
   isVerified: boolean;
+  isBlocked: boolean;
+  isDeactivated: boolean;
+  deactivatedAt: Date | null;
+  scheduledDeletionAt: Date | null;
   twoFactorEnabled: boolean;
   twoFactorSecret: string | null;
   twoFactorBackupCodes: string[];
   avatar: string | null;
+  pendingEmail: string | null;
+  emailVerificationToken: string | null;
+  emailVerificationExpires: Date | null;
   trustScore: number;
   lastTrustScoreUpdate: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  lastActivityAt: Date | null;
+  preferredChannel: string | null;
+  languagePreference: string | null;
+  timezone: string | null;
+  contactHours: any | null; // JsonValue
+  referralCode: string | null;
+  referredById: string | null;
 }
 
 export interface ApiKey {
@@ -24,6 +38,8 @@ export interface ApiKey {
   name: string;
   keyPrefix: string;
   keyHash: string;
+  permissions: string[];
+  usageCount: number;
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   revokedAt: Date | null;

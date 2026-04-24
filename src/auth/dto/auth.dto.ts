@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsDateString,
   IsEmail,
   IsNotEmpty,
@@ -47,6 +48,10 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   backupCode?: string;
+
+  @IsOptional()
+  @IsString()
+  captchaToken?: string;
 }
 
 export class RefreshTokenDto {
@@ -85,8 +90,19 @@ export class CreateApiKeyDto {
   name: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  permissions?: string[];
+
+  @IsOptional()
   @IsDateString()
   expiresAt?: string;
+}
+
+export class UpdateApiKeyPermissionsDto {
+  @IsArray()
+  @IsString({ each: true })
+  permissions: string[];
 }
 
 export class RequestPasswordResetDto {

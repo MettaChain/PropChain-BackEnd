@@ -7,6 +7,8 @@ export interface UserData {
   isVerified: boolean;
   twoFactorEnabled: boolean;
   avatar: string | null;
+  trustScore: number;
+  lastTrustScoreUpdate: Date | null;
   createdAt: Date;
   updatedAt: Date;
   properties: PropertyData[];

@@ -68,46 +68,47 @@ enum VerificationStatus {
 
 // User model
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String
-  firstName     String    @map("first_name")
-  lastName      String    @map("last_name")
-  phone         String?
-  role          UserRole  @default(USER)
-  isVerified    Boolean   @default(false) @map("is_verified")
-  isBlocked     Boolean   @default(false) @map("is_blocked")
-  isDeactivated Boolean   @default(false) @map("is_deactivated")
-  deactivatedAt DateTime? @map("deactivated_at")
-  scheduledDeletionAt DateTime? @map("scheduled_deletion_at")
-  twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
-  twoFactorSecret  String? @map("two_factor_secret")
-  twoFactorBackupCodes String[] @default([]) @map("two_factor_backup_codes")
-  avatar        String?
-  pendingEmail  String?   @map("pending_email")
-  emailVerificationToken String? @map("email_verification_token")
+  id                       String    @id @default(uuid())
+  email                    String    @unique
+  password                 String
+  firstName                String    @map("first_name")
+  lastName                 String    @map("last_name")
+  phone                    String?
+  role                     UserRole  @default(USER)
+  isVerified               Boolean   @default(false) @map("is_verified")
+  isBlocked                Boolean   @default(false) @map("is_blocked")
+  isDeactivated            Boolean   @default(false) @map("is_deactivated")
+  deactivatedAt            DateTime? @map("deactivated_at")
+  scheduledDeletionAt      DateTime? @map("scheduled_deletion_at")
+  twoFactorEnabled         Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecret          String?   @map("two_factor_secret")
+  twoFactorBackupCodes     String[]  @default([]) @map("two_factor_backup_codes")
+  avatar                   String?
+  pendingEmail             String?   @map("pending_email")
+  emailVerificationToken   String?   @map("email_verification_token")
   emailVerificationExpires DateTime? @map("email_verification_expires")
-  trustScore    Int       @default(0) @map("trust_score")
-  lastTrustScoreUpdate DateTime? @map("last_trust_score_update")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  preferredChannel String?  @map("preferred_channel")
-  languagePreference String? @map("language_preference")
-  timezone String? @map("timezone")
-  contactHours Json? @map("contact_hours")
-  referralCode String? @unique @map("referral_code")
-  referredById String? @map("referred_by_id")
+  trustScore               Int       @default(0) @map("trust_score")
+  lastTrustScoreUpdate     DateTime? @map("last_trust_score_update")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  lastActivityAt           DateTime? @map("last_activity_at")
+  preferredChannel         String?   @map("preferred_channel")
+  languagePreference       String?   @map("language_preference")
+  timezone                 String?   @map("timezone")
+  contactHours             Json?     @map("contact_hours")
+  referralCode             String?   @unique @map("referral_code")
+  referredById             String?   @map("referred_by_id")
 
   // Relations
-  properties    Property[]
-  buyerTransactions  Transaction[] @relation("BuyerTransactions")
-  sellerTransactions Transaction[] @relation("SellerTransactions")
-  documents     Document[]
-  apiKeys       ApiKey[]
-  passwordHistory PasswordHistory[]
-  blacklistedTokens BlacklistedToken[]
-  preferences   UserPreferences?
-  activityLogs  ActivityLog[]
+  properties            Property[]
+  buyerTransactions     Transaction[]          @relation("BuyerTransactions")
+  sellerTransactions    Transaction[]          @relation("SellerTransactions")
+  documents             Document[]
+  apiKeys               ApiKey[]
+  passwordHistory       PasswordHistory[]
+  blacklistedTokens     BlacklistedToken[]
+  preferences           UserPreferences?
+  activityLogs          ActivityLog[]
   verificationDocuments VerificationDocument[]
   sessions      Session[]
   webhooks      Webhook[]
@@ -130,6 +131,8 @@ model ApiKey {
   name       String
   keyPrefix  String    @map("key_prefix")
   keyHash    String    @unique @map("key_hash")
+  permissions String[] @default([])
+  usageCount Int       @default(0) @map("usage_count")
   lastUsedAt DateTime? @map("last_used_at")
   expiresAt  DateTime? @map("expires_at")
   revokedAt  DateTime? @map("revoked_at")
@@ -156,17 +159,17 @@ model PasswordHistory {
 }
 
 model BlacklistedToken {
-  id        String    @id @default(uuid())
-  userId    String?   @map("user_id")
-  jti       String    @unique
-  tokenType TokenType @map("token_type")
-  expiresAt DateTime  @map("expires_at")
-  tokenFamily String? @map("token_family") // Track token rotation family
-  previousJti String? @map("previous_jti") // Link to previous token in rotation
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  reusedAt   DateTime? @map("reused_at") // When token reuse was detected
-  createdAt DateTime  @default(now()) @map("created_at")
+  id          String    @id @default(uuid())
+  userId      String?   @map("user_id")
+  jti         String    @unique
+  tokenType   TokenType @map("token_type")
+  expiresAt   DateTime  @map("expires_at")
+  tokenFamily String?   @map("token_family") // Track token rotation family
+  previousJti String?   @map("previous_jti") // Link to previous token in rotation
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  reusedAt    DateTime? @map("reused_at") // When token reuse was detected
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -195,13 +198,13 @@ model PasswordResetToken {
 
 // Login attempt tracking for rate limiting
 model LoginAttempt {
-  id          String   @id @default(uuid())
-  email       String   // Track by email to prevent enumeration
-  ipAddress   String?  @map("ip_address")
-  userAgent   String?  @map("user_agent")
-  success     Boolean  @default(false)
-  lockedOut   Boolean  @default(false) @map("locked_out")
-  attemptTime DateTime @default(now()) @map("attempt_time")
+  id          String    @id @default(uuid())
+  email       String // Track by email to prevent enumeration
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  success     Boolean   @default(false)
+  lockedOut   Boolean   @default(false) @map("locked_out")
+  attemptTime DateTime  @default(now()) @map("attempt_time")
   unlockAt    DateTime? @map("unlock_at") // When the account will be auto-unlocked
 
   @@index([email, attemptTime])
@@ -226,33 +229,33 @@ model LoginHistory {
 
 // Property model
 model Property {
-  id              String          @id @default(uuid())
-  title           String
-  description     String?
-  address         String
-  city            String
-  state           String
-  zipCode         String          @map("zip_code")
-  country         String          @default("USA")
-  price           Decimal
-  propertyType    String          @map("property_type") // House, Apartment, Condo, Land, etc.
-  bedrooms        Int?
-  bathrooms       Decimal?
-  squareFeet      Decimal?        @map("square_feet")
-  lotSize         Decimal?        @map("lot_size")
-  yearBuilt       Int?            @map("year_built")
-  status          PropertyStatus  @default(DRAFT)
-  ownerId         String          @map("owner_id")
-  latitude        Float?
-  longitude       Float?
-  features        String[]        // Array of features (pool, garage, etc.)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id           String         @id @default(uuid())
+  title        String
+  description  String?
+  address      String
+  city         String
+  state        String
+  zipCode      String         @map("zip_code")
+  country      String         @default("USA")
+  price        Decimal
+  propertyType String         @map("property_type") // House, Apartment, Condo, Land, etc.
+  bedrooms     Int?
+  bathrooms    Decimal?
+  squareFeet   Decimal?       @map("square_feet")
+  lotSize      Decimal?       @map("lot_size")
+  yearBuilt    Int?           @map("year_built")
+  status       PropertyStatus @default(DRAFT)
+  ownerId      String         @map("owner_id")
+  latitude     Float?
+  longitude    Float?
+  features     String[] // Array of features (pool, garage, etc.)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  owner           User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  transactions    Transaction[]
-  documents       Document[]
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  documents    Document[]
 
   @@index([ownerId])
   @@index([status])
@@ -264,23 +267,23 @@ model Property {
 
 // Transaction model
 model Transaction {
-  id              String              @id @default(uuid())
-  propertyId      String              @map("property_id")
-  buyerId         String              @map("buyer_id")
-  sellerId        String              @map("seller_id")
+  id              String            @id @default(uuid())
+  propertyId      String            @map("property_id")
+  buyerId         String            @map("buyer_id")
+  sellerId        String            @map("seller_id")
   amount          Decimal
   type            TransactionType
-  status          TransactionStatus   @default(PENDING)
-  blockchainHash  String?             @map("blockchain_hash")
-  contractAddress String?             @map("contract_address")
+  status          TransactionStatus @default(PENDING)
+  blockchainHash  String?           @map("blockchain_hash")
+  contractAddress String?           @map("contract_address")
   notes           String?
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   // Relations
-  property        Property            @relation(fields: [propertyId], references: [id])
-  buyer           User                @relation("BuyerTransactions", fields: [buyerId], references: [id])
-  seller          User                @relation("SellerTransactions", fields: [sellerId], references: [id])
+  property Property @relation(fields: [propertyId], references: [id])
+  buyer    User     @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  seller   User     @relation("SellerTransactions", fields: [sellerId], references: [id])
 
   @@index([propertyId])
   @@index([buyerId])
@@ -292,21 +295,21 @@ model Transaction {
 
 // Document model
 model Document {
-  id              String        @id @default(uuid())
-  propertyId      String?       @map("property_id")
-  userId          String        @map("user_id")
-  documentType    DocumentType  @map("document_type")
-  fileName        String        @map("file_name")
-  fileUrl         String        @map("file_url")
-  fileSize        Int           @map("file_size") // in bytes
-  mimeType        String        @map("mime_type")
-  description     String?
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  id           String       @id @default(uuid())
+  propertyId   String?      @map("property_id")
+  userId       String       @map("user_id")
+  documentType DocumentType @map("document_type")
+  fileName     String       @map("file_name")
+  fileUrl      String       @map("file_url")
+  fileSize     Int          @map("file_size") // in bytes
+  mimeType     String       @map("mime_type")
+  description  String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  property        Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
   @@index([userId])
@@ -316,20 +319,20 @@ model Document {
 
 // User Preferences model
 model UserPreferences {
-  id              String        @id @default(uuid())
-  userId          String        @unique @map("user_id")
-  language        String        @default("en")
-  currency        String        @default("USD")
-  timezone        String        @default("UTC")
-  emailNotifications Boolean    @default(true) @map("email_notifications")
-  smsNotifications  Boolean     @default(false) @map("sms_notifications")
-  propertyAlerts    Boolean     @default(true) @map("property_alerts")
-  marketUpdates     Boolean     @default(true) @map("market_updates")
-  theme           String        @default("light")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  language           String   @default("en")
+  currency           String   @default("USD")
+  timezone           String   @default("UTC")
+  emailNotifications Boolean  @default(true) @map("email_notifications")
+  smsNotifications   Boolean  @default(false) @map("sms_notifications")
+  propertyAlerts     Boolean  @default(true) @map("property_alerts")
+  marketUpdates      Boolean  @default(true) @map("market_updates")
+  theme              String   @default("light")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_preferences")
@@ -337,18 +340,18 @@ model UserPreferences {
 
 // User Activity Log model
 model ActivityLog {
-  id              String            @id @default(uuid())
-  userId          String            @map("user_id")
-  action          String            // LOGIN, LOGOUT, UPDATE_PROFILE, CHANGE_PASSWORD, CHANGE_EMAIL, etc.
-  entityType      String?           @map("entity_type") // USER, PROPERTY, TRANSACTION, DOCUMENT, etc.
-  entityId        String?           @map("entity_id")
-  description     String            @db.Text
-  ipAddress       String?           @map("ip_address")
-  userAgent       String?           @map("user_agent")
-  metadata        Json?             // Additional context data
-  createdAt       DateTime          @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  action      String // LOGIN, LOGOUT, UPDATE_PROFILE, CHANGE_PASSWORD, CHANGE_EMAIL, etc.
+  entityType  String?  @map("entity_type") // USER, PROPERTY, TRANSACTION, DOCUMENT, etc.
+  entityId    String?  @map("entity_id")
+  description String   @db.Text
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  metadata    Json? // Additional context data
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([action])
@@ -359,20 +362,20 @@ model ActivityLog {
 
 // Session model for tracking user sessions
 model Session {
-  id            String    @id @default(uuid())
-  userId        String    @map("user_id")
-  accessTokenJti String  @map("access_token_jti")
-  refreshTokenJti String? @map("refresh_token_jti")
-  ipAddress     String?   @map("ip_address")
-  userAgent     String?   @map("user_agent")
-  isRevoked     Boolean   @default(false) @map("is_revoked")
-  revokedAt     DateTime? @map("revoked_at")
-  expiresAt     DateTime  @map("expires_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  accessTokenJti  String    @map("access_token_jti")
+  refreshTokenJti String?   @map("refresh_token_jti")
+  ipAddress       String?   @map("ip_address")
+  userAgent       String?   @map("user_agent")
+  isRevoked       Boolean   @default(false) @map("is_revoked")
+  revokedAt       DateTime? @map("revoked_at")
+  expiresAt       DateTime  @map("expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  lastActivityAt  DateTime  @default(now()) @map("last_activity_at")
 
   // Relations
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -382,21 +385,21 @@ model Session {
 
 // Verification Document model
 model VerificationDocument {
-  id              String            @id @default(uuid())
-  userId          String            @map("user_id")
-  documentType    String            @map("document_type") // ID_CARD, PASSPORT, DRIVER_LICENSE, PROOF_OF_ADDRESS, etc.
-  fileName        String            @map("file_name")
-  fileUrl         String            @map("file_url")
-  fileSize        Int               @map("file_size") // in bytes
-  mimeType        String            @map("mime_type")
-  status          VerificationStatus @default(PENDING)
-  adminNotes      String?           @map("admin_notes")
-  reviewedBy      String?           @map("reviewed_by")
-  reviewedAt      DateTime?         @map("reviewed_at")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id           String             @id @default(uuid())
+  userId       String             @map("user_id")
+  documentType String             @map("document_type") // ID_CARD, PASSPORT, DRIVER_LICENSE, PROOF_OF_ADDRESS, etc.
+  fileName     String             @map("file_name")
+  fileUrl      String             @map("file_url")
+  fileSize     Int                @map("file_size") // in bytes
+  mimeType     String             @map("mime_type")
+  status       VerificationStatus @default(PENDING)
+  adminNotes   String?            @map("admin_notes")
+  reviewedBy   String?            @map("reviewed_by")
+  reviewedAt   DateTime?          @map("reviewed_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])

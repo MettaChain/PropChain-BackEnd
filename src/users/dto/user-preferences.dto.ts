@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsObject } from 'class-validator';
 
 export class CreateUserPreferencesDto {
   @IsOptional()
@@ -23,11 +23,19 @@ export class CreateUserPreferencesDto {
 
   @IsOptional()
   @IsBoolean()
+  pushNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   propertyAlerts?: boolean;
 
   @IsOptional()
   @IsBoolean()
   marketUpdates?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  perEventSettings?: any;
 
   @IsOptional()
   @IsString()
@@ -57,11 +65,19 @@ export class UpdateUserPreferencesDto {
 
   @IsOptional()
   @IsBoolean()
+  pushNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   propertyAlerts?: boolean;
 
   @IsOptional()
   @IsBoolean()
   marketUpdates?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  perEventSettings?: any;
 
   @IsOptional()
   @IsString()

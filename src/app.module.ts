@@ -7,6 +7,9 @@ import { SessionsModule } from './sessions/sessions.module';
 import { TrustScoreModule } from './trust-score/trust-score.module';
 import { PropertiesModule } from './properties/properties.module';
 import { PrismaModule } from './database/prisma.module';
+import { VersioningModule } from './versioning/versioning.module';
+import { ApiDocumentationModule } from './config/api-documentation.module';
+import { CacheModuleConfig } from './cache/cache.module';
 import { AppController } from './app.controller';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
@@ -17,7 +20,10 @@ import { MonitoringModule } from './monitoring/monitoring.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
+    CacheModuleConfig,
     PrismaModule,
+    VersioningModule,
+    ApiDocumentationModule,
     UsersModule,
     AuthModule,
     DashboardModule,

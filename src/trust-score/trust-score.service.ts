@@ -58,7 +58,7 @@ export class TrustScoreService {
       data: {
         trustScore: totalScore,
         lastTrustScoreUpdate: new Date(),
-      },
+      } as any,
     });
 
     const nextUpdateTime = new Date();

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
@@ -10,12 +10,16 @@ import {
   RegisterDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
+  UpdateApiKeyPermissionsDto,
   VerifyTwoFactorDto,
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { Roles } from './decorators/roles.decorator';
 import { AuthUserPayload } from './types/auth-user.type';
+import { UserRole } from '../types/prisma.types';
 import { Request } from 'express';
 
 @Controller('auth')
@@ -131,6 +135,22 @@ export class AuthController {
     return this.authService.revokeApiKey(user, id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch('api-keys/:id/permissions')
+  updateApiKeyPermissions(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id') id: string,
+    @Body() updateApiKeyPermissionsDto: UpdateApiKeyPermissionsDto,
+  ) {
+    return this.authService.updateApiKeyPermissions(user, id, updateApiKeyPermissionsDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('api-keys/:id/usage')
+  getApiKeyUsage(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
+    return this.authService.getApiKeyUsage(user, id);
+  }
+
   @Post('password-reset/request')
   requestPasswordReset(@Body() requestPasswordResetDto: RequestPasswordResetDto) {
     return this.authService.requestPasswordReset(requestPasswordResetDto);
@@ -141,6 +161,8 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post('unlock-account')
   unlockAccount(@Body() data: { email: string }) {
     return this.authService.unlockAccount(data.email);

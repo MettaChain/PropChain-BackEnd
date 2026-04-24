@@ -1,4 +1,4 @@
-import { UserRole } from '../../types/prisma.types';
+import { UserRole } from '@prisma/client';
 
 export type AuthUserPayload = {
   sub: string;
@@ -7,4 +7,5 @@ export type AuthUserPayload = {
   type: 'access' | 'refresh' | 'api-key';
   jti?: string;
   apiKeyId?: string;
+  apiKeyPermissions?: string[];
 };
