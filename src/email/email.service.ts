@@ -142,3 +142,14 @@ Summary: ${payload.description}
     // });
   }
 }
+
+async sendEmail(userId: string, subject: string, body: string) {
+  const unsubscribeLink = `${process.env.APP_URL}/unsubscribe?userId=${userId}`;
+  const footer = `\n\nIf you no longer wish to receive these emails, click here to unsubscribe: ${unsubscribeLink}`;
+  
+  await this.mailer.sendMail({
+    to: userId,
+    subject,
+    text: body + footer,
+  });
+}

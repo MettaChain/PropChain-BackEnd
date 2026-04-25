@@ -56,10 +56,8 @@ export class SearchService {
     const queryId = await this.analyticsService.recordSearch(userId, searchQuery);
 
     try {
-      // Build base query
       let whereClause: any = {};
 
-      // Apply text search
       if (searchQuery.query) {
         whereClause.OR = [
           { title: { contains: searchQuery.query, mode: 'insensitive' } },
@@ -70,7 +68,6 @@ export class SearchService {
         ];
       }
 
-      // Apply geographic filters
       if (searchQuery.geographic) {
         whereClause = await this.geographicService.applyGeographicFilter(
           whereClause,
@@ -78,7 +75,6 @@ export class SearchService {
         );
       }
 
-      // Apply advanced filters
       if (searchQuery.filters) {
         whereClause = await this.filtersService.applyFilters(
           whereClause,
@@ -86,15 +82,18 @@ export class SearchService {
         );
       }
 
-      // Execute query with sorting and pagination
       const { page = 1, limit = 20 } = searchQuery.pagination || {};
       const { field = 'createdAt', order = 'desc' } = searchQuery.sort || {};
 
-      // Mock data for now - this would typically query the database
-      const items: any[] = [];
-      const total = 0;
+      const items: any[] = await this.prisma.property.findMany({
+        where: whereClause,
+        orderBy: { [field]: order },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
 
-      // Generate facets
+      const total = await this.prisma.property.count({ where: whereClause });
+
       const facets = await this.facetsService.buildFacets(items, [
         'propertyType',
         'status',
@@ -104,17 +103,15 @@ export class SearchService {
         'bathrooms',
       ]);
 
-      // Get suggestions
       const suggestions = await this.autocompleteService.getSuggestions(
         searchQuery.query || '',
       );
 
-      // Record search history
       if (searchQuery.query) {
         this.historyService.record(userId, searchQuery.query);
       }
 
-      const result: SearchResult<any> = {
+      return {
         items,
         total,
         facets,
@@ -124,12 +121,32 @@ export class SearchService {
           took: Date.now() - startTime,
         },
       };
-
-      return result;
     } catch (error) {
       await this.analyticsService.recordSearchError(queryId, error);
       throw error;
     }
+  }
+
+  // PostgreSQL full-text search for projects
+  async searchProjects(query: string, filters?: any) {
+    return this.prisma.$queryRaw`
+      SELECT id, title, description,
+             ts_rank_cd(to_tsvector('english', title || ' ' || description), plainto_tsquery(${query})) AS rank
+      FROM "Project"
+      WHERE to_tsvector('english', title || ' ' || description) @@ plainto_tsquery(${query})
+      ORDER BY rank DESC
+      LIMIT 20;
+    `;
+  }
+
+  async suggestTerms(query: string) {
+    return this.prisma.$queryRaw`
+      SELECT word
+      FROM ts_stat('SELECT to_tsvector(''english'', title || '' '' || description) FROM "Project"')
+      WHERE word LIKE ${query || ''} || '%'
+      ORDER BY nentry DESC
+      LIMIT 5;
+    `;
   }
 
   async getSuggestions(query: string): Promise<string[]> {
@@ -151,5 +168,4 @@ export class SearchService {
   async getPopularSearches(): Promise<string[]> {
     return this.analyticsService.getPopularSearches();
   }
-
 }

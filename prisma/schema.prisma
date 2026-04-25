@@ -602,3 +602,10 @@ model SearchSuggestion {
   @@index([expiresAt])
   @@map("search_suggestions")
 }
+
+model Project {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  @@index([title, description], type: FullText)
+}

@@ -24,12 +24,28 @@ export class SearchController {
     return this.searchService.searchProperties(req.user.id, searchQuery);
   }
 
+  @Get('projects')
+  @ApiOperation({ summary: 'Full-text search for projects' })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query' })
+  @ApiResponse({ status: 200, description: 'Project search results returned successfully' })
+  async searchProjects(@Query('q') query: string, @Query() filters: any) {
+    return this.searchService.searchProjects(query, filters);
+  }
+
   @Get('suggestions')
   @ApiOperation({ summary: 'Get search autocomplete suggestions' })
   @ApiQuery({ name: 'q', required: false, description: 'Search query' })
   @ApiResponse({ status: 200, description: 'Suggestions returned successfully' })
   async getSuggestions(@Query('q') query?: string) {
     return this.searchService.getSuggestions(query || '');
+  }
+
+  @Get('terms')
+  @ApiOperation({ summary: 'Get full-text search term suggestions' })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query prefix' })
+  @ApiResponse({ status: 200, description: 'Search term suggestions returned successfully' })
+  async suggestTerms(@Query('q') query: string) {
+    return this.searchService.suggestTerms(query);
   }
 
   @Get('filters/saved')
