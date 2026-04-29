@@ -39,9 +39,7 @@ export class RateLimitAdminController {
       },
     },
   })
-  async getUserRateLimitStatus(
-    @Param('userId') userId: string,
-  ): Promise<any> {
+  async getUserRateLimitStatus(@Param('userId') userId: string): Promise<any> {
     return this.rateLimitService.getUserRateLimitStats(userId);
   }
 
@@ -55,9 +53,7 @@ export class RateLimitAdminController {
     status: 200,
     description: 'Endpoint rate limit status retrieved successfully',
   })
-  async getEndpointRateLimitStatus(
-    @Param('endpoint') endpoint: string,
-  ): Promise<RateLimitStatus> {
+  async getEndpointRateLimitStatus(@Param('endpoint') endpoint: string): Promise<RateLimitStatus> {
     return this.rateLimitService.checkEndpointRateLimit(endpoint);
   }
 
@@ -100,9 +96,7 @@ export class RateLimitAdminController {
     status: 204,
     description: 'Endpoint rate limit reset successfully',
   })
-  async resetEndpointRateLimit(
-    @Param('endpoint') endpoint: string,
-  ): Promise<void> {
+  async resetEndpointRateLimit(@Param('endpoint') endpoint: string): Promise<void> {
     return this.rateLimitService.resetEndpointRateLimit(endpoint);
   }
 
@@ -124,8 +118,7 @@ export class RateLimitAdminController {
   @SkipRateLimit()
   @ApiOperation({
     summary: 'Get rate limiting summary',
-    description:
-      'Retrieve information about all configured rate limits and their current status',
+    description: 'Retrieve information about all configured rate limits and their current status',
   })
   @ApiResponse({
     status: 200,

@@ -8,10 +8,6 @@ import { RateLimitHeadersInterceptor } from '../interceptors/rate-limit-headers.
 @Module({
   providers: [RateLimitService, RateLimitGuard, RateLimitHeadersInterceptor],
   controllers: [RateLimitAdminController],
-  exports: [
-    RateLimitService,
-    RateLimitGuard,
-    RateLimitHeadersInterceptor,
-  ],
+  exports: [RateLimitService, RateLimitGuard, RateLimitHeadersInterceptor],
 })
 export class RateLimitModule {}

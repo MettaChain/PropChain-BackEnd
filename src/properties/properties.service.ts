@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
 import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
+import { FraudService } from '../fraud/fraud.service';
 
 interface FindAllParams {
   skip?: number;
@@ -12,12 +13,15 @@ interface FindAllParams {
 
 @Injectable()
 export class PropertiesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fraudService: FraudService,
+  ) {}
 
   async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
     const { price, squareFeet, lotSize, ...rest } = createPropertyDto;
 
-    return this.prisma.property.create({
+    const property = await this.prisma.property.create({
       data: {
         ...rest,
         price: new Decimal(price.toString()),
@@ -28,6 +32,10 @@ export class PropertiesService {
         },
       },
     });
+
+    await this.fraudService.evaluatePropertyCreated(property.id);
+
+    return property;
   }
 
   async findAll(params?: FindAllParams) {

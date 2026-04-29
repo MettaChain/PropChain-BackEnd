@@ -1,17 +1,11 @@
 /**
  * Rate Limiting Usage Examples
- * 
+ *
  * This file demonstrates how to use the rate limiting features
  * in the PropChain API
  */
 
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
@@ -156,29 +150,29 @@ export class RateLimitExamplesController {
 
 /**
  * RATE LIMIT HEADERS IN RESPONSES
- * 
+ *
  * All rate-limited endpoints include these headers:
- * 
+ *
  * X-RateLimit-Limit: 100          // Max requests allowed in window
  * X-RateLimit-Remaining: 99       // Requests remaining in window
  * X-RateLimit-Reset: 1703088000   // Unix timestamp when limit resets
- * 
+ *
  * On rate limit exceeded (429 response):
  * Retry-After: 45                 // Seconds to wait before retrying
  */
 
 /**
  * RATE LIMIT STATUSES
- * 
+ *
  * 1. User-based rate limiting (authenticated requests)
  *    - Free tier: 100 req/hour, 10k req/month
  *    - Premium tier: 5000 req/hour, 500k req/month
  *    - Enterprise tier: 50k req/hour, unlimited/month
  *    - API Key: 10k req/hour, 1M req/month
- * 
+ *
  * 2. IP-based rate limiting (unauthenticated requests)
  *    - 1000 requests per 15 minutes per IP
- * 
+ *
  * 3. Endpoint-specific rate limiting
  *    - Authentication: 5 req/15 min
  *    - User creation: 10 req/hour
@@ -188,7 +182,7 @@ export class RateLimitExamplesController {
 
 /**
  * ERROR RESPONSE (429 Too Many Requests)
- * 
+ *
  * {
  *   "statusCode": 429,
  *   "message": "Rate limit exceeded. Max 100 requests per 15 minutes.",
@@ -200,7 +194,7 @@ export class RateLimitExamplesController {
 
 /**
  * ADMIN ENDPOINTS FOR RATE LIMIT MANAGEMENT
- * 
+ *
  * GET /admin/rate-limits/user/:userId        - Get user rate limit status
  * GET /admin/rate-limits/endpoint/:endpoint   - Get endpoint rate limit status
  * GET /admin/rate-limits/summary              - Get all rate limits summary

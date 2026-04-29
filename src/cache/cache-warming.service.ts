@@ -58,11 +58,7 @@ export class CacheWarmingService implements OnModuleInit {
    */
   async warmUserCache(userId: string, userData: any): Promise<void> {
     try {
-      await this.cacheService.set(
-        CACHE_KEYS.USER_BY_ID(userId),
-        userData,
-        CACHE_TTL.USER_PROFILE,
-      );
+      await this.cacheService.set(CACHE_KEYS.USER_BY_ID(userId), userData, CACHE_TTL.USER_PROFILE);
       this.logger.debug(`User cache warmed for ${userId}`);
     } catch (error) {
       this.logger.error(`Error warming user cache for ${userId}:`, error);
@@ -72,10 +68,7 @@ export class CacheWarmingService implements OnModuleInit {
   /**
    * Warm dashboard cache
    */
-  async warmDashboardCache(
-    userId: string,
-    dashboardData: any,
-  ): Promise<void> {
+  async warmDashboardCache(userId: string, dashboardData: any): Promise<void> {
     try {
       await this.cacheService.set(
         CACHE_KEYS.DASHBOARD_STATS(userId),
@@ -107,9 +100,7 @@ export class CacheWarmingService implements OnModuleInit {
   /**
    * Warm featured properties cache
    */
-  async warmFeaturedPropertiesCache(
-    propertiesData: any,
-  ): Promise<void> {
+  async warmFeaturedPropertiesCache(propertiesData: any): Promise<void> {
     try {
       await this.cacheService.set(
         CACHE_KEYS.PROPERTIES_FEATURED,

@@ -15,10 +15,12 @@ import {
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { AuthUserPayload } from './types/auth-user.type';
+import { GoogleProfile } from './strategies/google.strategy';
 import { UserRole } from '../types/prisma.types';
 import { Request } from 'express';
 
@@ -29,6 +31,18 @@ export class AuthController {
   @Post('register')
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
+  }
+
+  @UseGuards(GoogleAuthGuard)
+  @Get('google')
+  googleLogin() {
+    // Initiates Google OAuth2 redirect — handled by passport
+  }
+
+  @UseGuards(GoogleAuthGuard)
+  @Get('google/callback')
+  googleCallback(@Req() req: { user: GoogleProfile }) {
+    return this.authService.googleOAuthLogin(req.user);
   }
 
   @Post('login')

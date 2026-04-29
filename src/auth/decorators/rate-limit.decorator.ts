@@ -11,10 +11,7 @@ export function RateLimited(options?: {
   by?: 'user' | 'ip' | 'apiKey';
 }) {
   if (options) {
-    return applyDecorators(
-      UseGuards(RateLimitGuard),
-      CustomRateLimit(options),
-    );
+    return applyDecorators(UseGuards(RateLimitGuard), CustomRateLimit(options));
   }
   return UseGuards(RateLimitGuard);
 }

@@ -58,6 +58,66 @@ export enum UserRole {
   AGENT = 'AGENT',
 }
 
+export enum PropertyStatus {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  UNDER_CONTRACT = 'UNDER_CONTRACT',
+  SOLD = 'SOLD',
+  RENTED = 'RENTED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum TransactionType {
+  SALE = 'SALE',
+  PURCHASE = 'PURCHASE',
+  TRANSFER = 'TRANSFER',
+}
+
+export enum TransactionStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum FraudSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum FraudStatus {
+  OPEN = 'OPEN',
+  INVESTIGATING = 'INVESTIGATING',
+  RESOLVED = 'RESOLVED',
+  DISMISSED = 'DISMISSED',
+}
+
+export enum FraudPattern {
+  EXCESSIVE_FAILED_LOGINS = 'EXCESSIVE_FAILED_LOGINS',
+  SHARED_IP_MULTIPLE_ACCOUNTS = 'SHARED_IP_MULTIPLE_ACCOUNTS',
+  MULTIPLE_IPS_FOR_ACCOUNT = 'MULTIPLE_IPS_FOR_ACCOUNT',
+  NEW_DEVICE_LOGIN = 'NEW_DEVICE_LOGIN',
+  TOKEN_REUSE = 'TOKEN_REUSE',
+  RAPID_PROPERTY_LISTINGS = 'RAPID_PROPERTY_LISTINGS',
+  DUPLICATE_PROPERTY_ADDRESS = 'DUPLICATE_PROPERTY_ADDRESS',
+  HIGH_VALUE_NEW_ACCOUNT_LISTING = 'HIGH_VALUE_NEW_ACCOUNT_LISTING',
+}
+
+export enum DisputeStatus {
+  OPEN = 'OPEN',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  RESOLVED = 'RESOLVED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum MilestoneStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  DELAYED = 'DELAYED',
+}
+
 export namespace Prisma {
   export interface PropertyWhereInput extends Record<string, any> {}
   export interface PropertyOrderByWithRelationInput extends Record<string, any> {}

@@ -16,8 +16,7 @@ export const RATE_LIMIT_CUSTOM_KEY = 'rate-limit-custom';
 /**
  * Decorator to skip rate limiting for a route
  */
-export const SkipRateLimit = () =>
-  Reflect.metadata(RATE_LIMIT_SKIP_KEY, true);
+export const SkipRateLimit = () => Reflect.metadata(RATE_LIMIT_SKIP_KEY, true);
 
 /**
  * Decorator to apply custom rate limiting
@@ -37,10 +36,10 @@ export class RateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if rate limiting is skipped for this route
-    const skip = this.reflector.getAllAndOverride<boolean>(
-      RATE_LIMIT_SKIP_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const skip = this.reflector.getAllAndOverride<boolean>(RATE_LIMIT_SKIP_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (skip) {
       return true;
@@ -60,11 +59,9 @@ export class RateLimitGuard implements CanActivate {
         );
 
         // Apply rate limit headers
-        Object.entries(this.rateLimitService.getHeaders(userStatus)).forEach(
-          ([key, value]) => {
-            response.setHeader(key, value);
-          },
-        );
+        Object.entries(this.rateLimitService.getHeaders(userStatus)).forEach(([key, value]) => {
+          response.setHeader(key, value);
+        });
 
         if (userStatus.isExceeded) {
           throw new HttpException(
@@ -85,11 +82,9 @@ export class RateLimitGuard implements CanActivate {
         const ipStatus = await this.rateLimitService.checkIpRateLimit(ip);
 
         // Apply rate limit headers
-        Object.entries(this.rateLimitService.getHeaders(ipStatus)).forEach(
-          ([key, value]) => {
-            response.setHeader(key, value);
-          },
-        );
+        Object.entries(this.rateLimitService.getHeaders(ipStatus)).forEach(([key, value]) => {
+          response.setHeader(key, value);
+        });
 
         if (ipStatus.isExceeded) {
           throw new HttpException(
@@ -107,16 +102,12 @@ export class RateLimitGuard implements CanActivate {
       }
 
       // Check endpoint-specific limits
-      const endpointStatus = await this.rateLimitService.checkEndpointRateLimit(
-        endpoint,
-      );
+      const endpointStatus = await this.rateLimitService.checkEndpointRateLimit(endpoint);
 
       if (endpointStatus.limit > 0) {
-        Object.entries(this.rateLimitService.getHeaders(endpointStatus)).forEach(
-          ([key, value]) => {
-            response.setHeader(key, value);
-          },
-        );
+        Object.entries(this.rateLimitService.getHeaders(endpointStatus)).forEach(([key, value]) => {
+          response.setHeader(key, value);
+        });
 
         if (endpointStatus.isExceeded) {
           throw new HttpException(

@@ -45,7 +45,6 @@ enum TransactionStatus {
   PENDING
   COMPLETED
   CANCELLED
-  FAILED
 }
 
 // Document types
@@ -66,11 +65,92 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum FraudSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FraudStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum FraudPattern {
+  EXCESSIVE_FAILED_LOGINS
+  SHARED_IP_MULTIPLE_ACCOUNTS
+  MULTIPLE_IPS_FOR_ACCOUNT
+  NEW_DEVICE_LOGIN
+  TOKEN_REUSE
+  RAPID_PROPERTY_LISTINGS
+  DUPLICATE_PROPERTY_ADDRESS
+  HIGH_VALUE_NEW_ACCOUNT_LISTING
+}
+
+enum BackupStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum BackupTrigger {
+  MANUAL
+  SCHEDULED
+}
+
+enum RestoreStatus {
+  IDLE
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationStatus {
+  PENDING
+  DELIVERED
+  READ
+}
+
+enum EmailStatus {
+  ACTIVE
+  BOUNCED
+  INVALID
+}
+
+enum BounceType {
+  HARD
+  SOFT
+}
+
+enum DigestFrequency {
+  DAILY
+  WEEKLY
+}
+
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CANCELLED
+}
+
+enum MilestoneStatus {
+  PENDING
+  COMPLETED
+  DELAYED
+}
+
 // User model
 model User {
   id                       String    @id @default(uuid())
   email                    String    @unique
-  password                 String
+  password                 String?
+  googleId                 String?   @unique @map("google_id")
   firstName                String    @map("first_name")
   lastName                 String    @map("last_name")
   phone                    String?
@@ -116,6 +196,41 @@ model User {
   loginHistory  LoginHistory[]
   referrals     User[] @relation("Referrals")
   referredBy    User?  @relation("Referrals", fields: [referredById], references: [id])
+  properties              Property[]
+  buyerTransactions       Transaction[]            @relation("BuyerTransactions")
+  sellerTransactions      Transaction[]            @relation("SellerTransactions")
+  documents               Document[]
+  apiKeys                 ApiKey[]
+  passwordHistory         PasswordHistory[]
+  blacklistedTokens       BlacklistedToken[]
+  preferences             UserPreferences?
+  activityLogs            ActivityLog[]
+  verificationDocuments   VerificationDocument[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  loginHistory            LoginHistory[]
+  fraudAlerts             FraudAlert[]             @relation("FraudAlertSubjectUser")
+  assignedFraudAlerts     FraudAlert[]             @relation("FraudAlertAssignedTo")
+  resolvedFraudAlerts     FraudAlert[]             @relation("FraudAlertResolvedBy")
+  fraudInvestigationNotes FraudInvestigationNote[]
+  referrals               User[]                   @relation("Referrals")
+  referredBy              User?                    @relation("Referrals", fields: [referredById], references: [id])
+  savedFilters            SavedFilter[]
+  searchAnalytics         SearchAnalytics[]
+  searchHistory           SearchHistory[]
+  initiatedBackups        DatabaseBackup[]         @relation("BackupInitiatedBy")
+  restoredBackups         DatabaseBackup[]         @relation("BackupRestoredBy")
+  emailStatus             EmailStatus              @default(ACTIVE) @map("email_status")
+  fcmToken                String?                  @map("fcm_token")
+  notifications           Notification[]
+  disputeInitiated        Dispute[]             @relation("DisputeInitiator")
+  disputeArbitrated       Dispute[]             @relation("DisputeArbitrator")
+  linkClicks              LinkClick[]
+  emailEngagements        EmailEngagement[]
+  emailBounces            EmailBounce[]
+  digestPreference        DigestPreference?
+  createdTaxStrategies    TransactionTaxStrategy[] @relation("CreatedTransactionTaxStrategies")
+
 
   @@index([email])
   @@index([role])
@@ -125,19 +240,59 @@ model User {
   @@map("users")
 }
 
+model DatabaseBackup {
+  id                 String        @id @default(uuid())
+  filename           String        @unique
+  filePath           String        @map("file_path")
+  status             BackupStatus  @default(PENDING)
+  trigger            BackupTrigger
+  sizeBytes          BigInt?       @map("size_bytes")
+  checksum           String?
+  startedAt          DateTime      @default(now()) @map("started_at")
+  completedAt        DateTime?     @map("completed_at")
+  errorMessage       String?       @map("error_message") @db.Text
+  initiatedById      String?       @map("initiated_by_id")
+  restoreStatus      RestoreStatus @default(IDLE) @map("restore_status")
+  restoredAt         DateTime?     @map("restored_at")
+  restoreError       String?       @map("restore_error") @db.Text
+  restoredById       String?       @map("restored_by_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  initiatedBy User? @relation("BackupInitiatedBy", fields: [initiatedById], references: [id], onDelete: SetNull)
+  restoredBy  User? @relation("BackupRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
+
+  @@index([status, startedAt])
+  @@index([restoreStatus, restoredAt])
+  @@index([trigger, createdAt])
+  @@map("database_backups")
+}
+
+model BackupScheduleConfig {
+  id             String   @id
+  enabled        Boolean  @default(false)
+  cronExpression String   @map("cron_expression")
+  retentionCount Int      @default(10) @map("retention_count")
+  lastRunAt      DateTime? @map("last_run_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("backup_schedule_configs")
+}
+
 model ApiKey {
-  id         String    @id @default(uuid())
-  userId     String    @map("user_id")
-  name       String
-  keyPrefix  String    @map("key_prefix")
-  keyHash    String    @unique @map("key_hash")
-  permissions String[] @default([])
-  usageCount Int       @default(0) @map("usage_count")
-  lastUsedAt DateTime? @map("last_used_at")
-  expiresAt  DateTime? @map("expires_at")
-  revokedAt  DateTime? @map("revoked_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  name        String
+  keyPrefix   String    @map("key_prefix")
+  keyHash     String    @unique @map("key_hash")
+  permissions String[]  @default([])
+  usageCount  Int       @default(0) @map("usage_count")
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -256,6 +411,7 @@ model Property {
   owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   documents    Document[]
+  fraudAlerts  FraudAlert[]
 
   @@index([ownerId])
   @@index([status])
@@ -281,9 +437,11 @@ model Transaction {
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
   // Relations
-  property Property @relation(fields: [propertyId], references: [id])
-  buyer    User     @relation("BuyerTransactions", fields: [buyerId], references: [id])
-  seller   User     @relation("SellerTransactions", fields: [sellerId], references: [id])
+  property      Property                 @relation(fields: [propertyId], references: [id])
+  buyer         User                     @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  seller        User                     @relation("SellerTransactions", fields: [sellerId], references: [id])
+  fraudAlerts   FraudAlert[]
+  taxStrategies TransactionTaxStrategy[]
 
   @@index([propertyId])
   @@index([buyerId])
@@ -293,27 +451,68 @@ model Transaction {
   @@map("transactions")
 }
 
+model TransactionTaxStrategy {
+  id                 String    @id @default(uuid())
+  transactionId      String    @map("transaction_id")
+  createdById        String?   @map("created_by_id")
+  strategyType       String    @map("strategy_type")
+  jurisdiction       String?
+  estimatedTaxRate   Decimal?  @map("estimated_tax_rate")
+  estimatedTaxImpact Decimal?  @map("estimated_tax_impact")
+  explanation        String    @db.Text
+  metadata           Json?
+  version            Int       @default(1)
+  informationalOnly  Boolean   @default(true) @map("informational_only")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  createdBy   User?       @relation("CreatedTransactionTaxStrategies", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([transactionId, updatedAt])
+  @@index([createdById])
+  @@index([strategyType])
+  @@map("transaction_tax_strategies")
+}
+
 // Document model
 model Document {
-  id           String       @id @default(uuid())
-  propertyId   String?      @map("property_id")
-  userId       String       @map("user_id")
-  documentType DocumentType @map("document_type")
-  fileName     String       @map("file_name")
-  fileUrl      String       @map("file_url")
-  fileSize     Int          @map("file_size") // in bytes
-  mimeType     String       @map("mime_type")
-  description  String?
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  id             String       @id @default(uuid())
+  propertyId     String?      @map("property_id")
+  userId         String       @map("user_id")
+  documentType   DocumentType @map("document_type")
+  fileName       String       @map("file_name")
+  fileUrl        String       @map("file_url")
+  fileSize       Int          @map("file_size") // in bytes
+  mimeType       String       @map("mime_type")
+  description    String?
+  // Categorization (#401)
+  category       String?
+  tags           String[]     @default([])
+  // Expiration (#402)
+  expiresAt      DateTime?    @map("expires_at")
+  isExpired      Boolean      @default(false) @map("is_expired")
+  expiryNotified Boolean      @default(false) @map("expiry_notified")
+  // eSignature (#403)
+  signedBy       String?      @map("signed_by")
+  signedAt       DateTime?    @map("signed_at")
+  signatureHash  String?      @map("signature_hash")
+  auditTrail     Json         @default("[]") @map("audit_trail")
+  disputeId      String?      @map("dispute_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   // Relations
   property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dispute  Dispute?  @relation(fields: [disputeId], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
   @@index([userId])
   @@index([documentType])
+  @@index([category])
+  @@index([isExpired])
+  @@index([expiresAt])
   @@map("documents")
 }
 
@@ -324,11 +523,20 @@ model UserPreferences {
   language           String   @default("en")
   currency           String   @default("USD")
   timezone           String   @default("UTC")
-  emailNotifications Boolean  @default(true) @map("email_notifications")
-  smsNotifications   Boolean  @default(false) @map("sms_notifications")
-  propertyAlerts     Boolean  @default(true) @map("property_alerts")
+  emailNotifications  Boolean  @default(true) @map("email_notifications")
+  smsNotifications    Boolean  @default(false) @map("sms_notifications")
+  inAppNotifications  Boolean  @default(true) @map("in_app_notifications")
+  pushNotifications   Boolean  @default(false) @map("push_notifications")
+  propertyAlerts      Boolean  @default(true) @map("property_alerts")
   marketUpdates      Boolean  @default(true) @map("market_updates")
   theme              String   @default("light")
+  // Notification preferences (#370)
+  notificationFrequency  String   @default("INSTANT") @map("notification_frequency") // INSTANT | HOURLY | DAILY | WEEKLY
+  notificationEventTypes String[] @default([]) @map("notification_event_types")       // e.g. ["TRANSACTION_UPDATE","PROPERTY_ALERT","MARKET_UPDATE","DISPUTE","SYSTEM"]
+  quietHoursEnabled      Boolean  @default(false) @map("quiet_hours_enabled")
+  quietHoursStart        String?  @map("quiet_hours_start")  // "HH:MM" in user timezone
+  quietHoursEnd          String?  @map("quiet_hours_end")    // "HH:MM" in user timezone
+  perEventSettings       Json?    @map("per_event_settings") // fine-grained per-event channel overrides
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -356,6 +564,7 @@ model ActivityLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@index([scheduledAt])
   @@index([entityType, entityId])
   @@map("activity_logs")
 }
@@ -375,12 +584,69 @@ model Session {
   lastActivityAt  DateTime  @default(now()) @map("last_activity_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fraudAlerts FraudAlert[]
 
   @@index([userId])
   @@index([expiresAt])
   @@index([isRevoked])
   @@map("sessions")
+}
+
+model FraudAlert {
+  id              String        @id @default(uuid())
+  userId          String?       @map("user_id")
+  propertyId      String?       @map("property_id")
+  transactionId   String?       @map("transaction_id")
+  sessionId       String?       @map("session_id")
+  pattern         FraudPattern
+  severity        FraudSeverity
+  status          FraudStatus   @default(OPEN)
+  score           Int           @default(0)
+  title           String
+  description     String        @db.Text
+  evidence        Json?
+  autoBlocked     Boolean       @default(false) @map("auto_blocked")
+  firstDetectedAt DateTime      @default(now()) @map("first_detected_at")
+  lastDetectedAt  DateTime      @default(now()) @map("last_detected_at")
+  occurrenceCount Int           @default(1) @map("occurrence_count")
+  assignedToId    String?       @map("assigned_to_id")
+  resolvedById    String?       @map("resolved_by_id")
+  resolvedAt      DateTime?     @map("resolved_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  user        User?                    @relation("FraudAlertSubjectUser", fields: [userId], references: [id], onDelete: SetNull)
+  property    Property?                @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  transaction Transaction?             @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  session     Session?                 @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  assignedTo  User?                    @relation("FraudAlertAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  resolvedBy  User?                    @relation("FraudAlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  notes       FraudInvestigationNote[]
+
+  @@index([status, severity])
+  @@index([userId, status])
+  @@index([propertyId, status])
+  @@index([pattern, status])
+  @@index([lastDetectedAt])
+  @@map("fraud_alerts")
+}
+
+model FraudInvestigationNote {
+  id        String   @id @default(uuid())
+  alertId   String   @map("alert_id")
+  actorId   String?  @map("actor_id")
+  action    String?
+  note      String   @db.Text
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  alert FraudAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  actor User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([alertId, createdAt])
+  @@index([actorId])
+  @@map("fraud_investigation_notes")
 }
 
 // Verification Document model
@@ -488,4 +754,236 @@ model WebhookDelivery {
   @@index([status])
   @@index([nextRetryAt])
   @@map("webhook_deliveries")
+}
+
+// Saved search filters
+model SavedFilter {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  name         String
+  filters      Json     // Store filter configuration as JSON
+  isQuickFilter Boolean @default(false) @map("is_quick_filter")
+  usageCount   Int      @default(0) @map("usage_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isQuickFilter])
+  @@map("saved_filters")
+}
+
+// Search analytics
+model SearchAnalytics {
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id")
+  queryId     String   @unique @map("query_id")
+  query       String?
+  filters     Json?    // Store applied filters as JSON
+  resultsCount Int     @default(0) @map("results_count")
+  took        Int      @default(0) // Search time in milliseconds
+  hasResults  Boolean  @default(true) @map("has_results")
+  converted   Boolean  @default(false) @map("converted")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([queryId])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@index([hasResults])
+  @@index([converted])
+  @@map("search_analytics")
+}
+
+// Search history for autocomplete
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  query     String
+  frequency Int      @default(1) // How many times this query has been searched
+  lastSearched DateTime @default(now()) @map("last_searched")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, query])
+  @@index([userId])
+  @@index([frequency])
+  @@index([lastSearched])
+  @@map("search_history")
+}
+
+// Popular searches (global)
+model PopularSearch {
+  id        String   @id @default(uuid())
+  query     String   @unique
+  frequency Int      @default(1)
+  trend     String   @default("stable") // up, down, stable
+  lastUpdated DateTime @default(now()) @map("last_updated")
+
+  @@index([frequency])
+  @@index([trend])
+  @@map("popular_searches")
+}
+
+// Search suggestions cache
+model SearchSuggestion {
+  id        String   @id @default(uuid())
+  query     String
+  suggestion String
+  type      String   // property, location, feature, recent, popular
+  score     Float    @default(0) // Relevance score
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([query])
+  @@index([type])
+  @@index([score])
+  @@index([expiresAt])
+  @@map("search_suggestions")
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String             @map("user_id")
+  title     String
+  message   String
+  type      String
+  status    NotificationStatus @default(PENDING)
+  metadata  Json?
+  createdAt DateTime           @default(now()) @map("created_at")
+  readAt    DateTime?          @map("read_at")
+  scheduledAt DateTime?          @map("scheduled_at")
+  isRecurring Boolean            @default(false) @map("is_recurring")
+  cron        String?            @map("cron")
+  timezone    String             @default("UTC")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@map("notifications")
+}
+
+model Dispute {
+  id                String        @id @default(uuid())
+  transactionId     String        @map("transaction_id")
+  initiatorId       String        @map("initiator_id")
+  arbitratorId      String?       @map("arbitrator_id")
+  status            DisputeStatus @default(OPEN)
+  reason            String
+  description       String?       @db.Text
+  resolutionDetails String?       @map("resolution_details") @db.Text
+  resolvedAt        DateTime?     @map("resolved_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  initiator   User        @relation("DisputeInitiator", fields: [initiatorId], references: [id])
+  arbitrator  User?       @relation("DisputeArbitrator", fields: [arbitratorId], references: [id])
+  evidence    Document[]
+
+  @@index([transactionId])
+  @@index([initiatorId])
+  @@index([status])
+  @@map("disputes")
+}
+
+model TransactionMilestone {
+  id            String          @id @default(uuid())
+  transactionId String          @map("transaction_id")
+  title         String
+  description   String?         @db.Text
+  status        MilestoneStatus @default(PENDING)
+  expectedDate  DateTime        @map("expected_date")
+  actualDate    DateTime?       @map("actual_date")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([status])
+  @@map("transaction_milestones")
+}
+
+model LinkClick {
+  id        String   @id @default(uuid())
+  url       String
+  userId    String?  @map("user_id")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([url])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@map("link_clicks")
+}
+
+model EmailEngagement {
+  id          String    @id @default(uuid())
+  trackingId  String    @unique @map("tracking_id")
+  userId      String    @map("user_id")
+  emailType   String    @map("email_type")
+  openedAt    DateTime? @map("opened_at")
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([trackingId])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@map("email_engagements")
+}
+
+model EmailBounce {
+  id          String     @id @default(uuid())
+  userId      String     @map("user_id")
+  email       String
+  bounceType  BounceType @map("bounce_type")
+  reason      String?
+  rawEvent    Json?      @map("raw_event")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@index([bounceType])
+  @@map("email_bounces")
+}
+
+
+model DigestPreference {
+  id               String          @id @default(uuid())
+  userId           String          @unique @map("user_id")
+  frequency        DigestFrequency @default(DAILY)
+  enabled          Boolean         @default(true)
+  unsubscribeToken String          @unique @map("unsubscribe_token")
+  lastSentAt       DateTime?       @map("last_sent_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([enabled, frequency])
+  @@map("digest_preferences")
 }

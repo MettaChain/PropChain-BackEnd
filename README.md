@@ -1,12 +1,13 @@
 # PropChain - Blockchain-Powered Real Estate Platform
 
-A modern, scalable backend API for real estate transactions built with NestJS and PostgreSQL.
+A modern, scalable backend API for real estate transactions built with NestJS and PostgreSQL
 
 ## 🚀 Features
 
 - **User Management** - Registration, authentication, and profile management
 - **Property Listings** - Create, manage, and search property listings
 - **Transaction Tracking** - Record and track real estate transactions
+- **Tax Strategy Suggestions** - Store informational, non-binding tax structuring suggestions for transactions
 - **Document Management** - Store and manage property-related documents
 - **Role-Based Access Control** - USER, AGENT, ADMIN roles with route protection
 - **Clean Architecture** - Modular, testable, and maintainable code structure
@@ -239,6 +240,13 @@ npm run start:prod
 - `PUT /api/properties/:id` - Update property
 - `DELETE /api/properties/:id` - Delete property
 
+### Tax Strategy Suggestions
+- `GET /api/transactions/:transactionId/tax-strategies` - List tax strategy suggestions for a transaction
+- `POST /api/transactions/:transactionId/tax-strategies` - Create a tax strategy suggestion
+- `PATCH /api/transactions/:transactionId/tax-strategies/:strategyId` - Update a tax strategy suggestion
+
+Tax strategy suggestions are informational only and are not legal or tax advice. See [docs/Tax_Strategy_Suggestions.md](docs/Tax_Strategy_Suggestions.md) for usage details.
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -253,4 +261,4 @@ This project is licensed under the MIT License.
 
 ## 👥 Support
 
-For support, email support@propchain.com or join our Slack channel.
+For support, email support@propchain.com or join our Slack channel

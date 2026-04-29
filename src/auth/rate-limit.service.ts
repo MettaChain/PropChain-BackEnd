@@ -107,18 +107,10 @@ export class RateLimitService {
 
       // Store the updated record
       if (!isExceeded) {
-        await this.cacheManager.set(
-          key,
-          { count, resetAt, windowMs },
-          resetAt - now,
-        );
+        await this.cacheManager.set(key, { count, resetAt, windowMs }, resetAt - now);
       } else {
         // Still store the count for tracking
-        await this.cacheManager.set(
-          key,
-          { count, resetAt, windowMs },
-          resetAt - now,
-        );
+        await this.cacheManager.set(key, { count, resetAt, windowMs }, resetAt - now);
       }
 
       const remaining = Math.max(0, limit - count);

@@ -1,0 +1,14 @@
+warning: in the working copy of 'src/transactions/disputes.controller.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/transactions/disputes.controller.ts b/src/transactions/disputes.controller.ts[m
+[1mindex d24efc1..73047f5 100644[m
+[1m--- a/src/transactions/disputes.controller.ts[m
+[1m+++ b/src/transactions/disputes.controller.ts[m
+[36m@@ -33,7 +33,7 @@[m [mexport class DisputesController {[m
+   }[m
+ [m
+   @Patch(':id/resolve')[m
+[31m-  @Roles(UserRole.ADMIN as UserRole)[m
+[32m+[m[32m  @Roles(UserRole.ADMIN as any)[m
+   @ApiOperation({ summary: 'Resolve a dispute (Admin only)' })[m
+   @ApiResponse({ status: 200, description: 'Dispute resolved successfully' })[m
+   resolve([m

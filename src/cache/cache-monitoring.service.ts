@@ -65,14 +65,11 @@ export class CacheMonitoringService {
    */
   getMetrics(): CacheMetrics {
     const hitRate =
-      this.metrics.totalRequests > 0
-        ? (this.metrics.hits / this.metrics.totalRequests) * 100
-        : 0;
+      this.metrics.totalRequests > 0 ? (this.metrics.hits / this.metrics.totalRequests) * 100 : 0;
 
     const avgResponseTime =
       this.metrics.responseTimes.length > 0
-        ? this.metrics.responseTimes.reduce((a, b) => a + b, 0) /
-          this.metrics.responseTimes.length
+        ? this.metrics.responseTimes.reduce((a, b) => a + b, 0) / this.metrics.responseTimes.length
         : 0;
 
     return {
@@ -125,7 +122,7 @@ export class CacheMonitoringService {
     const metrics = this.getMetrics();
     this.logger.log(
       `Cache Performance - Hits: ${metrics.hits}, Misses: ${metrics.misses}, ` +
-      `Hit Rate: ${metrics.hitRate}%, Avg Response: ${metrics.avgResponseTime}ms`,
+        `Hit Rate: ${metrics.hitRate}%, Avg Response: ${metrics.avgResponseTime}ms`,
     );
   }
 }
