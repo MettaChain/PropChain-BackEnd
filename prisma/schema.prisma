@@ -214,7 +214,6 @@ model User {
   searchHistory           SearchHistory[]
   initiatedBackups        DatabaseBackup[]         @relation("BackupInitiatedBy")
   restoredBackups         DatabaseBackup[]         @relation("BackupRestoredBy")
-  emailStatus             EmailStatus              @default(ACTIVE) @map("email_status")
   fcmToken                String?                  @map("fcm_token")
   notifications           Notification[]
   disputeInitiated        Dispute[]                @relation("DisputeInitiator")
@@ -227,6 +226,7 @@ model User {
   transactionHistory      TransactionHistory[]
   favorites               PropertyFavorite[]
   propertyViews           PropertyView[]
+  priceHistory            PriceHistory[]
 
   @@index([email])
   @@index([role])
@@ -419,6 +419,7 @@ model Property {
   favorites    PropertyFavorite[]
   views        PropertyView[]
   neighborhood Neighborhood?      @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
+  priceHistory PriceHistory[]
 
   @@index([ownerId])
   @@index([status])
@@ -1103,4 +1104,32 @@ model PropertyDuplicate {
   @@index([duplicateType])
   @@index([isMerged])
   @@map("property_duplicates")
+}
+
+// Price History model for tracking property price changes
+model PriceHistory {
+  id                    String    @id @default(uuid())
+  propertyId            String    @map("property_id")
+  previousPrice         Decimal   @map("previous_price")
+  newPrice              Decimal   @map("new_price")
+  priceChangePercentage Decimal?  @map("price_change_percentage")
+  timestamp             DateTime  @default(now())
+  userId                String    @map("user_id")
+  userRole              UserRole  @map("user_role")
+  changeReason          String?   @map("change_reason") @db.VarChar(500)
+  ipAddress             String?   @map("ip_address")
+  userAgent             String?   @map("user_agent")
+  metadata              Json?     @default("{}")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, timestamp])
+  @@index([propertyId, createdAt])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("price_history")
 }

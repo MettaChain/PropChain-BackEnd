@@ -10,6 +10,7 @@ import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
 import { SearchPropertiesDto } from './dto/search-properties.dto';
 import { FraudService } from '../fraud/fraud.service';
 import { GeocodingService } from './geocoding.service';
+import { PriceHistoryService } from '../price-history/price-history.service';
 import { PropertyStatus, UserRole } from '../types/prisma.types';
 import {
   canTransitionPropertyStatus,
@@ -37,6 +38,7 @@ export class PropertiesService {
     private readonly prisma: PrismaService,
     private readonly fraudService: FraudService,
     private readonly geocodingService: GeocodingService,
+    private readonly priceHistoryService: PriceHistoryService,
   ) {}
 
   async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
@@ -130,12 +132,33 @@ export class PropertiesService {
     });
   }
 
-  async update(id: string, updatePropertyDto: UpdatePropertyDto) {
+  async update(
+    id: string,
+    updatePropertyDto: UpdatePropertyDto,
+    userId?: string,
+    userRole?: UserRole,
+  ) {
     const { price, squareFeet, lotSize, latitude, longitude, ...rest } = updatePropertyDto;
+
+    // Get existing property to check if price is changing
+    const existingProperty = await this.prisma.property.findUnique({
+      where: { id },
+      select: {
+        price: true,
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        country: true,
+      },
+    });
+
+    if (!existingProperty) {
+      throw new NotFoundException(`Property with ID ${id} not found`);
+    }
 
     // Duplicate address check (if address fields are being updated)
     if (rest.address || rest.city || rest.state || rest.zipCode || rest.country) {
-      const existingProperty = await this.prisma.property.findUnique({ where: { id } });
       const newAddress = {
         address: rest.address ?? existingProperty.address,
         city: rest.city ?? existingProperty.city,
@@ -161,38 +184,51 @@ export class PropertiesService {
     const callerProvidedCoords = latitude !== undefined && longitude !== undefined;
 
     if (!callerProvidedCoords) {
-      const existing = await this.prisma.property.findUnique({
-        where: { id },
-        select: {
-          address: true,
-          city: true,
-          state: true,
-          zipCode: true,
-          country: true,
-        },
-      });
+      const before = {
+        address: existingProperty.address,
+        city: existingProperty.city,
+        state: existingProperty.state,
+        zipCode: existingProperty.zipCode,
+        country: existingProperty.country,
+      };
+      const after = {
+        address: rest.address ?? existingProperty.address,
+        city: rest.city ?? existingProperty.city,
+        state: rest.state ?? existingProperty.state,
+        zipCode: rest.zipCode ?? existingProperty.zipCode,
+        country: existingProperty.country, // not in UpdatePropertyDto
+      };
 
-      if (existing) {
-        const before = {
-          address: existing.address,
-          city: existing.city,
-          state: existing.state,
-          zipCode: existing.zipCode,
-          country: existing.country,
-        };
-        const after = {
-          address: rest.address ?? existing.address,
-          city: rest.city ?? existing.city,
-          state: rest.state ?? existing.state,
-          zipCode: rest.zipCode ?? existing.zipCode,
-          country: existing.country, // not in UpdatePropertyDto
-        };
+      if (this.geocodingService.hasAddressChanged(before, after)) {
+        const geo = await this.geocodingService.geocodeAddress(after);
+        if (geo) {
+          resolvedLat = geo.latitude;
+          resolvedLng = geo.longitude;
+        }
+      }
+    }
 
-        if (this.geocodingService.hasAddressChanged(before, after)) {
-          const geo = await this.geocodingService.geocodeAddress(after);
-          if (geo) {
-            resolvedLat = geo.latitude;
-            resolvedLng = geo.longitude;
+    // Record price change if price is being updated
+    if (price !== undefined && price !== null) {
+      const newPrice = new Decimal(price.toString());
+      const previousPrice = existingProperty.price;
+
+      // Only record if price actually changed
+      if (!newPrice.equals(previousPrice)) {
+        if (userId && userRole) {
+          try {
+            await this.priceHistoryService.recordPriceChange(
+              id,
+              previousPrice,
+              newPrice,
+              userId,
+              userRole,
+              'Property price updated',
+              { source: 'property_update' },
+            );
+          } catch (error) {
+            // Log error but don't fail the property update
+            console.error(`Failed to record price change for property ${id}:`, error);
           }
         }
       }

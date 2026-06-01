@@ -10,9 +10,10 @@ import { AuthModule } from '../auth/auth.module';
 import { PropertiesResolver } from './properties.resolver';
 import { PubSub } from 'graphql-subscriptions';
 import { FraudModule } from '../fraud/fraud.module';
+import { PriceHistoryModule } from '../price-history/price-history.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, FraudModule, ConfigModule],
+  imports: [PrismaModule, AuthModule, FraudModule, ConfigModule, PriceHistoryModule],
   controllers: [PropertiesController, PropertyImagesController],
   providers: [
     PropertiesService,

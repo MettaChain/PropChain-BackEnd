@@ -31,6 +31,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { PropertyViewsModule } from './property-views/property-views.module';
 import { PropertyComparisonModule } from './property-comparison/property-comparison.module';
 import { OpenHouseModule } from './open-house/open-house.module';
+import { PriceHistoryModule } from './price-history/price-history.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { OpenHouseModule } from './open-house/open-house.module';
     PropertyComparisonModule,
     NeighborhoodsModule,
     OpenHouseModule,
+    PriceHistoryModule,
   ],
 
   controllers: [AppController],
