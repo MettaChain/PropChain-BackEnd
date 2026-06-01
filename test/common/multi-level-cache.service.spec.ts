@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { MultiLevelCacheService, MultiLevelCacheOptions } from '../../src/common/cache/multi-level-cache.service';
+import {
+  MultiLevelCacheService,
+  MultiLevelCacheOptions,
+} from '../../src/common/cache/multi-level-cache.service';
 import { RedisService } from '../../src/common/services/redis.service';
 
 describe('MultiLevelCacheService', () => {
@@ -68,12 +71,14 @@ describe('MultiLevelCacheService', () => {
       const key = 'test:key';
       const value = { data: 'test' };
 
-      redisService.get.mockResolvedValue(JSON.stringify({
-        value,
-        tags: [],
-        version: 1,
-        timestamp: Date.now(),
-      }));
+      redisService.get.mockResolvedValue(
+        JSON.stringify({
+          value,
+          tags: [],
+          version: 1,
+          timestamp: Date.now(),
+        }),
+      );
 
       const result = await service.get(key);
 
@@ -113,11 +118,7 @@ describe('MultiLevelCacheService', () => {
       const l1Result = await service.get(key);
       expect(l1Result).toEqual(value);
 
-      expect(redisService.setex).toHaveBeenCalledWith(
-        key,
-        200,
-        expect.any(String),
-      );
+      expect(redisService.setex).toHaveBeenCalledWith(key, 200, expect.any(String));
     });
 
     it('should use default TTLs when not specified', async () => {
@@ -126,11 +127,7 @@ describe('MultiLevelCacheService', () => {
 
       await service.set(key, value);
 
-      expect(redisService.setex).toHaveBeenCalledWith(
-        key,
-        3600,
-        expect.any(String),
-      );
+      expect(redisService.setex).toHaveBeenCalledWith(key, 3600, expect.any(String));
     });
 
     it('should store tags for invalidation', async () => {
@@ -324,12 +321,14 @@ describe('MultiLevelCacheService', () => {
 
       await service.set(key, value, { version: 1 });
 
-      redisService.get.mockResolvedValue(JSON.stringify({
-        value,
-        tags: [],
-        version: 1,
-        timestamp: Date.now(),
-      }));
+      redisService.get.mockResolvedValue(
+        JSON.stringify({
+          value,
+          tags: [],
+          version: 1,
+          timestamp: Date.now(),
+        }),
+      );
       redisService.ttl.mockResolvedValue(3600);
 
       const newVersion = await service.incrementVersion(key);

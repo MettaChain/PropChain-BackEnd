@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsOptional,
+  IsPhoneNumber,
   IsString,
   MinLength,
   IsIn,
@@ -47,7 +48,7 @@ export class CreateUserDto {
   lastName: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhoneNumber(undefined, { message: 'Please provide a valid phone number' })
   phone?: string;
 
   @IsOptional()
@@ -93,7 +94,7 @@ export class UpdateUserDto {
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsString()
+  @IsPhoneNumber(undefined, { message: 'Please provide a valid phone number' })
   phone?: string;
 
   @Field({ nullable: true })

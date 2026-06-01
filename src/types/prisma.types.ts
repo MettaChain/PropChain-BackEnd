@@ -129,6 +129,29 @@ export enum MilestoneStatus {
   DELAYED = 'DELAYED',
 }
 
+export interface PropertyAgent {
+  id: string;
+  propertyId: string;
+  agentId: string;
+  commissionRate: number;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Commission {
+  id: string;
+  transactionId: string;
+  agentId: string;
+  propertyId: string;
+  amount: number;
+  rate: number;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export namespace Prisma {
   export interface PropertyWhereInput extends Record<string, any> {}
   export interface PropertyOrderByWithRelationInput extends Record<string, any> {}

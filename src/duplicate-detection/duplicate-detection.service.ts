@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { FraudService } from '../fraud/fraud.service';
 import { FraudPattern, FraudSeverity } from '../types/prisma.types';
@@ -25,10 +20,7 @@ export class DuplicateDetectionService {
     private readonly fraudService: FraudService,
   ) {}
 
-  async checkForDuplicates(
-    dto: CheckDuplicateDto,
-    ownerId: string,
-  ): Promise<DuplicateCheckResult> {
+  async checkForDuplicates(dto: CheckDuplicateDto, ownerId: string): Promise<DuplicateCheckResult> {
     const { address, city, state, zipCode, country = 'USA', imageHashes } = dto;
 
     const matches: DuplicateMatch[] = [];
@@ -83,11 +75,8 @@ export class DuplicateDetectionService {
         const existingMatch = matches.find((m) => m.id === property.id);
         if (existingMatch) {
           existingMatch.type = DuplicateType.ADDRESS_AND_IMAGE;
-          existingMatch.confidenceScore = Math.min(
-            existingMatch.confidenceScore + 50,
-            100,
-          );
-          existingMatch.matchedOn = [...new Set([...existingMatch.matchedOn || [], 'images'])];
+          existingMatch.confidenceScore = Math.min(existingMatch.confidenceScore + 50, 100);
+          existingMatch.matchedOn = [...new Set([...(existingMatch.matchedOn || []), 'images'])];
         } else {
           matches.push({
             id: property.id,
@@ -127,10 +116,7 @@ export class DuplicateDetectionService {
     return result;
   }
 
-  async recordDuplicateDetection(
-    propertyId: string,
-    matches: DuplicateMatch[],
-  ): Promise<void> {
+  async recordDuplicateDetection(propertyId: string, matches: DuplicateMatch[]): Promise<void> {
     for (const match of matches) {
       const duplicateType = this.getDuplicateTypeString(match.type);
 
@@ -175,9 +161,7 @@ export class DuplicateDetectionService {
     const isPrivileged = actorRole === UserRole.ADMIN || actorRole === UserRole.AGENT;
 
     if (!isKeepOwner && !isDiscardOwner && !isPrivileged) {
-      throw new ForbiddenException(
-        'You do not have permission to merge these properties',
-      );
+      throw new ForbiddenException('You do not have permission to merge these properties');
     }
 
     // Merge images from discard into keep
@@ -241,15 +225,71 @@ export class DuplicateDetectionService {
       },
     });
 
-    this.logger.log(
-      `Merged property ${discardPropertyId} into ${keepPropertyId} by ${actorId}`,
-    );
+    this.logger.log(`Merged property ${discardPropertyId} into ${keepPropertyId} by ${actorId}`);
 
     return {
       merged: true,
       survivingPropertyId: keepPropertyId,
       mergedPropertyId: discardPropertyId,
     };
+  }
+
+  // ---- Flagging workflow (#553) ----
+
+  async flagForReview(
+    propertyId: string,
+    duplicateOfId: string | undefined,
+    reviewNotes?: string,
+  ): Promise<any> {
+    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    const record = await this.prisma.propertyDuplicate.create({
+      data: {
+        propertyId,
+        duplicateOfId: duplicateOfId ?? null,
+        duplicateType: 'FLAGGED',
+        confidenceScore: 0,
+        flaggedForReview: true,
+        reviewNotes: reviewNotes ?? null,
+      } as any,
+    });
+
+    this.logger.log(
+      `Property ${propertyId} flagged for duplicate review. Notes: ${reviewNotes ?? 'none'}`,
+    );
+
+    return record;
+  }
+
+  async getFlags(): Promise<any[]> {
+    return (this.prisma as any).propertyDuplicate.findMany({
+      where: { flaggedForReview: true, isMerged: false, isResolved: false },
+      include: {
+        property: {
+          select: { id: true, title: true, address: true, city: true, state: true },
+        },
+        duplicateOf: {
+          select: { id: true, title: true, address: true, city: true, state: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async resolveFlag(flagId: string): Promise<any> {
+    const flag = await (this.prisma as any).propertyDuplicate.findUnique({
+      where: { id: flagId },
+    });
+    if (!flag) {
+      throw new NotFoundException('Duplicate flag not found');
+    }
+    return (this.prisma as any).propertyDuplicate.update({
+      where: { id: flagId },
+      data: { isResolved: true },
+    });
   }
 
   private async findSimilarImages(
@@ -273,10 +313,7 @@ export class DuplicateDetectionService {
       },
     });
 
-    const propertyMatches = new Map<
-      string,
-      { property: any; matchedImages: string[] }
-    >();
+    const propertyMatches = new Map<string, { property: any; matchedImages: string[] }>();
     for (const img of matchingImages) {
       if (!propertyMatches.has(img.propertyId)) {
         propertyMatches.set(img.propertyId, {

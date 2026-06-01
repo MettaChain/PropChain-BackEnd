@@ -1,9 +1,9 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../src/database/prisma.service';
 import { BlockchainService } from '../../src/blockchain/blockchain.service';
 import { NotificationsService } from '../../src/notifications/notifications.service';
+import { CommissionsService } from '../../src/commissions/commissions.service';
 import { TransactionStatus, TransactionType, UserRole } from '../../src/types/prisma.types';
 import { TransactionsService } from '../../src/transactions/transactions.service';
 
@@ -47,6 +47,11 @@ describe('TransactionsService', () => {
     handleTransactionUpdate: jest.fn(),
   };
 
+  const mockCommissionsService = {
+    createCommissionsForTransaction: jest.fn().mockResolvedValue(undefined),
+    updateCommissionsStatus: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,6 +59,7 @@ describe('TransactionsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: BlockchainService, useValue: mockBlockchainService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: CommissionsService, useValue: mockCommissionsService },
       ],
     }).compile();
 

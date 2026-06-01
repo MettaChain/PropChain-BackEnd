@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Query, Body, UseGuards, Request } from '@nestjs/common';
 import { SearchService, SearchQuery } from './search.service';
+import { SearchAutocompleteService } from './search-autocomplete.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
@@ -15,7 +16,10 @@ interface AuthenticatedRequest extends Request {
 @Controller('search')
 @UseGuards(JwtAuthGuard)
 export class SearchController {
-  constructor(private readonly searchService: SearchService) {}
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly searchAutocompleteService: SearchAutocompleteService,
+  ) {}
 
   @Post('properties')
   @ApiOperation({ summary: 'Search properties with advanced filters' })
@@ -30,6 +34,15 @@ export class SearchController {
   @ApiResponse({ status: 200, description: 'Suggestions returned successfully' })
   async getSuggestions(@Query('q') query?: string) {
     return this.searchService.getSuggestions(query || '');
+  }
+
+  @Get('autocomplete')
+  @ApiOperation({ summary: 'Get live autocomplete suggestions for partial input' })
+  @ApiQuery({ name: 'q', required: true, description: 'Partial search query' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Max number of suggestions' })
+  async autocomplete(@Query('q') query: string, @Query('limit') limit?: string) {
+    const parsedLimit = limit ? Math.max(1, Math.min(20, Number(limit))) : 10;
+    return this.searchAutocompleteService.getSuggestions(query || '', parsedLimit);
   }
 
   @Get('filters/saved')

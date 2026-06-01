@@ -7,14 +7,20 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
 import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
+import { AssignAgentDto, UpdateAgentAssignmentDto } from './dto/agent-assignment.dto';
+import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { SearchPropertiesDto } from './dto/search-properties.dto';
+import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
 import { FraudService } from '../fraud/fraud.service';
 import { GeocodingService } from './geocoding.service';
 import { PriceHistoryService } from '../price-history/price-history.service';
 import { PropertyStatus, UserRole } from '../types/prisma.types';
+import { CacheService } from '../cache/cache.service';
+import { CACHE_TAGS } from '../cache/cache.config';
 import {
   canTransitionPropertyStatus,
   getAllowedNextPropertyStatuses,
+  DEFAULT_PROPERTY_STATUS,
 } from './property-status.constants';
 
 interface FindAllParams {
@@ -39,10 +45,12 @@ export class PropertiesService {
     private readonly fraudService: FraudService,
     private readonly geocodingService: GeocodingService,
     private readonly priceHistoryService: PriceHistoryService,
+    private readonly cacheService: CacheService,
   ) {}
 
   async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
-    const { price, squareFeet, lotSize, latitude, longitude, ...rest } = createPropertyDto;
+    const { price, squareFeet, lotSize, latitude, longitude, hoaMonthlyFee, ...rest } =
+      createPropertyDto;
 
     // Duplicate address check
     const duplicate = await this.prisma.property.findFirst({
@@ -81,7 +89,8 @@ export class PropertiesService {
         price: new Decimal(price.toString()),
         squareFeet: squareFeet ? new Decimal(squareFeet.toString()) : null,
         lotSize: lotSize ? new Decimal(lotSize.toString()) : null,
-        status: PropertyStatus.DRAFT,
+        hoaMonthlyFee: hoaMonthlyFee !== undefined ? new Decimal(hoaMonthlyFee.toString()) : null,
+        status: DEFAULT_PROPERTY_STATUS,
         latitude: resolvedLat,
         longitude: resolvedLng,
         owner: {
@@ -91,16 +100,21 @@ export class PropertiesService {
     });
 
     await this.fraudService.evaluatePropertyCreated(property.id);
+    await this.cacheService.invalidateByTag(CACHE_TAGS.PROPERTIES);
 
     return property;
   }
 
   async findAll(params?: FindAllParams) {
     const { skip, take, where, orderBy } = params || {};
-    return this.prisma.property.findMany({
+    const finalWhere = where
+      ? { ...where, status: where.status ?? PropertyStatus.ACTIVE }
+      : { status: PropertyStatus.ACTIVE };
+
+    return (this.prisma.property as any).findMany({
       skip,
       take,
-      where,
+      where: finalWhere,
       orderBy,
       include: {
         owner: {
@@ -111,12 +125,25 @@ export class PropertiesService {
             email: true,
           },
         },
+        agents: {
+          include: {
+            agent: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
       },
     });
   }
 
   async findOne(id: string) {
-    return this.prisma.property.findUnique({
+    return (this.prisma.property as any).findUnique({
       where: { id },
       include: {
         owner: {
@@ -128,6 +155,19 @@ export class PropertiesService {
           },
         },
         documents: true,
+        agents: {
+          include: {
+            agent: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -139,6 +179,9 @@ export class PropertiesService {
     userRole?: UserRole,
   ) {
     const { price, squareFeet, lotSize, latitude, longitude, ...rest } = updatePropertyDto;
+  async update(id: string, updatePropertyDto: UpdatePropertyDto) {
+    const { price, squareFeet, lotSize, latitude, longitude, hoaMonthlyFee, ...rest } =
+      updatePropertyDto;
 
     // Get existing property to check if price is changing
     const existingProperty = await this.prisma.property.findUnique({
@@ -159,6 +202,8 @@ export class PropertiesService {
 
     // Duplicate address check (if address fields are being updated)
     if (rest.address || rest.city || rest.state || rest.zipCode || rest.country) {
+      const existingProperty = await this.prisma.property.findUnique({ where: { id } });
+      if (!existingProperty) throw new NotFoundException(`Property ${id} not found`);
       const newAddress = {
         address: rest.address ?? existingProperty.address,
         city: rest.city ?? existingProperty.city,
@@ -229,36 +274,90 @@ export class PropertiesService {
           } catch (error) {
             // Log error but don't fail the property update
             console.error(`Failed to record price change for property ${id}:`, error);
+      if (existing) {
+        const before = {
+          address: existing.address,
+          city: existing.city,
+          state: existing.state,
+          zipCode: existing.zipCode,
+          country: existing.country,
+        };
+        const after = {
+          address: rest.address ?? existing.address,
+          city: rest.city ?? existing.city,
+          state: rest.state ?? existing.state,
+          zipCode: rest.zipCode ?? existing.zipCode,
+          country: rest.country ?? existing.country,
+        };
+
+        if (this.geocodingService.hasAddressChanged(before, after)) {
+          const geo = await this.geocodingService.geocodeAddress(after);
+          if (geo) {
+            resolvedLat = geo.latitude;
+            resolvedLng = geo.longitude;
           }
         }
       }
     }
 
     return this.prisma.property.update({
-      where: { id },
-      data: {
-        ...rest,
-        price: price ? new Decimal(price.toString()) : undefined,
-        squareFeet: squareFeet ? new Decimal(squareFeet.toString()) : undefined,
-        lotSize: lotSize ? new Decimal(lotSize.toString()) : undefined,
-        latitude: resolvedLat,
-        longitude: resolvedLng,
-      },
-    });
+       where: { id },
+       data: {
+         ...rest,
+         price: price ? new Decimal(price.toString()) : undefined,
+         squareFeet: squareFeet ? new Decimal(squareFeet.toString()) : undefined,
+         lotSize: lotSize ? new Decimal(lotSize.toString()) : undefined,
+         hoaMonthlyFee:
+           hoaMonthlyFee !== undefined ? new Decimal(hoaMonthlyFee.toString()) : undefined,
+         latitude: resolvedLat,
+         longitude: resolvedLng,
+         expiryDate: updatePropertyDto.expiryDate,
+       },
+     });
   }
 
   async remove(id: string) {
-    return this.prisma.property.delete({
+    const deleted = await this.prisma.property.delete({
       where: { id },
     });
+    await this.cacheService.invalidateByTag(CACHE_TAGS.PROPERTIES);
+    return deleted;
   }
 
-  async findByOwnerId(ownerId: string) {
-    return this.prisma.property.findMany({
-      where: { ownerId },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+   async findByOwnerId(ownerId: string) {
+     return this.prisma.property.findMany({
+       where: { ownerId },
+       orderBy: { createdAt: 'desc' },
+     });
+   }
+
+   /**
+    * Expire properties that have passed their expiry date.
+    * This method should be called periodically by a scheduled job.
+    */
+   async expireProperties(): Promise<{ updatedCount: number }> {
+     const now = new Date();
+     const result = await this.prisma.property.updateMany({
+       where: {
+         expiryDate: {
+           lt: now, // Less than now (expired)
+         },
+         status: {
+           notIn: [
+             PropertyStatus.SOLD,
+             PropertyStatus.RENTED,
+             PropertyStatus.ARCHIVED,
+             PropertyStatus.EXPIRED, // Already expired
+           ],
+         },
+       },
+       data: {
+         status: PropertyStatus.EXPIRED,
+       },
+     });
+
+     return { updatedCount: result.count };
+   }
 
   /**
    * Transition a property's status according to the workflow state machine.
@@ -289,12 +388,9 @@ export class PropertiesService {
     }
 
     const isOwner = property.ownerId === actorId;
-    const isPrivileged =
-      actorRole === UserRole.ADMIN || actorRole === UserRole.AGENT;
+    const isPrivileged = actorRole === UserRole.ADMIN || actorRole === UserRole.AGENT;
     if (!isOwner && !isPrivileged) {
-      throw new ForbiddenException(
-        'You are not allowed to change the status of this property',
-      );
+      throw new ForbiddenException('You are not allowed to change the status of this property');
     }
 
     const currentStatus = property.status as PropertyStatus;
@@ -330,29 +426,65 @@ export class PropertiesService {
 
     const page = dto.page && dto.page > 0 ? dto.page : 1;
     const limit = dto.limit && dto.limit > 0 ? dto.limit : 20;
-    const skip = (page - 1) * limit;
     const sortBy = dto.sortBy ?? 'createdAt';
     const sortOrder = dto.sortOrder ?? 'desc';
 
-    const [items, total] = await this.prisma.$transaction([
+    const hasTrustScoreFilter =
+      dto.minNeighborhoodTrustScore !== undefined || dto.maxNeighborhoodTrustScore !== undefined;
+
+    if (hasTrustScoreFilter) {
+      // Fetch all matching properties with neighborhood to filter by trust score in-memory
+      const allItems = await this.prisma.property.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          owner: { select: { id: true, firstName: true, lastName: true, email: true } },
+          neighborhood: true,
+        },
+      });
+
+      const annotated = allItems.map((p: any) => ({
+        ...p,
+        neighborhoodTrustScore: p.neighborhood
+          ? this.computeNeighborhoodTrustScore(p.neighborhood)
+          : null,
+      }));
+
+      const filtered = annotated.filter((p: any) => {
+        const score = p.neighborhoodTrustScore;
+        if (dto.minNeighborhoodTrustScore !== undefined && (score === null || score < dto.minNeighborhoodTrustScore)) return false;
+        if (dto.maxNeighborhoodTrustScore !== undefined && (score === null || score > dto.maxNeighborhoodTrustScore)) return false;
+        return true;
+      });
+
+      const total = filtered.length;
+      const skip = (page - 1) * limit;
+      const items = filtered.slice(skip, skip + limit);
+
+      return { items, total, page, limit, totalPages: limit > 0 ? Math.ceil(total / limit) : 0 };
+    }
+
+    const skip = (page - 1) * limit;
+    const [rawItems, total] = await this.prisma.$transaction([
       this.prisma.property.findMany({
         where,
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
+          owner: { select: { id: true, firstName: true, lastName: true, email: true } },
+          neighborhood: true,
         },
       }),
       this.prisma.property.count({ where }),
     ]);
+
+    const items = (rawItems as any[]).map((p) => ({
+      ...p,
+      neighborhoodTrustScore: p.neighborhood
+        ? this.computeNeighborhoodTrustScore(p.neighborhood)
+        : null,
+    }));
 
     return {
       items,
@@ -361,6 +493,17 @@ export class PropertiesService {
       limit,
       totalPages: limit > 0 ? Math.ceil(total / limit) : 0,
     };
+  }
+
+  computeNeighborhoodTrustScore(neighborhood: any): number {
+    const scores: number[] = [];
+    if (neighborhood.walkScore != null) scores.push(neighborhood.walkScore);
+    if (neighborhood.transitScore != null) scores.push(neighborhood.transitScore);
+    if (neighborhood.bikeScore != null) scores.push(neighborhood.bikeScore);
+    if (neighborhood.schoolRating != null) scores.push(neighborhood.schoolRating * 10);
+    if (neighborhood.crimeIndex != null) scores.push(100 - neighborhood.crimeIndex);
+    if (scores.length === 0) return 50;
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   }
 
   /**
@@ -435,12 +578,85 @@ export class PropertiesService {
       where.bathrooms = bathroomsFilter;
     }
 
-// Optional status filter
-    if (dto.status) {
-      where.status = dto.status;
+    // Public search only exposes approved listings.
+    // Any search from the public search endpoint must end up returning ACTIVE properties.
+    where.status = PropertyStatus.ACTIVE;
+
+    // Year built filter (#555)
+    if (dto.minYearBuilt !== undefined || dto.maxYearBuilt !== undefined) {
+      const yearFilter: Record<string, number> = {};
+      if (dto.minYearBuilt !== undefined) yearFilter.gte = dto.minYearBuilt;
+      if (dto.maxYearBuilt !== undefined) yearFilter.lte = dto.maxYearBuilt;
+      where.yearBuilt = yearFilter;
+    }
+
+    // Metadata: category and tag
+    if (dto.category) {
+      where.category = { equals: dto.category, mode: 'insensitive' };
+    }
+    if (dto.tag) {
+      where.tags = { has: dto.tag };
+    }
+
+    // Amenity type filter (via relation)
+    if (dto.amenityType) {
+      where.amenities = {
+        some: { amenityType: { equals: dto.amenityType, mode: 'insensitive' } },
+      };
+    }
+
+    // Geo: validate lat/lng usage
+    const hasLat = dto.lat !== undefined;
+    const hasLng = dto.lng !== undefined;
+    if (hasLat !== hasLng) {
+      throw new BadRequestException('Both lat and lng must be provided together');
+    }
+
+    const hasBoundingBox =
+      dto.minLat !== undefined ||
+      dto.maxLat !== undefined ||
+      dto.minLng !== undefined ||
+      dto.maxLng !== undefined;
+
+    if (hasLat && hasLng) {
+      if (dto.radiusKm !== undefined) {
+        // Approximate radius as bounding box (1 degree lat ≈ 111km)
+        const latDelta = dto.radiusKm / 111;
+        const lngDelta = dto.radiusKm / (111 * Math.cos((dto.lat! * Math.PI) / 180));
+        where.latitude = { gte: dto.lat! - latDelta, lte: dto.lat! + latDelta };
+        where.longitude = { gte: dto.lng! - lngDelta, lte: dto.lng! + lngDelta };
+      } else if (!hasBoundingBox) {
+        throw new BadRequestException(
+          'When providing lat/lng, either radiusKm or bounding box params (minLat/maxLat/minLng/maxLng) must also be provided',
+        );
+      }
+    }
+
+    // Bounding box filter
+    if (hasBoundingBox) {
+      const latFilter: Record<string, number> = {};
+      const lngFilter: Record<string, number> = {};
+      if (dto.minLat !== undefined) latFilter.gte = dto.minLat;
+      if (dto.maxLat !== undefined) latFilter.lte = dto.maxLat;
+      if (dto.minLng !== undefined) lngFilter.gte = dto.minLng;
+      if (dto.maxLng !== undefined) lngFilter.lte = dto.maxLng;
+      if (Object.keys(latFilter).length > 0) {
+        where.latitude = { ...(where.latitude as Record<string, number> | undefined), ...latFilter };
+      }
+      if (Object.keys(lngFilter).length > 0) {
+        where.longitude = { ...(where.longitude as Record<string, number> | undefined), ...lngFilter };
+      }
     }
 
     return where;
+  }
+
+  async approveProperty(propertyId: string, actorId: string) {
+    return this.transitionStatus(propertyId, PropertyStatus.ACTIVE, actorId, UserRole.ADMIN);
+  }
+
+  async rejectProperty(propertyId: string, actorId: string) {
+    return this.transitionStatus(propertyId, PropertyStatus.ARCHIVED, actorId, UserRole.ADMIN);
   }
 
   async bulkUpdatePropertyStatus(
@@ -486,7 +702,7 @@ export class PropertiesService {
       propertyWhere.title = { contains: filter, mode: 'insensitive' as const };
     }
 
-    const properties = await this.prisma.property.findMany({
+    const properties = await (this.prisma.property as any).findMany({
       where: propertyWhere,
       select: {
         id: true,
@@ -502,6 +718,10 @@ export class PropertiesService {
         squareFeet: true,
         lotSize: true,
         yearBuilt: true,
+        hoaName: true,
+        hoaMonthlyFee: true,
+        hoaAmenities: true,
+        hoaContactInfo: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -513,6 +733,19 @@ export class PropertiesService {
             firstName: true,
             lastName: true,
             phone: true,
+          },
+        },
+        agents: {
+          include: {
+            agent: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
           },
         },
       },
@@ -532,11 +765,25 @@ export class PropertiesService {
       squareFeet: prop.squareFeet,
       lotSize: prop.lotSize,
       yearBuilt: prop.yearBuilt,
+      hoaName: prop.hoaName,
+      hoaMonthlyFee:
+        prop.hoaMonthlyFee === null || prop.hoaMonthlyFee === undefined
+          ? prop.hoaMonthlyFee
+          : Number(prop.hoaMonthlyFee),
+      hoaAmenities: prop.hoaAmenities,
+      hoaContactInfo: prop.hoaContactInfo,
       status: prop.status,
       ownerId: prop.ownerId,
       ownerEmail: prop.owner.email,
       ownerName: `${prop.owner.firstName} ${prop.owner.lastName}`,
       ownerPhone: prop.owner.phone,
+      agents: (prop.agents || []).map((pa: any) => ({
+        agentId: pa.agentId,
+        name: `${pa.agent.firstName} ${pa.agent.lastName}`,
+        email: pa.contactEmail || pa.agent.email,
+        phone: pa.contactPhone || pa.agent.phone,
+        commissionRate: Number(pa.commissionRate),
+      })),
       createdAt: prop.createdAt,
       updatedAt: prop.updatedAt,
     }));
@@ -545,5 +792,251 @@ export class PropertiesService {
       total: exportData.length,
       data: exportData,
     };
+  }
+
+  async assignAgent(propertyId: string, dto: AssignAgentDto, user: AuthUserPayload) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    if (user.role !== 'ADMIN' && property.ownerId !== user.sub) {
+      throw new ForbiddenException('Only the property owner or an admin can assign agents');
+    }
+
+    const agent = await this.prisma.user.findUnique({
+      where: { id: dto.agentId },
+    });
+    if (!agent) {
+      throw new NotFoundException('Agent user not found');
+    }
+    if (agent.role !== 'AGENT') {
+      throw new BadRequestException('Assigned user must have the AGENT role');
+    }
+
+    const existing = await (this.prisma as any).propertyAgent.findUnique({
+      where: {
+        propertyId_agentId: {
+          propertyId,
+          agentId: dto.agentId,
+        },
+      },
+    });
+    if (existing) {
+      throw new BadRequestException('Agent is already assigned to this property');
+    }
+
+    return (this.prisma as any).propertyAgent.create({
+      data: {
+        propertyId,
+        agentId: dto.agentId,
+        commissionRate:
+          dto.commissionRate !== undefined
+            ? new Decimal(dto.commissionRate.toString())
+            : new Decimal('0.03'),
+        contactPhone: dto.contactPhone ?? null,
+        contactEmail: dto.contactEmail ?? null,
+      },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateAgentAssignment(
+    propertyId: string,
+    agentId: string,
+    dto: UpdateAgentAssignmentDto,
+    user: AuthUserPayload,
+  ) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    if (user.role !== 'ADMIN' && property.ownerId !== user.sub) {
+      throw new ForbiddenException(
+        'Only the property owner or an admin can update agent assignments',
+      );
+    }
+
+    const assignment = await (this.prisma as any).propertyAgent.findUnique({
+      where: {
+        propertyId_agentId: {
+          propertyId,
+          agentId,
+        },
+      },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Agent assignment not found for this property');
+    }
+
+    return (this.prisma as any).propertyAgent.update({
+      where: {
+        propertyId_agentId: {
+          propertyId,
+          agentId,
+        },
+      },
+      data: {
+        commissionRate:
+          dto.commissionRate !== undefined ? new Decimal(dto.commissionRate.toString()) : undefined,
+        contactPhone: dto.contactPhone !== undefined ? dto.contactPhone : undefined,
+        contactEmail: dto.contactEmail !== undefined ? dto.contactEmail : undefined,
+      },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+  }
+
+  async removeAgentAssignment(propertyId: string, agentId: string, user: AuthUserPayload) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    if (user.role !== 'ADMIN' && property.ownerId !== user.sub) {
+      throw new ForbiddenException(
+        'Only the property owner or an admin can remove agent assignments',
+      );
+    }
+
+    const assignment = await (this.prisma as any).propertyAgent.findUnique({
+      where: {
+        propertyId_agentId: {
+          propertyId,
+          agentId,
+        },
+      },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Agent assignment not found for this property');
+    }
+
+    return (this.prisma as any).propertyAgent.delete({
+      where: {
+        propertyId_agentId: {
+          propertyId,
+          agentId,
+        },
+      },
+    });
+  }
+
+  async getAgents(propertyId: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+
+    const assignments = await (this.prisma as any).propertyAgent.findMany({
+      where: { propertyId },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    return assignments.map((pa: any) => ({
+      id: pa.id,
+      propertyId: pa.propertyId,
+      agentId: pa.agentId,
+      commissionRate: Number(pa.commissionRate),
+      contactPhone: pa.contactPhone || pa.agent.phone,
+      contactEmail: pa.contactEmail || pa.agent.email,
+      createdAt: pa.createdAt,
+      updatedAt: pa.updatedAt,
+      agent: pa.agent,
+    }));
+  }
+
+  // ---- Amenity methods (#551) ----
+
+  async addAmenity(propertyId: string, dto: CreateAmenityDto) {
+    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+    return (this.prisma as any).propertyAmenity.create({
+      data: {
+        propertyId,
+        name: dto.name,
+        amenityType: dto.amenityType,
+        description: dto.description ?? null,
+        isAvailable: dto.isAvailable ?? true,
+      },
+    });
+  }
+
+  async getAmenities(propertyId: string) {
+    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+    return (this.prisma as any).propertyAmenity.findMany({
+      where: { propertyId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async updateAmenity(propertyId: string, amenityId: string, dto: UpdateAmenityDto) {
+    const amenity = await (this.prisma as any).propertyAmenity.findUnique({
+      where: { id: amenityId },
+    });
+    if (!amenity || amenity.propertyId !== propertyId) {
+      throw new NotFoundException('Amenity not found for this property');
+    }
+    return (this.prisma as any).propertyAmenity.update({
+      where: { id: amenityId },
+      data: {
+        name: dto.name,
+        amenityType: dto.amenityType,
+        description: dto.description,
+        isAvailable: dto.isAvailable,
+      },
+    });
+  }
+
+  async removeAmenity(propertyId: string, amenityId: string) {
+    const amenity = await (this.prisma as any).propertyAmenity.findUnique({
+      where: { id: amenityId },
+    });
+    if (!amenity || amenity.propertyId !== propertyId) {
+      throw new NotFoundException('Amenity not found for this property');
+    }
+    return (this.prisma as any).propertyAmenity.delete({ where: { id: amenityId } });
   }
 }

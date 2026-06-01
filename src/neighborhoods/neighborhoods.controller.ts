@@ -51,10 +51,7 @@ export class NeighborhoodsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Put(':id')
-  update(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateNeighborhoodDto,
-  ) {
+  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateNeighborhoodDto) {
     return this.service.update(id, dto);
   }
 
@@ -75,10 +72,7 @@ export class NeighborhoodsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post(':id/schools')
-  addSchool(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: SchoolDto,
-  ) {
+  addSchool(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: SchoolDto) {
     return this.service.addSchool(id, dto);
   }
 
@@ -105,10 +99,7 @@ export class NeighborhoodsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post(':id/amenities')
-  addAmenity(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: AmenityDto,
-  ) {
+  addAmenity(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: AmenityDto) {
     return this.service.addAmenity(id, dto);
   }
 
@@ -125,9 +116,7 @@ export class NeighborhoodsController {
   // ----- Property linkage -----
 
   @Get('property/:propertyId')
-  getForProperty(
-    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
-  ) {
+  getForProperty(@Param('propertyId', new ParseUUIDPipe()) propertyId: string) {
     return this.service.getForProperty(propertyId);
   }
 
@@ -144,9 +133,7 @@ export class NeighborhoodsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.AGENT)
   @Delete('property/:propertyId')
-  unlinkProperty(
-    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
-  ) {
+  unlinkProperty(@Param('propertyId', new ParseUUIDPipe()) propertyId: string) {
     return this.service.unlinkProperty(propertyId);
   }
 }

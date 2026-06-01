@@ -7,6 +7,14 @@ export interface AuditContext {
   userAgent?: string;
 }
 
+export interface AuditLogFilter {
+  actorId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+}
+
 @Injectable()
 export class TransactionAuditService {
   constructor(private readonly prisma: PrismaService) {}
@@ -32,20 +40,45 @@ export class TransactionAuditService {
     });
   }
 
-  async findByTransaction(transactionId: string) {
-    return this.prisma.transactionHistory.findMany({
-      where: { transactionId },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        status: true,
-        notes: true,
-        metadata: true,
-        createdAt: true,
-        actor: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+  async findByTransaction(transactionId: string, filter: AuditLogFilter = {}) {
+    const page = filter.page ?? 1;
+    const limit = filter.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = { transactionId };
+    if (filter.actorId) where.actorId = filter.actorId;
+    if (filter.dateFrom || filter.dateTo) {
+      where.createdAt = {};
+      if (filter.dateFrom) where.createdAt.gte = new Date(filter.dateFrom);
+      if (filter.dateTo) where.createdAt.lte = new Date(filter.dateTo);
+    }
+
+    const [entries, total] = await Promise.all([
+      this.prisma.transactionHistory.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          status: true,
+          notes: true,
+          metadata: true,
+          createdAt: true,
+          actor: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
         },
-      },
-    });
+      }),
+      this.prisma.transactionHistory.count({ where }),
+    ]);
+
+    return {
+      entries,
+      total,
+      page,
+      limit,
+      totalPages: limit > 0 ? Math.ceil(total / limit) : 0,
+    };
   }
 }

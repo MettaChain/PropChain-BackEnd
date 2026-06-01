@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { CacheInvalidationService, InvalidationRule } from '../../src/common/cache/cache-invalidation.service';
+import {
+  CacheInvalidationService,
+  InvalidationRule,
+} from '../../src/common/cache/cache-invalidation.service';
 import { MultiLevelCacheService } from '../../src/common/cache/multi-level-cache.service';
 import { RedisService } from '../../src/common/services/redis.service';
 

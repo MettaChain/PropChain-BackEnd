@@ -66,10 +66,30 @@ export class TimelineService {
       return { ...m, isOverdue };
     });
 
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id: transactionId },
+      select: { id: true, status: true, amount: true, type: true, createdAt: true },
+    });
+
     return {
       transactionId,
+      transaction,
       progress,
       milestones: updatedMilestones,
     };
+  }
+
+  async addStageEvent(transactionId: string, status: string) {
+    const now = new Date();
+    return this.prisma.transactionMilestone.create({
+      data: {
+        transactionId,
+        title: `Status changed to ${status}`,
+        description: `Automatic stage event on transition to ${status}`,
+        expectedDate: now,
+        actualDate: now,
+        status: MilestoneStatus.COMPLETED,
+      },
+    });
   }
 }

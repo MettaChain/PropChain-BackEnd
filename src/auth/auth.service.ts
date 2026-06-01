@@ -6,7 +6,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { User as PrismaUser, ApiKey, TokenType } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import * as jwt from 'jsonwebtoken';
@@ -40,6 +39,7 @@ import {
   verifyBackupCode,
   verifyTotpCode,
 } from './security.utils';
+import { validatePassword } from './password.utils';
 import { AuthUserPayload } from './types/auth-user.type';
 import { GoogleProfile } from './strategies/google.strategy';
 
@@ -109,6 +109,13 @@ export class AuthService {
       throw new BadRequestException('A user with that email already exists');
     }
 
+    const passwordErrors = validatePassword(data.password);
+    if (passwordErrors.length > 0) {
+      throw new BadRequestException(
+        `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
+      );
+    }
+
     const passwordHash = await hashPassword(data.password, this.bcryptRounds);
     const user = await this.prisma.user.create({
       data: {
@@ -126,6 +133,7 @@ export class AuthService {
     });
 
     const tokens = await this.issueTokenPair(user);
+
     return {
       user: sanitizeUser(user),
       ...tokens,
@@ -452,6 +460,8 @@ export class AuthService {
       }
     }
 
+    await this.sessionsService.revokeAllSessions(user.sub);
+
     // Find all blacklisted refresh tokens for this user that are still active
     const blacklistedRefreshTokens = await this.prisma.blacklistedToken.findMany({
       where: {
@@ -673,6 +683,13 @@ export class AuthService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
+    const passwordErrors = validatePassword(data.newPassword);
+    if (passwordErrors.length > 0) {
+      throw new BadRequestException(
+        `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
+      );
+    }
+
     const passwordReused = await Promise.all(
       existingUser.passwordHistory
         .slice(0, passwordHistoryLimit)
@@ -720,6 +737,8 @@ export class AuthService {
         });
       }
     });
+
+    await this.sessionsService.revokeAllSessions(existingUser.id);
 
     return { message: 'Password updated successfully' };
   }
@@ -1013,7 +1032,13 @@ export class AuthService {
           where: { id: payload.sub },
           data: { lastActivityAt: now },
         })
-        .catch((err) => this.logger.error(`Failed to update lastActivityAt: ${err.message}`));
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to update lastActivityAt: ${
+              err instanceof Error ? err.message : JSON.stringify(err)
+            }`,
+          ),
+        );
     }
 
     return {
@@ -1064,7 +1089,7 @@ export class AuthService {
   }
 
   private async issueTokenPair(
-    user: PrismaUser,
+    user: Prisma.User,
     tokenFamily?: string,
     ipAddress?: string,
     userAgent?: string,
@@ -1269,6 +1294,13 @@ export class AuthService {
 
     const passwordHistoryLimit = getPasswordHistoryLimit();
 
+    const passwordErrors = validatePassword(data.newPassword);
+    if (passwordErrors.length > 0) {
+      throw new BadRequestException(
+        `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
+      );
+    }
+
     // Check if new password was used recently
     const recentPasswords = await this.prisma.passwordHistory.findMany({
       where: { userId: resetToken.userId },
@@ -1321,6 +1353,8 @@ export class AuthService {
         });
       }
     });
+
+    await this.sessionsService.revokeAllSessions(resetToken.userId);
   }
 
   async unlockAccount(email: string) {

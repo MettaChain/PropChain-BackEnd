@@ -15,4 +15,3 @@ export class NotConfiguredSignedUrlProvider implements SignedUrlProvider {
     throw new Error('Signed URL provider is not configured.');
   }
 }
-

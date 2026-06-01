@@ -33,6 +33,10 @@ export class AttachDocumentDto {
 
   @IsOptional()
   @IsString()
+  stage?: string;
+
+  @IsOptional()
+  @IsString()
   changeNote?: string;
 }
 

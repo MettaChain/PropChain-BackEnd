@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
+  IsPhoneNumber,
   IsString,
   MinLength,
   Matches,
@@ -30,7 +31,7 @@ export class RegisterDto {
   lastName: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhoneNumber(undefined, { message: 'Please provide a valid phone number' })
   phone?: string;
 }
 

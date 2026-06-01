@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { CacheWarmingService, WarmupTask, WarmupStrategy } from '../../src/common/cache/cache-warming.service';
+import {
+  CacheWarmingService,
+  WarmupTask,
+  WarmupStrategy,
+} from '../../src/common/cache/cache-warming.service';
 import { MultiLevelCacheService } from '../../src/common/cache/multi-level-cache.service';
 
 describe('CacheWarmingService', () => {
@@ -41,8 +45,8 @@ describe('CacheWarmingService', () => {
     it('should initialize with default strategies', async () => {
       const strategies = service.getStrategies();
       expect(strategies.length).toBeGreaterThan(0);
-      expect(strategies.some(s => s.name === 'user-data')).toBe(true);
-      expect(strategies.some(s => s.name === 'property-data')).toBe(true);
+      expect(strategies.some((s) => s.name === 'user-data')).toBe(true);
+      expect(strategies.some((s) => s.name === 'property-data')).toBe(true);
     });
   });
 
@@ -131,11 +135,7 @@ describe('CacheWarmingService', () => {
       await service.executeStrategy('exec-strategy');
 
       expect(factory).toHaveBeenCalled();
-      expect(cacheService.set).toHaveBeenCalledWith(
-        'test:key',
-        { data: 'test' },
-        undefined,
-      );
+      expect(cacheService.set).toHaveBeenCalledWith('test:key', { data: 'test' }, undefined);
     });
 
     it('should skip already cached entries', async () => {

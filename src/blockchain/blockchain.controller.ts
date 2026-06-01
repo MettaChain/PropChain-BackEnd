@@ -42,6 +42,7 @@ export class BlockchainController {
   @ApiResponse({ status: 500, description: 'Blockchain recording failed' })
   async recordTransaction(
     @Body() dto: RecordTransactionOnBlockchainDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<BlockchainTransactionDto> {
     return this.blockchainService.recordTransactionOnBlockchain(dto);
   }

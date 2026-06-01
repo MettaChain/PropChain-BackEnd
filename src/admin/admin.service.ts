@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { BackupService } from '../backup/backup.service';
 import { UpdateBackupScheduleDto } from '../backup/dto/backup.dto';
@@ -17,6 +17,7 @@ import {
 } from './dto/admin.dto';
 import { PropertyStatus, TransactionStatus, TransactionType } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
+import { SessionsService } from '../sessions/sessions.service';
 import { TransactionsService } from '../transactions/transactions.service';
 
 @Injectable()
@@ -26,6 +27,7 @@ export class AdminService {
     private readonly fraudService: FraudService,
     private readonly backupService: BackupService,
     private readonly transactionsService: TransactionsService,
+    private readonly sessionsService: SessionsService,
   ) {}
 
   async listBackups() {
@@ -142,7 +144,16 @@ export class AdminService {
   }
 
   async updateUser(userId: string, payload: AdminUpdateUserDto) {
-    return this.prisma.user.update({
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: payload,
       select: {
@@ -157,6 +168,12 @@ export class AdminService {
         updatedAt: true,
       },
     });
+
+    if (payload.role && payload.role !== existingUser.role) {
+      await this.sessionsService.revokeAllSessions(userId);
+    }
+
+    return updatedUser;
   }
 
   async setUserBlockedState(userId: string, blocked: boolean) {
@@ -254,7 +271,7 @@ export class AdminService {
       });
 
       await this.prisma.activityLog.createMany({
-        data: properties.map((property) => ({
+        data: properties.map((property: { id: string; ownerId: string }) => ({
           userId: property.ownerId,
           action: 'PROPERTY_FLAGGED_BY_ADMIN',
           entityType: 'PROPERTY',

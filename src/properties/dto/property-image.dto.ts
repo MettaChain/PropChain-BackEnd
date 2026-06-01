@@ -1,4 +1,17 @@
-import { ArrayMinSize, ArrayUnique, IsArray, IsString, IsUUID } from 'class-validator';
+import { ArrayMinSize, ArrayUnique, IsArray, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+
+/** Optional metadata that can be supplied per-upload (#556). */
+export class PhotoUploadMetadataDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  altText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  caption?: string;
+}
 
 /**
  * Reorder all images of a property by providing the desired sequence of image IDs.
@@ -29,6 +42,8 @@ export interface PropertyImageResponse {
   height: number | null;
   order: number;
   isPrimary: boolean;
+  altText: string | null;
+  caption: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

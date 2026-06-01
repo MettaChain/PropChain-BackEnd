@@ -1,6 +1,16 @@
 import { IsString, IsOptional, IsUUID, IsNumber, Min, Max, IsBoolean } from 'class-validator';
 import { Field, InputType, Int } from '@nestjs/graphql';
 
+export class FlagForReviewDto {
+  @IsOptional()
+  @IsUUID()
+  duplicateOfId?: string;
+
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string;
+}
+
 export class CheckDuplicateDto {
   @Field()
   @IsString()

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { BadRequestException } from '@nestjs/common';
 import { BlockchainService } from './blockchain.service';
 import { PrismaService } from '../database/prisma.service';
 import {
@@ -28,8 +29,12 @@ describe('BlockchainService', () => {
 
   const mockPrismaService = {
     transaction: {
+      findUnique: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+    },
+    transactionHistory: {
+      create: jest.fn(),
     },
   };
 
@@ -59,6 +64,7 @@ describe('BlockchainService', () => {
         buyerAddress: '0xBuyer',
         sellerAddress: '0xSeller',
         amount: 1000,
+        timestamp: 1716812345678,
       };
 
       const hash1 = service.generateBlockchainHash(data);
@@ -133,47 +139,141 @@ describe('BlockchainService', () => {
   });
 
   describe('recordTransactionOnBlockchain', () => {
-    it('should record transaction and update database', async () => {
-      const dto: RecordTransactionOnBlockchainDto = {
-        transactionId: 'tx-123',
-        propertyId: 'prop-456',
-        buyerAddress: '0xBuyer',
-        sellerAddress: '0xSeller',
-        amount: 1000,
-      };
+    const validDto: RecordTransactionOnBlockchainDto = {
+      transactionId: 'tx-123',
+      propertyId: 'prop-456',
+      buyerAddress: '0x1234567890123456789012345678901234567890',
+      sellerAddress: '0x0987654321098765432109876543210987654321',
+      amount: 1000,
+    };
 
-      mockPrismaService.transaction.update.mockResolvedValue({
-        id: dto.transactionId,
-        blockchainHash: expect.any(String),
+    it('should validate required fields - reject missing transactionId', async () => {
+      await expect(
+        service.recordTransactionOnBlockchain({ ...validDto, transactionId: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should validate required fields - reject missing propertyId', async () => {
+      await expect(
+        service.recordTransactionOnBlockchain({ ...validDto, propertyId: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should validate buyer address format', async () => {
+      await expect(
+        service.recordTransactionOnBlockchain({ ...validDto, buyerAddress: 'invalid-address' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should validate seller address format', async () => {
+      await expect(
+        service.recordTransactionOnBlockchain({ ...validDto, sellerAddress: 'invalid-address' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should validate amount is positive', async () => {
+      await expect(
+        service.recordTransactionOnBlockchain({ ...validDto, amount: 0 }),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.recordTransactionOnBlockchain({ ...validDto, amount: -100 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject recording for non-existent transaction', async () => {
+      mockPrismaService.transaction.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.recordTransactionOnBlockchain(validDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject recording for non-COMPLETED transaction', async () => {
+      mockPrismaService.transaction.findUnique.mockResolvedValue({
+        id: 'tx-123',
+        status: 'PENDING',
       });
 
-      const result = await service.recordTransactionOnBlockchain(dto);
+      await expect(
+        service.recordTransactionOnBlockchain(validDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept recording for COMPLETED transaction', async () => {
+      mockPrismaService.transaction.findUnique.mockResolvedValue({
+        id: 'tx-123',
+        status: 'COMPLETED',
+      });
+      mockPrismaService.transaction.update.mockResolvedValue({
+        id: 'tx-123',
+        blockchainHash: expect.any(String),
+      });
+      mockPrismaService.transactionHistory.create.mockResolvedValue({});
+
+      const result = await service.recordTransactionOnBlockchain(validDto);
 
       expect(result).toHaveProperty('transactionHash');
       expect(result).toHaveProperty('blockchainHash');
       expect(result).toHaveProperty('explorerUrl');
       expect(result.status).toBe('pending');
       expect(mockPrismaService.transaction.update).toHaveBeenCalled();
+      // Audit log should have been created
+      expect(mockPrismaService.transactionHistory.create).toHaveBeenCalled();
     });
 
     it('should generate explorer URL for transaction', async () => {
-      const dto: RecordTransactionOnBlockchainDto = {
-        transactionId: 'tx-123',
-        propertyId: 'prop-456',
-        buyerAddress: '0xBuyer',
-        sellerAddress: '0xSeller',
-        amount: 1000,
-      };
-
+      mockPrismaService.transaction.findUnique.mockResolvedValue({
+        id: 'tx-123',
+        status: 'COMPLETED',
+      });
       mockPrismaService.transaction.update.mockResolvedValue({
-        id: dto.transactionId,
+        id: 'tx-123',
         blockchainHash: expect.any(String),
       });
+      mockPrismaService.transactionHistory.create.mockResolvedValue({});
 
-      const result = await service.recordTransactionOnBlockchain(dto);
+      const result = await service.recordTransactionOnBlockchain(validDto);
 
       expect(result.explorerUrl).toContain('sepolia.etherscan.io');
       expect(result.explorerUrl).toContain('/tx/');
+    });
+
+    it('should handle disabled blockchain by recording locally', async () => {
+      // Override config to disable blockchain
+      const disabledConfig = {
+        get: jest.fn((key: string, defaultValue?: any) => {
+          const config: Record<string, any> = {
+            BLOCKCHAIN_ENABLED: 'false',
+            BLOCKCHAIN_NETWORK: BlockchainNetwork.SEPOLIA,
+          };
+          return config[key] ?? defaultValue;
+        }),
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          BlockchainService,
+          { provide: ConfigService, useValue: disabledConfig },
+          { provide: PrismaService, useValue: mockPrismaService },
+        ],
+      }).compile();
+
+      const disabledService = module.get<BlockchainService>(BlockchainService);
+
+      mockPrismaService.transaction.findUnique.mockResolvedValue({
+        id: 'tx-123',
+        status: 'COMPLETED',
+      });
+      mockPrismaService.transaction.update.mockResolvedValue({
+        id: 'tx-123',
+        blockchainHash: expect.any(String),
+      });
+
+      const result = await disabledService.recordTransactionOnBlockchain(validDto);
+
+      expect(result.status).toBe('confirmed');
+      expect(result.contractAddress).toBe('local');
     });
   });
 
@@ -190,6 +290,26 @@ describe('BlockchainService', () => {
       expect(result).toHaveProperty('transactionHash');
       expect(result).toHaveProperty('blockNumber');
       expect(result).toHaveProperty('status');
+    });
+
+    it('should reject invalid transaction hash (no 0x prefix)', async () => {
+      const dto: VerifyBlockchainTransactionDto = {
+        transactionHash: '123abc',
+      };
+
+      await expect(
+        service.verifyBlockchainTransaction(dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject empty transaction hash', async () => {
+      const dto: VerifyBlockchainTransactionDto = {
+        transactionHash: '',
+      };
+
+      await expect(
+        service.verifyBlockchainTransaction(dto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

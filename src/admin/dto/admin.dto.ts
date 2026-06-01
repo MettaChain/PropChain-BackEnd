@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsInt,
   IsOptional,
+  IsPhoneNumber,
   IsString,
   IsUUID,
   Max,
@@ -56,7 +57,7 @@ export class AdminUpdateUserDto {
   lastName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsPhoneNumber(undefined, { message: 'Please provide a valid phone number' })
   phone?: string;
 
   @IsOptional()

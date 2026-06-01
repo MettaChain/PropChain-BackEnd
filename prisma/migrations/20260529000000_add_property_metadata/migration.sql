@@ -1,0 +1,2 @@
+ALTER TABLE "properties" ADD COLUMN IF NOT EXISTS "category" TEXT;
+ALTER TABLE "properties" ADD COLUMN IF NOT EXISTS "tags" TEXT[] NOT NULL DEFAULT '{}';

@@ -9,6 +9,7 @@ import {
   Query,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,6 +19,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
 import { AdminService } from './admin.service';
+import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import {
   AddFraudInvestigationNoteDto,
   AdminUpdateUserDto,
@@ -36,6 +38,7 @@ import { RestoreBackupDto, UpdateBackupScheduleDto } from '../backup/dto/backup.
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
+@UseInterceptors(AdminAuditInterceptor)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 

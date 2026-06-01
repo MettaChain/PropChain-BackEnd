@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 
 export interface ListFavoritesParams {
@@ -34,11 +30,7 @@ export class FavoritesService {
       });
     } catch (err: unknown) {
       // P2002 = unique constraint violation (already favorited)
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        (err as { code?: string }).code === 'P2002'
-      ) {
+      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002') {
         const existing = await this.prisma.propertyFavorite.findUnique({
           where: { userId_propertyId: { userId, propertyId } },
         });

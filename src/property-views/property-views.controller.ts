@@ -72,10 +72,7 @@ export class PropertyViewsController {
     @Query('since') since?: string,
   ) {
     const sinceDate = this.parseSince(since);
-    const result = await this.propertyViewsService.getUniqueVisitorCount(
-      propertyId,
-      sinceDate,
-    );
+    const result = await this.propertyViewsService.getUniqueVisitorCount(propertyId, sinceDate);
     return { propertyId, ...result };
   }
 
@@ -101,6 +98,14 @@ export class PropertyViewsController {
    */
   @Get('popular')
   popular(@Query() query: PopularPropertiesQueryDto) {
+    return this.propertyViewsService.getPopularProperties({
+      take: query.take,
+      since: this.parseSince(query.since),
+    });
+  }
+
+  @Get('leaderboard')
+  leaderboard(@Query() query: PopularPropertiesQueryDto) {
     return this.propertyViewsService.getPopularProperties({
       take: query.take,
       since: this.parseSince(query.since),

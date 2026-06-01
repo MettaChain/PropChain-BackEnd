@@ -18,11 +18,7 @@ export class SignedUrlService {
     try {
       return await this.provider.getSignedUrl(req);
     } catch (e: any) {
-      throw new InternalServerErrorException(
-        e?.message ?? 'Failed to get signed URL',
-      );
+      throw new InternalServerErrorException(e?.message ?? 'Failed to get signed URL');
     }
   }
 }
-
-

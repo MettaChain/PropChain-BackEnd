@@ -19,12 +19,8 @@ export class NeighborhoodsService {
     return this.prisma.neighborhood.create({
       data: {
         ...rest,
-        schools: schools && schools.length > 0
-          ? { create: schools }
-          : undefined,
-        amenities: amenities && amenities.length > 0
-          ? { create: amenities }
-          : undefined,
+        schools: schools && schools.length > 0 ? { create: schools } : undefined,
+        amenities: amenities && amenities.length > 0 ? { create: amenities } : undefined,
       } as any,
       include: { schools: true, amenities: true },
     });

@@ -47,10 +47,7 @@ export class FavoritesController {
    */
   @UseGuards(JwtAuthGuard)
   @Get()
-  list(
-    @CurrentUser() user: AuthUserPayload,
-    @Query() query: ListFavoritesQueryDto,
-  ) {
+  list(@CurrentUser() user: AuthUserPayload, @Query() query: ListFavoritesQueryDto) {
     return this.favoritesService.listFavorites(user.sub, {
       skip: query.skip,
       take: query.take,
@@ -76,10 +73,7 @@ export class FavoritesController {
     @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    const isFavorite = await this.favoritesService.isFavorite(
-      user.sub,
-      propertyId,
-    );
+    const isFavorite = await this.favoritesService.isFavorite(user.sub, propertyId);
     return { isFavorite };
   }
 
@@ -87,11 +81,8 @@ export class FavoritesController {
    * Public — total number of users that have favorited a property.
    */
   @Get('property/:propertyId/count')
-  async propertyCount(
-    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
-  ) {
-    const count =
-      await this.favoritesService.getPropertyFavoriteCount(propertyId);
+  async propertyCount(@Param('propertyId', new ParseUUIDPipe()) propertyId: string) {
+    const count = await this.favoritesService.getPropertyFavoriteCount(propertyId);
     return { propertyId, count };
   }
 }

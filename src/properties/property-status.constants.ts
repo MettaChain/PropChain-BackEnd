@@ -3,7 +3,7 @@ import { PropertyStatus } from '../types/prisma.types';
 /**
  * Default status assigned when a property is created.
  */
-export const DEFAULT_PROPERTY_STATUS = PropertyStatus.DRAFT;
+export const DEFAULT_PROPERTY_STATUS = PropertyStatus.PENDING;
 
 /**
  * Property status workflow state machine.
@@ -18,28 +18,25 @@ export const DEFAULT_PROPERTY_STATUS = PropertyStatus.DRAFT;
  *   - RENTED → ACTIVE          (lease ended)
  *   - any non-terminal → ARCHIVED
  *   - ARCHIVED → DRAFT         (un-archive for re-listing)
+ *   - EXPIRED → ACTIVE/DRAFT   (renewal)
+ *   - EXPIRED → ARCHIVED       (archive expired listing)
  *
  * Terminal-ish states (SOLD) only allow ARCHIVED for record-keeping.
  */
-const ALLOWED_PROPERTY_STATUS_TRANSITIONS: Record<
-  PropertyStatus,
-  readonly PropertyStatus[]
-> = {
-  [PropertyStatus.DRAFT]: [PropertyStatus.PENDING, PropertyStatus.ARCHIVED],
-  [PropertyStatus.PENDING]: [
-    PropertyStatus.ACTIVE,
-    PropertyStatus.DRAFT,
-    PropertyStatus.ARCHIVED,
-  ],
+const ALLOWED_PROPERTY_STATUS_TRANSITIONS: Record<PropertyStatus, readonly PropertyStatus[]> = {
+  [PropertyStatus.DRAFT]: [PropertyStatus.PENDING, PropertyStatus.ARCHIVED, PropertyStatus.EXPIRED],
+  [PropertyStatus.PENDING]: [PropertyStatus.ACTIVE, PropertyStatus.DRAFT, PropertyStatus.ARCHIVED, PropertyStatus.EXPIRED],
   [PropertyStatus.ACTIVE]: [
     PropertyStatus.UNDER_CONTRACT,
     PropertyStatus.RENTED,
     PropertyStatus.ARCHIVED,
+    PropertyStatus.EXPIRED,
   ],
   [PropertyStatus.UNDER_CONTRACT]: [PropertyStatus.SOLD, PropertyStatus.ACTIVE],
   [PropertyStatus.SOLD]: [PropertyStatus.ARCHIVED],
   [PropertyStatus.RENTED]: [PropertyStatus.ACTIVE, PropertyStatus.ARCHIVED],
   [PropertyStatus.ARCHIVED]: [PropertyStatus.DRAFT],
+  [PropertyStatus.EXPIRED]: [PropertyStatus.ACTIVE, PropertyStatus.DRAFT, PropertyStatus.ARCHIVED],
 };
 
 /**

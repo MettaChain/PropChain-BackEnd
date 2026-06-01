@@ -150,6 +150,8 @@ npm run test:cov
 npm run test:watch
 ```
 
+For database-backed integration tests, set `TEST_DATABASE_URL` to a dedicated test database. Helper utilities are available in `test/database/prisma-test-helpers.ts` to clean fixtures and reset seeded state between suites.
+
 ## 📁 Project Structure
 
 ```
@@ -190,6 +192,12 @@ prisma/
 - **Property** - Real estate listings with detailed information
 - **Transaction** - Property transactions with blockchain integration
 - **Document** - Property-related documents and files
+
+## Module Docs
+
+- **Properties module:** [src/properties/README.md](src/properties/README.md#L1)
+- **Transactions module:** [src/transactions/README.md](src/transactions/README.md#L1)
+- **Auth & Users:** [docs/Auth_and_User_APIs.md](docs/Auth_and_User_APIs.md#L1)
 
 ## 🔐 Environment Variables
 
@@ -249,6 +257,9 @@ Tax strategy suggestions are informational only and are not legal or tax advice.
 
 ## 🤝 Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, branch naming conventions, PR expectations, and local test/lint instructions.
+
+
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
@@ -262,3 +273,24 @@ This project is licensed under the MIT License.
 ## 👥 Support
 
 For support, email support@propchain.com or join our Slack channel
+
+## Developer Requirements — TypeScript & Linting
+
+- **TypeScript strict mode:** The project now enables `strict` TypeScript checks. The base config is in [tsconfig.json](tsconfig.json#L1).
+- **Key compiler flags enforced:** `noImplicitAny`, `strictNullChecks` and related strict checks are enabled for app builds via [tsconfig.app.json](tsconfig.app.json#L1).
+- **ESLint rules:** `@typescript-eslint/no-explicit-any` is set to `error` and explicit boundary/return types are encouraged via `@typescript-eslint/explicit-module-boundary-types` and `@typescript-eslint/explicit-function-return-type` (set to `warn`). See [.eslintrc.js](.eslintrc.js#L1).
+
+Local checks before committing/pushing:
+
+```bash
+# Install
+npm ci
+
+# Run linter (auto-fixable issues)
+npm run lint
+
+# Build to verify TypeScript strict checks
+npm run build
+```
+
+CI: A GitHub Actions workflow (`.github/workflows/ci.yml`) now runs `npm run lint` and `npm run build` on pushes and PRs to `main` to validate the stricter compilation and linting rules.

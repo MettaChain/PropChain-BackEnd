@@ -5,12 +5,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDisputeDto, ResolveDisputeDto } from './dto/dispute.dto';
 import { DisputeStatus } from '../types/prisma.types';
 
 @Injectable()
 export class DisputesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async create(userId: string, dto: CreateDisputeDto) {
     const transaction = await this.prisma.transaction.findUnique({
@@ -28,7 +32,7 @@ export class DisputesService {
       );
     }
 
-    return this.prisma.dispute.create({
+    const dispute = await this.prisma.dispute.create({
       data: {
         transactionId: dto.transactionId,
         initiatorId: userId,
@@ -36,6 +40,36 @@ export class DisputesService {
         description: dto.description,
         status: DisputeStatus.OPEN,
       },
+    });
+
+    // Notify admins (#564)
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' as any },
+      select: { id: true },
+      take: 10,
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        this.notificationsService.sendNotification(
+          admin.id,
+          'New Dispute Filed',
+          `A dispute has been filed for transaction ${dto.transactionId}: ${dto.reason}`,
+          'DISPUTE',
+          { disputeId: dispute.id, transactionId: dto.transactionId },
+        ),
+      ),
+    );
+
+    return dispute;
+  }
+
+  async updateStatus(disputeId: string, adminId: string, status: DisputeStatus) {
+    const dispute = await this.prisma.dispute.findUnique({ where: { id: disputeId } });
+    if (!dispute) throw new NotFoundException('Dispute not found');
+
+    return this.prisma.dispute.update({
+      where: { id: disputeId },
+      data: { status, arbitratorId: adminId },
     });
   }
 

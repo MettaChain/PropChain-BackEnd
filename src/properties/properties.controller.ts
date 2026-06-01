@@ -1,6 +1,20 @@
-import { Body, Controller, Get, Post, Put, Delete, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+  Res,
+  HttpStatus,
+} from '@nestjs/common';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
+import { AssignAgentDto, UpdateAgentAssignmentDto } from './dto/agent-assignment.dto';
 import { SearchPropertiesDto } from './dto/search-properties.dto';
 import { TransitionPropertyStatusDto } from './dto/transition-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,10 +28,16 @@ import {
   BulkPropertyDeleteDto,
   BulkPropertyExportDto,
 } from './dto/bulk-operations.dto';
+import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
+import { PropertyReportService } from './report/property-report.service';
+import { Response } from 'express';
 
 @Controller('properties')
 export class PropertiesController {
-  constructor(private readonly propertiesService: PropertiesService) {}
+  constructor(
+    private readonly propertiesService: PropertiesService,
+    private readonly propertyReportService: PropertyReportService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -67,6 +87,30 @@ export class PropertiesController {
     return this.propertiesService.remove(id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/report')
+  async generateReport(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    try {
+      const pdfBuffer = await this.propertyReportService.generatePropertyReport(id);
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="property-report-${id}.pdf"`,
+        'Content-Length': pdfBuffer.length,
+      });
+
+      res.send(pdfBuffer);
+    } catch (error) {
+      if (error.message?.includes('not found')) {
+        res.status(HttpStatus.NOT_FOUND).send({ message: error.message });
+        return;
+      }
+      res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send({ message: 'Failed to generate property report' });
+    }
+  }
+
   /**
    * Transition a property's lifecycle status.
    * Workflow: DRAFT → PENDING → ACTIVE → UNDER_CONTRACT → SOLD
@@ -88,6 +132,20 @@ export class PropertiesController {
       user.sub,
       user.role,
     );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch(':id/approve')
+  approve(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    return this.propertiesService.approveProperty(id, user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch(':id/reject')
+  reject(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    return this.propertiesService.rejectProperty(id, user.sub);
   }
 
   @Post('bulk/status')
@@ -112,5 +170,76 @@ export class PropertiesController {
     @CurrentUser() user: AuthUserPayload,
   ) {
     return this.propertiesService.bulkExportProperties(body.propertyIds, body.filter);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/agents')
+  async assignAgent(
+    @Param('id') propertyId: string,
+    @Body() dto: AssignAgentDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.propertiesService.assignAgent(propertyId, dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put(':id/agents/:agentId')
+  async updateAgentAssignment(
+    @Param('id') propertyId: string,
+    @Param('agentId') agentId: string,
+    @Body() dto: UpdateAgentAssignmentDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.propertiesService.updateAgentAssignment(propertyId, agentId, dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/agents/:agentId')
+  async removeAgentAssignment(
+    @Param('id') propertyId: string,
+    @Param('agentId') agentId: string,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.propertiesService.removeAgentAssignment(propertyId, agentId, user);
+  }
+
+  @Get(':id/agents')
+  async getAgents(@Param('id') propertyId: string) {
+    return this.propertiesService.getAgents(propertyId);
+  }
+
+  // ---- Amenity endpoints (#551) ----
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/amenities')
+  async addAmenity(
+    @Param('id') propertyId: string,
+    @Body() dto: CreateAmenityDto,
+  ) {
+    return this.propertiesService.addAmenity(propertyId, dto);
+  }
+
+  @Get(':id/amenities')
+  async getAmenities(@Param('id') propertyId: string) {
+    return this.propertiesService.getAmenities(propertyId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/amenities/:amenityId')
+  async updateAmenity(
+    @Param('id') propertyId: string,
+    @Param('amenityId') amenityId: string,
+    @Body() dto: UpdateAmenityDto,
+  ) {
+    return this.propertiesService.updateAmenity(propertyId, amenityId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/amenities/:amenityId')
+  async removeAmenity(
+    @Param('id') propertyId: string,
+    @Param('amenityId') amenityId: string,
+  ) {
+    return this.propertiesService.removeAmenity(propertyId, amenityId);
   }
 }

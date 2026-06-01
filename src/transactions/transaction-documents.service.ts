@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AttachDocumentDto, AddVersionDto } from './dto/transaction-document.dto';
 
@@ -7,8 +7,9 @@ export class TransactionDocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Attach a new document to a transaction and record version 1. */
-  async attach(transactionId: string, dto: AttachDocumentDto, userId: string) {
-    await this.ensureTransactionExists(transactionId);
+  async attach(transactionId: string, dto: AttachDocumentDto, userId: string, userRole?: string) {
+    const tx = await this.ensureTransactionExists(transactionId);
+    this.assertAccess(tx, userId, userRole);
 
     const document = await this.prisma.document.create({
       data: {
@@ -20,9 +21,10 @@ export class TransactionDocumentsService {
         fileSize: dto.fileSize,
         mimeType: dto.mimeType,
         description: dto.description,
+        stage: dto.stage ?? null,
         category: dto.documentType.toLowerCase().replace('_', '-'),
         auditTrail: [],
-      },
+      } as any,
     });
 
     // Record initial version
@@ -42,8 +44,9 @@ export class TransactionDocumentsService {
   }
 
   /** List all documents attached to a transaction. */
-  async list(transactionId: string) {
-    await this.ensureTransactionExists(transactionId);
+  async list(transactionId: string, userId?: string, userRole?: string) {
+    const tx = await this.ensureTransactionExists(transactionId);
+    if (userId) this.assertAccess(tx, userId, userRole);
     return this.prisma.document.findMany({
       where: { transactionId },
       orderBy: { createdAt: 'desc' },
@@ -110,5 +113,14 @@ export class TransactionDocumentsService {
   private async ensureTransactionExists(transactionId: string) {
     const tx = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
     if (!tx) throw new NotFoundException(`Transaction ${transactionId} not found`);
+    return tx;
+  }
+
+  private assertAccess(tx: any, userId: string, userRole?: string) {
+    const isParty = tx.buyerId === userId || tx.sellerId === userId;
+    const isPrivileged = userRole === 'ADMIN' || userRole === 'AGENT';
+    if (!isParty && !isPrivileged) {
+      throw new ForbiddenException('Access denied to this transaction document');
+    }
   }
 }

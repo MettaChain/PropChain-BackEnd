@@ -4,8 +4,14 @@ import { CreateDisputeDto, ResolveDisputeDto } from './dto/dispute.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../types/prisma.types';
+import { DisputeStatus } from '../types/prisma.types';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { IsEnum } from 'class-validator';
+
+class UpdateDisputeStatusDto {
+  @IsEnum(DisputeStatus)
+  status: DisputeStatus;
+}
 
 @ApiTags('Disputes')
 @ApiBearerAuth()
@@ -34,6 +40,14 @@ export class DisputesController {
   @ApiResponse({ status: 200, description: 'Dispute resolved successfully' })
   resolve(@Req() req: any, @Param('id') id: string, @Body() dto: ResolveDisputeDto) {
     return this.disputesService.resolve(id, req.user.id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles('ADMIN' as any)
+  @ApiOperation({ summary: 'Update dispute status (Admin only) (#564)' })
+  @ApiResponse({ status: 200, description: 'Dispute status updated' })
+  updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateDisputeStatusDto) {
+    return this.disputesService.updateStatus(id, req.user.id, dto.status);
   }
 
   @Get(':id')

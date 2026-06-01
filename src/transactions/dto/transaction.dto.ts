@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsUUID, IsDecimal, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsUUID, IsDate, IsIn, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -118,6 +118,18 @@ export class TransactionResponseDto {
   @ApiPropertyOptional()
   notes?: string;
 
+  @ApiPropertyOptional({ description: 'Fee breakdown including platform fee, agent commission, and tax (#565)' })
+  feeBreakdown?: FeeBreakdown;
+  
+  @ApiPropertyOptional()
+  escrowStatus?: string;
+
+  @ApiPropertyOptional()
+  escrowAmount?: any;
+
+  @ApiPropertyOptional()
+  paymentStatus?: string;
+
   @ApiProperty()
   createdAt: Date;
 
@@ -166,6 +178,85 @@ export class TransactionListQueryDto {
   limit: number = 20;
 }
 
+export enum TransactionAnalyticsGranularity {
+  DAY = 'day',
+  WEEK = 'week',
+  MONTH = 'month',
+}
+
+export class TransactionAnalyticsQueryDto {
+  @ApiPropertyOptional({ description: 'Only include transactions created on or after this date' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  startDate?: Date;
+
+  @ApiPropertyOptional({ description: 'Only include transactions created on or before this date' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  endDate?: Date;
+
+  @ApiPropertyOptional({
+    enum: TransactionAnalyticsGranularity,
+    default: TransactionAnalyticsGranularity.MONTH,
+  })
+  @IsOptional()
+  @IsEnum(TransactionAnalyticsGranularity)
+  granularity?: TransactionAnalyticsGranularity = TransactionAnalyticsGranularity.MONTH;
+
+  @ApiPropertyOptional({ enum: TransactionTypeDto })
+  @IsOptional()
+  @IsEnum(TransactionTypeDto)
+  type?: TransactionTypeDto;
+}
+
+export class TransactionVolumeTrendDto {
+  @ApiProperty()
+  period: string;
+
+  @ApiProperty()
+  transactionCount: number;
+
+  @ApiProperty()
+  totalVolume: number;
+
+  @ApiProperty()
+  completedCount: number;
+
+  @ApiProperty()
+  revenue: number;
+}
+
+export class TransactionAnalyticsDto {
+  @ApiProperty()
+  totalTransactions: number;
+
+  @ApiProperty()
+  completedTransactions: number;
+
+  @ApiProperty()
+  pendingTransactions: number;
+
+  @ApiProperty()
+  cancelledTransactions: number;
+
+  @ApiProperty()
+  totalVolume: number;
+
+  @ApiProperty()
+  averagePrice: number;
+
+  @ApiProperty()
+  completionRate: number;
+
+  @ApiProperty()
+  revenue: number;
+
+  @ApiProperty({ type: [TransactionVolumeTrendDto] })
+  volumeTrends: TransactionVolumeTrendDto[];
+}
+
 export class CreateTransactionTaxStrategyDto {
   @ApiProperty({ description: 'Tax strategy type' })
   @IsString()
@@ -181,4 +272,22 @@ export class CreateTransactionTaxStrategyDto {
   @IsOptional()
   @IsString()
   explanation?: string;
+}
+
+export class UpdateEscrowDto {
+  @ApiPropertyOptional({ enum: ['PENDING', 'HELD', 'RELEASED', 'REFUNDED'] })
+  @IsOptional()
+  @IsIn(['PENDING', 'HELD', 'RELEASED', 'REFUNDED'])
+  escrowStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  escrowAmount?: number;
+
+  @ApiPropertyOptional({ enum: ['PENDING', 'PARTIAL', 'COMPLETE'] })
+  @IsOptional()
+  @IsIn(['PENDING', 'PARTIAL', 'COMPLETE'])
+  paymentStatus?: string;
 }

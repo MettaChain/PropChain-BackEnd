@@ -4,9 +4,7 @@ import { CompareBodyDto, CompareQueryDto } from './dto/comparison.dto';
 
 @Controller('property-comparison')
 export class PropertyComparisonController {
-  constructor(
-    private readonly comparisonService: PropertyComparisonService,
-  ) {}
+  constructor(private readonly comparisonService: PropertyComparisonService) {}
 
   /**
    * Compare 2-4 properties via query string:

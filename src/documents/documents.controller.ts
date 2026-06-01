@@ -40,22 +40,44 @@ export class DocumentsController {
 
   @Get()
   findAll(@CurrentUser() user: AuthUserPayload, @Query() filter: FilterDocumentsDto) {
-    return this.documentsService.findAll(user.sub, filter);
+    return this.documentsService.findAll(user.sub, filter, (user as any).role);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.documentsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    return this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateDocumentDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
     return this.documentsService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
     return this.documentsService.remove(id);
+  }
+
+  // ── #572 Version History ─────────────────────────────────────────────────
+
+  @Get(':id/versions')
+  getVersions(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    return this.documentsService.getVersions(id, user.sub, (user as any).role);
+  }
+
+  @Get(':id/versions/:versionId')
+  getVersion(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.documentsService.getVersion(id, versionId, user.sub, (user as any).role);
   }
 
   // ── #402 Expiration ──────────────────────────────────────────────────────
@@ -80,26 +102,33 @@ export class DocumentsController {
   }
 
   @Put(':id/expiration/notified')
-  flagNotified(@Param('id') id: string) {
+  async flagNotified(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
     return this.documentsService.flagExpiryNotified(id);
   }
 
   // ── #403 eSignature ──────────────────────────────────────────────────────
 
   @Post(':id/sign')
-  sign(@Param('id') id: string, @Body() dto: SignDocumentDto) {
+  async sign(
+    @Param('id') id: string,
+    @Body() dto: SignDocumentDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
     return this.documentsService.signDocument(id, dto);
   }
 
   @Get(':id/verify')
-  verify(@Param('id') id: string) {
+  async verify(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
+    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
     return this.documentsService.verifySignature(id);
   }
 
-  // ── #404 Bulk Download ───────────────────────────────────────────────────
+  // ── #404 / #569 Bulk Download (with authorization) ──────────────────────
 
   @Post('bulk-download')
-  bulkDownload(@Body() dto: BulkDownloadDto, @Res() res: Response) {
-    return this.documentsService.bulkDownload(dto, res);
+  bulkDownload(@Body() dto: BulkDownloadDto, @Res() res: Response, @CurrentUser() user: AuthUserPayload) {
+    return this.documentsService.bulkDownload(dto, res, user.sub);
   }
 }

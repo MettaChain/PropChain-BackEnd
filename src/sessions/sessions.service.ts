@@ -111,8 +111,44 @@ export class SessionsService {
       where.id = { not: exceptSessionId };
     }
 
+    const sessions = await this.prisma.session.findMany({
+      where: {
+        ...where,
+        isRevoked: false,
+      },
+    });
+
+    const blacklistedTokens = sessions.flatMap((session: any) => [
+      session.accessTokenJti
+        ? {
+            jti: session.accessTokenJti,
+            tokenType: 'ACCESS' as const,
+            expiresAt: session.expiresAt,
+            userId,
+          }
+        : null,
+      session.refreshTokenJti
+        ? {
+            jti: session.refreshTokenJti,
+            tokenType: 'REFRESH' as const,
+            expiresAt: session.expiresAt,
+            userId,
+          }
+        : null,
+    ]).filter(Boolean);
+
+    if (blacklistedTokens.length > 0) {
+      await this.prisma.blacklistedToken.createMany({
+        data: blacklistedTokens,
+        skipDuplicates: true,
+      });
+    }
+
     const updateResult = await this.prisma.session.updateMany({
-      where,
+      where: {
+        ...where,
+        isRevoked: false,
+      },
       data: {
         isRevoked: true,
         revokedAt: new Date(),

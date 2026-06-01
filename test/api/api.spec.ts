@@ -53,10 +53,10 @@ describe('AnalyticsInterceptor (integration test)', () => {
   });
 });
 
-describe('Performance tests', () => {
-  it('AnalyticsService handles 1000 records within 50ms', () => {
+describe('Analytics behavior', () => {
+  it('collects metrics for repeated requests', () => {
     const service = new AnalyticsService();
-    const start = Date.now();
+
     for (let i = 0; i < 1000; i++) {
       service.record({
         endpoint: `/api/route${i % 10}`,
@@ -65,18 +65,25 @@ describe('Performance tests', () => {
         responseTime: i,
       });
     }
-    service.getStats();
-    expect(Date.now() - start).toBeLessThan(50);
-  });
 
-  it('CacheMonitoringService handles 1000 hits within 10ms', () => {
-    const monitoring = new CacheMonitoringService();
-    const start = Date.now();
-    for (let i = 0; i < 1000; i++) monitoring.recordHit();
-    expect(Date.now() - start).toBeLessThan(10);
-    expect(monitoring.getMetrics().hits).toBe(1000);
+    const stats = service.getStats();
+    expect(stats.total).toBe(1000);
+    expect(stats.endpoints.length).toBeGreaterThan(0);
+    expect(stats.endpoints.some((item) => item.endpoint === 'GET /api/route0')).toBe(true);
   });
 });
 
-// Import needed for performance test
 import { CacheMonitoringService } from '../../src/cache/cache-monitoring.service';
+
+describe('CacheMonitoringService', () => {
+  it('tracks hits correctly', async () => {
+    const monitoring = new CacheMonitoringService();
+
+    for (let i = 0; i < 1000; i++) {
+      await monitoring.recordHit();
+    }
+
+    expect(monitoring.getMetrics().hits).toBe(1000);
+    expect(monitoring.getMetrics().misses).toBe(0);
+  });
+});

@@ -20,6 +20,18 @@ export class CacheStatsController {
     return this.monitoring.getMetrics();
   }
 
+  @Get('health')
+  async health() {
+    const connected = await this.cacheService.isConnected();
+    const stats = await this.cacheService.getStats();
+    return {
+      status: connected ? 'ok' : 'degraded',
+      connected,
+      metrics: this.monitoring.getMetrics(),
+      cache: stats,
+    };
+  }
+
   @Delete('clear')
   async clearCache() {
     await this.cacheService.clear();

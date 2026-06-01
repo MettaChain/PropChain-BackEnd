@@ -31,6 +31,7 @@ enum PropertyStatus {
   SOLD
   RENTED
   ARCHIVED
+  EXPIRED
 }
 
 // Transaction types
@@ -153,6 +154,12 @@ enum MilestoneStatus {
   DELAYED
 }
 
+enum DocumentStatus {
+  ACTIVE
+  EXPIRED
+  ARCHIVED
+}
+
 // User model
 model User {
   id                       String    @id @default(uuid())
@@ -189,6 +196,8 @@ model User {
 
   // Relations
   properties              Property[]
+  propertyAgents          PropertyAgent[]
+  commissions             Commission[]
   buyerTransactions       Transaction[]            @relation("BuyerTransactions")
   sellerTransactions      Transaction[]            @relation("SellerTransactions")
   cancelledTransactions   Transaction[]            @relation("CancelledTransactions")
@@ -227,6 +236,8 @@ model User {
   favorites               PropertyFavorite[]
   propertyViews           PropertyView[]
   priceHistory            PriceHistory[]
+    openHouseRsvps             OpenHouseRsvp[]
+  transactionNotes        TransactionNote[]            @relation("TransactionNoteAuthor")
 
   @@index([email])
   @@index([role])
@@ -401,11 +412,29 @@ model Property {
   latitude     Float?
   longitude    Float?
   features        String[] // Array of features (pool, garage, etc.)
+  category        String?
+  tags            String[]       @default([])
   virtualTourUrl  String?        @map("virtual_tour_url")
   videoUrl        String?        @map("video_url")
+  hoaName         String?        @map("hoa_name")
+  hoaMonthlyFee   Decimal?       @map("hoa_monthly_fee")
+  hoaAmenities    String[]       @default([]) @map("hoa_amenities")
+  hoaContactInfo  String?        @map("hoa_contact_info")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
   viewCount    Int            @default(0) @map("view_count")
+
+    // Property Tax Information
+    annualTaxAmount   Decimal?       @map("annual_tax_amount") // Annual property tax amount
+    taxAssessmentValue Decimal?      @map("tax_assessment_value") // Assessed value for tax purposes
+    taxRate           Decimal?       @map("tax_rate") // Tax rate applied to property
+    taxHistory        Json?          @map("tax_history") // Historical tax records (array of objects)
+
+      // Investment Analysis Metrics
+      capRate          Decimal?       @map("cap_rate") // Capitalization rate
+      roi              Decimal?       @map("roi") // Return on investment
+      rentalYield      Decimal?       @map("rental_yield") // Rental yield percentage
+      cashFlow         Decimal?       @map("cash_flow") // Annual cash flow
 
   // Relations
   owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -413,13 +442,17 @@ model Property {
   documents    Document[]
   images       PropertyImage[]
   fraudAlerts  FraudAlert[]
+  agents       PropertyAgent[]
+  commissions  Commission[]
   duplicates   PropertyDuplicate[] @relation("DuplicateProperty")
   duplicateOf  PropertyDuplicate[] @relation("DuplicateTarget")
   mergedInto   PropertyDuplicate[] @relation("MergedProperty")
   favorites    PropertyFavorite[]
   views        PropertyView[]
+  openHouses   OpenHouse[]
   neighborhood Neighborhood?      @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
   priceHistory PriceHistory[]
+  amenities    PropertyAmenity[]
 
   @@index([ownerId])
   @@index([status])
@@ -446,6 +479,8 @@ model PropertyImage {
   order        Int      @default(0)
   isPrimary    Boolean  @default(false) @map("is_primary")
   uniqueHash   String?  @map("unique_hash") // Perceptual hash for duplicate detection
+  altText      String?  @map("alt_text")
+  caption      String?
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -565,6 +600,13 @@ model Transaction {
   blockchainHash     String?           @map("blockchain_hash")
   contractAddress    String?           @map("contract_address")
   notes              String?
+  // Fee breakdown (#565)
+  feeBreakdown       Json?             @map("fee_breakdown")
+  // Escrow and payment tracking (#561)
+  escrowStatus     String?   @map("escrow_status") // PENDING, HELD, RELEASED, REFUNDED
+  escrowAmount     Decimal?  @map("escrow_amount")
+  escrowReleasedAt DateTime? @map("escrow_released_at")
+  paymentStatus    String?   @map("payment_status") // PENDING, PARTIAL, COMPLETE
   // Cancellation (#361)
   cancellationReason String?           @map("cancellation_reason")
   cancelledById      String?           @map("cancelled_by_id")
@@ -576,13 +618,16 @@ model Transaction {
 
   // Relations
   property              Property                 @relation(fields: [propertyId], references: [id])
+  commissions           Commission[]
   buyer                 User                     @relation("BuyerTransactions", fields: [buyerId], references: [id])
   seller                User                     @relation("SellerTransactions", fields: [sellerId], references: [id])
+  cancelledBy           User?                    @relation("CancelledTransactions", fields: [cancelledById], references: [id])
   fraudAlerts           FraudAlert[]
   taxStrategies         TransactionTaxStrategy[]
   disputes              Dispute[]
   transactionMilestones TransactionMilestone[]
   transactionHistory    TransactionHistory[]
+  transactionNotes      TransactionNote[]
   cancelledBy           User?    @relation("CancelledTransactions", fields: [cancelledById], references: [id])
 
   @@index([propertyId])
@@ -629,13 +674,20 @@ model Document {
   fileSize       Int          @map("file_size") // in bytes
   mimeType       String       @map("mime_type")
   description    String?
+  stage          String?  // transaction lifecycle stage (#559)
   // Categorization (#401)
   category       String?
   tags           String[]     @default([])
+  // Access Control (#570)
+  isPublic       Boolean      @default(false) @map("is_public")
+  sharedWith     String[]     @default([]) @map("shared_with")
   // Expiration (#402)
   expiresAt      DateTime?    @map("expires_at")
   isExpired      Boolean      @default(false) @map("is_expired")
   expiryNotified Boolean      @default(false) @map("expiry_notified")
+  // Archival Workflow (#573)
+  status         DocumentStatus @default(ACTIVE)
+  archivedAt     DateTime?    @map("archived_at")
   // eSignature (#403)
   signedBy       String?      @map("signed_by")
   signedAt       DateTime?    @map("signed_at")
@@ -702,6 +754,7 @@ model UserPreferences {
   quietHoursStart        String?  @map("quiet_hours_start") // "HH:MM" in user timezone
   quietHoursEnd          String?  @map("quiet_hours_end") // "HH:MM" in user timezone
   perEventSettings       Json?    @map("per_event_settings") // fine-grained per-event channel overrides
+  optOutReminders        Boolean  @default(false) @map("opt_out_reminders") // #563
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
 
@@ -983,10 +1036,11 @@ model TransactionMilestone {
   title         String
   description   String?         @db.Text
   status        MilestoneStatus @default(PENDING)
-  expectedDate  DateTime        @map("expected_date")
-  actualDate    DateTime?       @map("actual_date")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
+  expectedDate     DateTime        @map("expected_date")
+  actualDate       DateTime?       @map("actual_date")
+  reminderSentAt   DateTime?       @map("reminder_sent_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
   // Relations
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -1082,6 +1136,59 @@ model DigestPreference {
   @@map("digest_preferences")
 }
 
+model PropertyAgent {
+  id             String   @id @default(uuid())
+  propertyId     String   @map("property_id")
+  agentId        String   @map("agent_id")
+  commissionRate Decimal  @default(0.03) @map("commission_rate")
+  contactPhone   String?  @map("contact_phone")
+  contactEmail   String?  @map("contact_email")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agent    User     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, agentId])
+  @@map("property_agents")
+}
+
+model Commission {
+  id            String            @id @default(uuid())
+  transactionId String            @map("transaction_id")
+  agentId       String            @map("agent_id")
+  propertyId    String            @map("property_id")
+  amount        Decimal           @map("amount")
+  rate          Decimal           @map("rate")
+  status        TransactionStatus @default(PENDING)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  agent       User        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, agentId])
+  @@map("commissions")
+}
+
+model PropertyAmenity {
+  id          String   @id @default(uuid())
+  propertyId  String   @map("property_id")
+  name        String
+  amenityType String   @map("amenity_type")
+  description String?
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([amenityType])
+  @@map("property_amenities")
+}
+
 // Property duplicate detection results
 model PropertyDuplicate {
   id              String   @id @default(uuid())
@@ -1090,10 +1197,13 @@ model PropertyDuplicate {
   duplicateType    String   @map("duplicate_type") // ADDRESS, IMAGE, ADDRESS_AND_IMAGE
   confidenceScore Int      @default(0) @map("confidence_score") // 0-100
   evidence        Json?    @map("evidence") // match details
-  isMerged        Boolean  @default(false) @map("is_merged")
-  mergedIntoId    String?  @map("merged_into_id") // points to surviving property after merge
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  isMerged          Boolean  @default(false) @map("is_merged")
+  mergedIntoId      String?  @map("merged_into_id") // points to surviving property after merge
+  flaggedForReview  Boolean  @default(false) @map("flagged_for_review")
+  reviewNotes       String?  @map("review_notes")
+  isResolved        Boolean  @default(false) @map("is_resolved")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   property    Property @relation("DuplicateProperty", fields: [propertyId], references: [id], onDelete: Cascade)
   duplicateOf Property? @relation("DuplicateTarget", fields: [duplicateOfId], references: [id], onDelete: SetNull)
@@ -1132,4 +1242,62 @@ model PriceHistory {
   @@index([userId])
   @@index([timestamp])
   @@map("price_history")
+// Transaction notes with visibility rules (#562)
+model TransactionNote {
+  id            String   @id @default(uuid())
+  transactionId String   @map("transaction_id")
+  authorId      String   @map("author_id")
+  content       String   @db.Text
+  isPublic      Boolean  @default(true) @map("is_public")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  author      User        @relation("TransactionNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([transactionId])
+  @@index([authorId])
+  @@map("transaction_notes")
+ }
+ 
+enum RsvpStatus {
+  ATTENDING
+  DECLINED
+  MAYBE
+}
+
+model OpenHouse {
+  id          String    @id @default(uuid())
+  propertyId  String    @map("property_id")
+  title       String
+  description String?
+  startAt     DateTime  @map("start_at")
+  endAt       DateTime  @map("end_at")
+  isCancelled Boolean   @default(false) @map("is_cancelled")
+  cancelledAt DateTime? @map("cancelled_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  property Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  rsvps    OpenHouseRsvp[]
+
+  @@index([propertyId])
+  @@map("open_houses")
+}
+
+model OpenHouseRsvp {
+  id          String     @id @default(uuid())
+  openHouseId String     @map("open_house_id")
+  userId      String     @map("user_id")
+  status      RsvpStatus @default(ATTENDING)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  openHouse OpenHouse @relation(fields: [openHouseId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([openHouseId, userId])
+  @@index([openHouseId])
+  @@index([userId])
+  @@map("open_house_rsvps")
 }

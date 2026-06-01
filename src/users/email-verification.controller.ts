@@ -19,6 +19,11 @@ export class EmailVerificationController {
     return this.emailVerificationService.verifyEmailChange(user.id, verifyEmailDto.token);
   }
 
+  @Post('resend')
+  resendVerification(@CurrentUser() user: any) {
+    return this.emailVerificationService.resendVerification(user.id);
+  }
+
   @Post('cancel-change')
   cancelEmailChange(@CurrentUser() user: any) {
     return this.emailVerificationService.cancelEmailChange(user.id);

@@ -51,11 +51,11 @@ export const ENDPOINT_RATE_LIMITS: Record<string, { windowMs: number; max: numbe
   },
 
   // Email verification (moderate)
-  'POST /email-verification/send': {
+  'POST /users/email/resend': {
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 5, // 5 verification emails per hour
   },
-  'POST /email-verification/verify': {
+  'POST /users/email/verify': {
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10, // 10 verification attempts
   },

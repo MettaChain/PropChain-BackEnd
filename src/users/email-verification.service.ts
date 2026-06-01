@@ -2,10 +2,22 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../database/prisma.service';
 import { ChangeEmailDto } from './dto/email-change.dto';
 import { randomBytes } from 'crypto';
+import { parseDuration } from '../auth/security.utils';
+import { EmailService } from '../email/email.service';
+import { RateLimitService } from '../auth/rate-limit.service';
 
 @Injectable()
 export class EmailVerificationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private rateLimitService: RateLimitService,
+  ) {}
+
+  private getExpirySeconds(): number {
+    // Environment var like '24h' or seconds. Default 24h
+    return parseDuration(process.env.EMAIL_VERIFICATION_EXPIRES_IN ?? '24h', 24 * 60 * 60);
+  }
 
   async requestEmailChange(userId: string, data: ChangeEmailDto) {
     const user = await this.prisma.user.findUnique({
@@ -27,10 +39,9 @@ export class EmailVerificationService {
 
     // Generate verification token
     const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // Token expires in 24 hours
+    const expiresAt = new Date(Date.now() + this.getExpirySeconds() * 1000);
 
-    // Store pending email and token
+    // Store pending email and token (invalidate previous)
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -40,14 +51,66 @@ export class EmailVerificationService {
       },
     });
 
-    // TODO: Send verification email with token
-    // In production, integrate with email service (SendGrid, AWS SES, etc.)
-    console.log(`Verification token for ${data.newEmail}: ${token}`);
+    // Send verification email with token
+    await this.emailService.sendEmail({
+      to: data.newEmail,
+      subject: 'Verify your email - PropChain',
+      template: 'email-verification',
+      context: { token },
+      userId: userId,
+      emailType: 'email_verification',
+    }).catch((err) => {
+      // Fail quietly but log
+      console.error('Failed to queue verification email:', err?.message || err);
+    });
 
     return {
       message: 'Verification email sent. Please check your new email to verify the change.',
       pendingEmail: data.newEmail,
     };
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.pendingEmail) {
+      throw new BadRequestException('No pending email change to resend verification for');
+    }
+
+    // Rate limit resends per endpoint to prevent abuse
+    const limit = await this.rateLimitService.checkEndpointRateLimit('POST /users/email/resend');
+    if (limit.isExceeded) {
+      throw new BadRequestException('Too many verification requests. Please try again later');
+    }
+
+    // Generate and store a new token, invalidating the old one
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + this.getExpirySeconds() * 1000);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+
+    // Send verification email
+    await this.emailService.sendEmail({
+      to: user.pendingEmail,
+      subject: 'Verify your email - PropChain',
+      template: 'email-verification',
+      context: { token },
+      userId: userId,
+      emailType: 'email_verification',
+    }).catch((err) => {
+      console.error('Failed to queue verification email:', err?.message || err);
+    });
+
+    return { message: 'Verification email resent' };
   }
 
   async verifyEmailChange(userId: string, token: string) {

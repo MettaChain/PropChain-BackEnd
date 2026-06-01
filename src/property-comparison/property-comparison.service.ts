@@ -71,9 +71,7 @@ export class PropertyComparisonService {
     if (properties.length !== ids.length) {
       const found = new Set(properties.map((p) => p.id));
       const missing = ids.filter((id) => !found.has(id));
-      throw new NotFoundException(
-        `Properties not found: ${missing.join(', ')}`,
-      );
+      throw new NotFoundException(`Properties not found: ${missing.join(', ')}`);
     }
 
     // Preserve the order requested by the caller.
@@ -83,12 +81,8 @@ export class PropertyComparisonService {
       this.buildFieldRow(field, ordered),
     );
 
-    const differingFields = comparison
-      .filter((row) => !row.allEqual)
-      .map((row) => row.field);
-    const commonFields = comparison
-      .filter((row) => row.allEqual)
-      .map((row) => row.field);
+    const differingFields = comparison.filter((row) => !row.allEqual).map((row) => row.field);
+    const commonFields = comparison.filter((row) => row.allEqual).map((row) => row.field);
 
     return {
       count: ordered.length,
@@ -106,9 +100,7 @@ export class PropertyComparisonService {
     const rawValues = properties.map((p) => p[field]);
     const normalizedValues = rawValues.map((v) => this.normalize(v));
 
-    const allEqual = normalizedValues.every((v, _i, arr) =>
-      this.deepEqual(v, arr[0]),
-    );
+    const allEqual = normalizedValues.every((v, _i, arr) => this.deepEqual(v, arr[0]));
 
     const row: FieldRow = {
       field,
@@ -117,9 +109,7 @@ export class PropertyComparisonService {
     };
 
     if (NUMERIC_FIELDS.has(field)) {
-      const numerics = normalizedValues.map((v) =>
-        typeof v === 'number' ? v : null,
-      );
+      const numerics = normalizedValues.map((v) => (typeof v === 'number' ? v : null));
       const present = numerics
         .map((v, i) => ({ v, i }))
         .filter((x): x is { v: number; i: number } => x.v !== null);

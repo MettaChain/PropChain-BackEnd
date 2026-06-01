@@ -18,4 +18,3 @@ export interface SignedUrlProvider {
   isConfigured(): boolean;
   getSignedUrl(req: SignedUrlRequest): Promise<SignedUrlResponse>;
 }
-

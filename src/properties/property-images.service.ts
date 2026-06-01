@@ -41,12 +41,7 @@ export class PropertyImagesService {
   private readonly publicPathPrefix = '/uploads/properties';
   private readonly maxFileSize: number;
   private readonly maxImagesPerProperty: number;
-  private readonly allowedMimeTypes = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-  ];
+  private readonly allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
   /**
    * Variants emitted per uploaded image. All variants are converted to WebP for
@@ -117,7 +112,9 @@ export class PropertyImagesService {
         where: { filename: file.originalname },
       });
       if (existingImage) {
-        throw new BadRequestException(`Duplicate image detected: '${file.originalname}' already exists for another property.`);
+        throw new BadRequestException(
+          `Duplicate image detected: '${file.originalname}' already exists for another property.`,
+        );
       }
     }
 
@@ -322,16 +319,18 @@ export class PropertyImagesService {
     }
   }
 
-/**
-     * Run sharp once to gather metadata, then emit each variant as WebP.
-     * Returns the persisted DB record mapped to a public response.
-     */
+  /**
+   * Run sharp once to gather metadata, then emit each variant as WebP.
+   * Returns the persisted DB record mapped to a public response.
+   */
   private async processAndPersist(
     file: UploadedImageFile,
     propertyId: string,
     propertyDir: string,
     order: number,
     isPrimary: boolean,
+    altText?: string,
+    caption?: string,
   ): Promise<PropertyImageResponse> {
     const baseName = `${Date.now()}_${randomBytes(6).toString('hex')}`;
 
@@ -351,8 +350,7 @@ export class PropertyImagesService {
       const outPath = join(propertyDir, filename);
 
       // Don't upscale: only resize if source is wider than the target.
-      const targetWidth =
-        meta.width && meta.width < variant.width ? meta.width : variant.width;
+      const targetWidth = meta.width && meta.width < variant.width ? meta.width : variant.width;
 
       const buffer = await sharp(file.buffer)
         .rotate()
@@ -385,11 +383,13 @@ export class PropertyImagesService {
         order,
         isPrimary,
         uniqueHash,
-      },
+        altText: altText ?? null,
+        caption: caption ?? null,
+      } as any,
     });
 
     this.logger.log(
-      `Stored image ${filename} for property ${propertyId} (order=${order}, primary=${isPrimary})`,
+      `Stored image ${baseName}.webp for property ${propertyId} (order=${order}, primary=${isPrimary})`,
     );
 
     return this.toResponse(created);
@@ -435,6 +435,8 @@ export class PropertyImagesService {
       height: img.height ?? null,
       order: img.order,
       isPrimary: img.isPrimary,
+      altText: img.altText ?? null,
+      caption: img.caption ?? null,
       createdAt: img.createdAt,
       updatedAt: img.updatedAt,
     };

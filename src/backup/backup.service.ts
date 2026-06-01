@@ -17,6 +17,7 @@ import { promisify } from 'util';
 import { execFile } from 'child_process';
 import { PrismaService } from '../database/prisma.service';
 import { UpdateBackupScheduleDto } from './dto/backup.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_SCHEDULE_ID = 'default';
@@ -29,6 +30,7 @@ export class BackupService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -154,6 +156,8 @@ export class BackupService implements OnModuleInit {
           restoredById: restoredById ?? null,
         },
       });
+      
+      await this.notifyAdminsOfFailure('Restore', message, { backupId, retryCount: 0 });
 
       throw new InternalServerErrorException(`Backup restore failed: ${message}`);
     }
@@ -241,6 +245,8 @@ export class BackupService implements OnModuleInit {
         await fs.promises.unlink(filePath).catch(() => undefined);
       }
 
+      await this.notifyAdminsOfFailure('Backup', message, { backupId: backup.id, trigger, retryCount: 0 }); // Retry handled in job
+
       throw new InternalServerErrorException(`Backup creation failed: ${message}`);
     }
   }
@@ -259,10 +265,27 @@ export class BackupService implements OnModuleInit {
     this.assertValidCronExpression(schedule.cronExpression);
 
     this.scheduledJob = new CronJob(schedule.cronExpression, async () => {
-      try {
-        await this.createBackup(BackupTrigger.SCHEDULED);
-      } catch (error) {
-        this.logger.error(`Scheduled backup failed: ${this.toErrorMessage(error)}`);
+      const maxRetries = 3;
+      let attempt = 0;
+      let success = false;
+
+      while (attempt < maxRetries && !success) {
+        attempt++;
+        try {
+          await this.createBackup(BackupTrigger.SCHEDULED);
+          success = true;
+        } catch (error) {
+          const errorMessage = this.toErrorMessage(error);
+          this.logger.error(`Scheduled backup attempt ${attempt} failed: ${errorMessage}`);
+          if (attempt >= maxRetries) {
+            this.logger.error('Scheduled backup failed after maximum retries.');
+            await this.notifyAdminsOfFailure('Scheduled Backup', errorMessage, { attempt, maxRetries, retryStatus: 'exhausted' });
+          } else {
+            await this.notifyAdminsOfFailure('Scheduled Backup', errorMessage, { attempt, maxRetries, retryStatus: 'retrying' });
+            // Wait 5 minutes before retrying (300,000 ms)
+            await new Promise(res => setTimeout(res, 300000));
+          }
+        }
       }
     });
 
@@ -432,5 +455,31 @@ export class BackupService implements OnModuleInit {
     }
 
     return 'Unknown error';
+  }
+
+  private async notifyAdminsOfFailure(jobType: string, errorMessage: string, additionalMetadata: any = {}) {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      });
+
+      const title = `${jobType} Job Failed`;
+      const message = `A ${jobType.toLowerCase()} job has failed. Error: ${errorMessage}`;
+
+      await Promise.all(
+        admins.map((admin) =>
+          this.notificationsService.sendNotification(
+            admin.id,
+            title,
+            message,
+            'SYSTEM_ALERT',
+            { jobType, error: errorMessage, ...additionalMetadata }
+          )
+        )
+      );
+    } catch (err) {
+      this.logger.error(`Failed to send admin notifications: ${this.toErrorMessage(err)}`);
+    }
   }
 }

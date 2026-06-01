@@ -50,6 +50,17 @@ async function bootstrap() {
   const cacheMonitoringService = app.get(CacheMonitoringService);
   app.useGlobalInterceptors(new CacheMetricsInterceptor(cacheMonitoringService));
 
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+
   // Setup Swagger documentation
   setupSwagger(app);
 

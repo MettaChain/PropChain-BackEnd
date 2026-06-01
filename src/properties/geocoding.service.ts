@@ -45,12 +45,8 @@ export class GeocodingService {
   private readonly timeoutMs: number;
 
   constructor(private readonly configService: ConfigService) {
-    const explicitProvider = this.configService
-      .get<string>('GEOCODING_PROVIDER', '')
-      .toLowerCase();
-    this.googleApiKey = this.configService.get<string>(
-      'GOOGLE_GEOCODING_API_KEY',
-    );
+    const explicitProvider = this.configService.get<string>('GEOCODING_PROVIDER', '').toLowerCase();
+    this.googleApiKey = this.configService.get<string>('GOOGLE_GEOCODING_API_KEY');
 
     if (explicitProvider === 'google' || (!explicitProvider && this.googleApiKey)) {
       this.provider = 'google';
@@ -67,10 +63,7 @@ export class GeocodingService {
       'GEOCODING_USER_AGENT',
       'PropChain-Backend/1.0 (geocoding)',
     );
-    this.timeoutMs = this.configService.get<number>(
-      'GEOCODING_TIMEOUT_MS',
-      5000,
-    );
+    this.timeoutMs = this.configService.get<number>('GEOCODING_TIMEOUT_MS', 5000);
   }
 
   /**
@@ -78,9 +71,7 @@ export class GeocodingService {
    * error occurs; this is intentional so a failed geocode never blocks a
    * property create/update.
    */
-  async geocodeAddress(
-    input: GeocodeAddressInput,
-  ): Promise<GeocodeResult | null> {
+  async geocodeAddress(input: GeocodeAddressInput): Promise<GeocodeResult | null> {
     const query = this.buildQueryString(input);
     if (!query) {
       return null;
@@ -93,9 +84,7 @@ export class GeocodingService {
       return await this.geocodeWithNominatim(query);
     } catch (err) {
       this.logger.warn(
-        `Geocoding failed for "${query}" via ${this.provider}: ${
-          (err as Error).message
-        }`,
+        `Geocoding failed for "${query}" via ${this.provider}: ${(err as Error).message}`,
       );
       return null;
     }
@@ -105,17 +94,8 @@ export class GeocodingService {
    * True if any of the address-defining fields differ between two snapshots.
    * Used by callers to decide whether re-geocoding is needed on update.
    */
-  hasAddressChanged(
-    before: GeocodeAddressInput,
-    after: GeocodeAddressInput,
-  ): boolean {
-    const keys: (keyof GeocodeAddressInput)[] = [
-      'address',
-      'city',
-      'state',
-      'zipCode',
-      'country',
-    ];
+  hasAddressChanged(before: GeocodeAddressInput, after: GeocodeAddressInput): boolean {
+    const keys: (keyof GeocodeAddressInput)[] = ['address', 'city', 'state', 'zipCode', 'country'];
     return keys.some((k) => (before[k] ?? null) !== (after[k] ?? null));
   }
 
@@ -126,9 +106,7 @@ export class GeocodingService {
       .join(', ');
   }
 
-  private async geocodeWithNominatim(
-    query: string,
-  ): Promise<GeocodeResult | null> {
+  private async geocodeWithNominatim(query: string): Promise<GeocodeResult | null> {
     const url = new URL('/search', this.nominatimBaseUrl);
     url.searchParams.set('q', query);
     url.searchParams.set('format', 'json');
@@ -143,9 +121,7 @@ export class GeocodingService {
     });
 
     if (!response.ok) {
-      this.logger.warn(
-        `Nominatim returned HTTP ${response.status} for "${query}"`,
-      );
+      this.logger.warn(`Nominatim returned HTTP ${response.status} for "${query}"`);
       return null;
     }
 
@@ -168,9 +144,7 @@ export class GeocodingService {
     return { latitude: lat, longitude: lng, displayName: top.display_name };
   }
 
-  private async geocodeWithGoogle(
-    query: string,
-  ): Promise<GeocodeResult | null> {
+  private async geocodeWithGoogle(query: string): Promise<GeocodeResult | null> {
     const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
     url.searchParams.set('address', query);
     url.searchParams.set('key', this.googleApiKey ?? '');
@@ -180,9 +154,7 @@ export class GeocodingService {
     });
 
     if (!response.ok) {
-      this.logger.warn(
-        `Google geocoding returned HTTP ${response.status} for "${query}"`,
-      );
+      this.logger.warn(`Google geocoding returned HTTP ${response.status} for "${query}"`);
       return null;
     }
 
@@ -196,9 +168,7 @@ export class GeocodingService {
 
     if (data.status !== 'OK' || !data.results || data.results.length === 0) {
       if (data.status && data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-        this.logger.warn(
-          `Google geocoding status ${data.status} for "${query}"`,
-        );
+        this.logger.warn(`Google geocoding status ${data.status} for "${query}"`);
       }
       return null;
     }
@@ -215,10 +185,7 @@ export class GeocodingService {
     };
   }
 
-  private async fetchWithTimeout(
-    url: string,
-    init: RequestInit,
-  ): Promise<Response> {
+  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {

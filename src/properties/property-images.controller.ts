@@ -16,10 +16,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import {
-  PropertyImagesService,
-  UploadedImageFile,
-} from './property-images.service';
+import { PropertyImagesService, UploadedImageFile } from './property-images.service';
 import { ReorderImagesDto } from './dto/property-image.dto';
 
 const MAX_FILES_PER_REQUEST = 20;
@@ -73,12 +70,7 @@ export class PropertyImagesController {
     @CurrentUser() user: AuthUserPayload,
     @Body() body: ReorderImagesDto,
   ) {
-    return this.propertyImagesService.reorderImages(
-      propertyId,
-      body.imageIds,
-      user.sub,
-      user.role,
-    );
+    return this.propertyImagesService.reorderImages(propertyId, body.imageIds, user.sub, user.role);
   }
 
   /**
@@ -91,12 +83,7 @@ export class PropertyImagesController {
     @Param('imageId', new ParseUUIDPipe()) imageId: string,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    return this.propertyImagesService.setPrimaryImage(
-      propertyId,
-      imageId,
-      user.sub,
-      user.role,
-    );
+    return this.propertyImagesService.setPrimaryImage(propertyId, imageId, user.sub, user.role);
   }
 
   /**
@@ -110,11 +97,6 @@ export class PropertyImagesController {
     @Param('imageId', new ParseUUIDPipe()) imageId: string,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    return this.propertyImagesService.deleteImage(
-      propertyId,
-      imageId,
-      user.sub,
-      user.role,
-    );
+    return this.propertyImagesService.deleteImage(propertyId, imageId, user.sub, user.role);
   }
 }

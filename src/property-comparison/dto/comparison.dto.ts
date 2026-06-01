@@ -1,10 +1,4 @@
-import {
-  ArrayMaxSize,
-  ArrayMinSize,
-  ArrayUnique,
-  IsArray,
-  IsUUID,
-} from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsUUID } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 const COMPARISON_MIN = 2;
