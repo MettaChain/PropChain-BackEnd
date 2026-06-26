@@ -4,6 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { otelSDK } from './common/tracing';
+import { TraceInterceptor } from './common/trace.interceptor';
 import { VersionHeaderInterceptor } from './versioning/version-header.interceptor';
 import { DeprecationWarningInterceptor } from './versioning/deprecation-warning.interceptor';
 import { CacheMetricsInterceptor } from './cache/cache-metrics.interceptor';
@@ -14,6 +16,14 @@ import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-head
 import { setupSwagger } from './config/swagger.config';
 
 async function bootstrap() {
+  if (process.env.OTEL_ENABLED !== 'false') {
+    try {
+      await otelSDK.start();
+    } catch (err) {
+      console.error('OpenTelemetry SDK failed to start:', err);
+    }
+  }
+
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
@@ -51,6 +61,9 @@ async function bootstrap() {
   // Apply cache metrics interceptor
   const cacheMonitoringService = app.get(CacheMonitoringService);
   app.useGlobalInterceptors(new CacheMetricsInterceptor(cacheMonitoringService));
+
+  // Apply OpenTelemetry tracing interceptor
+  app.useGlobalInterceptors(new TraceInterceptor());
 
   app.useGlobalPipes(
     new ValidationPipe({
