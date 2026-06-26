@@ -465,6 +465,7 @@ export class TransactionsService {
 
     await this.commissionsService.createCommissionsForTransaction(transaction.id);
 
+    this.logger.log(`Transaction created via createTransaction: ${transaction.id}`);
     return transaction;
   }
 
@@ -508,6 +509,7 @@ export class TransactionsService {
         },
       })
       .then((result: any) => {
+        this.logger.log(`Tax strategy created for transaction ${transactionId}: ${dto.strategyType}`);
         this.notificationsService.sendNotification(
           user.sub,
           'Tax Strategy Created',
@@ -544,6 +546,7 @@ export class TransactionsService {
 
     if (!existing) throw new NotFoundException('Tax strategy not found');
 
+    this.logger.log(`Updating tax strategy ${strategyId} for transaction ${transactionId}`);
     return this.prisma.transactionTaxStrategy.update({
       where: { id: strategyId },
       data: {
@@ -563,6 +566,7 @@ export class TransactionsService {
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
 
+    this.logger.log(`Updating escrow for transaction ${transactionId}`);
     const data: any = {};
     if (dto.escrowStatus !== undefined) data.escrowStatus = dto.escrowStatus;
     if (dto.escrowAmount !== undefined) data.escrowAmount = dto.escrowAmount;
