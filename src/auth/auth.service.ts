@@ -142,7 +142,15 @@ export class AuthService {
     };
   }
 
-  async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
+  /**
+   * Performs mandatory security checks before validating credentials.
+   * 
+   * Ordering Contract:
+   * 1. Lockout check: Prevent any further action if account is temporarily locked.
+   * 2. CAPTCHA check: If failed attempts exceed threshold, require CAPTCHA to proceed.
+   * 3. Credentials check: (Performed in the main login method after preflight)
+   */
+  private async preflightChecks(data: LoginDto): Promise<void> {
     // Check if account is locked out
     const isLocked = await this.rateLimitService.isAccountLocked(data.email);
     if (isLocked) {
@@ -169,6 +177,10 @@ export class AuthService {
         throw new UnauthorizedException('Invalid CAPTCHA');
       }
     }
+  }
+
+  async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
+    await this.preflightChecks(data);
 
     const user = await this.usersService.findByEmail(data.email);
     if (!user) {
