@@ -53,6 +53,8 @@ export class RateLimitGuard implements CanActivate {
 
     try {
       // Check by user if authenticated
+      // Tier defaults to 'free' as it is not included in the current JWT payload.
+      // When 'tier' is added to JwtPayload, this logic will use the actual value.
       if (request.user?.id) {
         const userTier = request.user.tier || 'free';
         const userStatus = await this.rateLimitService.checkUserRateLimit(

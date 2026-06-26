@@ -1205,6 +1205,10 @@ export class AuthService {
     });
   }
 
+  /**
+   * Generate a new API key value with 'pc_' prefix and 24 random characters.
+   * Format: pc_<24-char-random-hex>
+   */
   private generateApiKeyValue() {
     return `pc_${randomToken(24)}`;
   }
