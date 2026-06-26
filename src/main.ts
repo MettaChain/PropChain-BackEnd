@@ -14,8 +14,16 @@ import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-head
 import { setupSwagger } from './config/swagger.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
+
+  // Node.js version check (#775)
+  const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+  if (nodeMajor < 18) {
+    logger.error(`Node.js >= 18 required, found ${process.versions.node}`);
+    process.exit(1);
+  }
+
+  const app = await NestFactory.create(AppModule);
 
   // Enable validation
   app.useGlobalPipes(
@@ -65,6 +73,8 @@ async function bootstrap() {
 
   // Setup Swagger documentation
   setupSwagger(app);
+
+  app.enableShutdownHooks();
 
   const port = process.env.PORT || 3000;
   await app.listen(port);

@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
 import {
@@ -13,9 +13,12 @@ import {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getDashboard(userId: string): Promise<DashboardDto> {
+    this.logger.log(`Fetching dashboard for user ${userId}`);
     const [profile, stats, recentActivity, recommendations] = await Promise.all([
       this.getProfileSummary(userId),
       this.getQuickStats(userId),
