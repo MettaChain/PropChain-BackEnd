@@ -1310,13 +1310,13 @@ export class AuthService {
       take: passwordHistoryLimit,
     });
 
-    for (const historyEntry of recentPasswords) {
-      const isReused = await comparePassword(data.newPassword, historyEntry.passwordHash);
-      if (isReused) {
-        throw new BadRequestException(
-          `Password reuse is not allowed for the last ${passwordHistoryLimit} passwords`,
-        );
-      }
+    const reuseResults = await Promise.all(
+      recentPasswords.map((entry) => comparePassword(data.newPassword, entry.passwordHash)),
+    );
+    if (reuseResults.some(Boolean)) {
+      throw new BadRequestException(
+        `Password reuse is not allowed for the last ${passwordHistoryLimit} passwords`,
+      );
     }
 
     const newPasswordHash = await hashPassword(data.newPassword, this.bcryptRounds);
