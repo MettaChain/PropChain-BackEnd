@@ -165,7 +165,7 @@ export class AuthService {
       }
       const isCaptchaValid = await this.verifyCaptcha(data.captchaToken);
       if (!isCaptchaValid) {
-        // We might also record a failed attempt here if we wanted to
+        await this.rateLimitService.recordFailedAttempt(data.email, ipAddress, userAgent);
         throw new UnauthorizedException('Invalid CAPTCHA');
       }
     }
