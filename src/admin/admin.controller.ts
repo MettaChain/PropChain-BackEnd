@@ -3,7 +3,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -16,6 +18,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -271,5 +275,18 @@ export class AdminController {
       sampleData,
       note: 'This is a preview with sample data. Actual emails will use real data.',
     };
+  }
+
+  @Delete('exports/:filename')
+  deleteExport(@Param('filename') filename: string) {
+    const filepath = path.join(process.cwd(), 'exports', filename);
+
+    if (!fs.existsSync(filepath)) {
+      throw new NotFoundException('Export file not found');
+    }
+
+    fs.unlinkSync(filepath);
+
+    return { message: 'Export file deleted successfully' };
   }
 }

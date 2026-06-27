@@ -6,6 +6,8 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  GoneException,
+  HttpException,
   HttpStatus,
   InternalServerErrorException,
   NotFoundException,
@@ -27,6 +29,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
 import { UsersService } from './users.service';
+import { ActivityLogService } from './activity-log.service';
 import {
   CreateUserDto,
   SearchUsersDto,
@@ -39,7 +42,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   // ─── Admin Endpoints ─────────────────────────────────────────────
 
@@ -165,11 +171,25 @@ export class UsersController {
       throw new NotFoundException('Export file not found');
     }
 
+    const stats = fs.statSync(filepath);
+    const expirationTime = 24 * 60 * 60 * 1000;
+    if (Date.now() - stats.mtimeMs > expirationTime) {
+      throw new GoneException('Export file has expired');
+    }
+
     const ownerId = this.extractExportOwnerId(filename);
 
     if (user.sub !== ownerId && user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('You are not authorized to download this export');
     }
+
+    this.activityLogService.create(user.sub, {
+      action: 'EXPORT_DOWNLOAD',
+      entityType: 'USER',
+      entityId: ownerId,
+      description: `Downloaded export file: ${filename}`,
+      metadata: { filename, ownerId },
+    });
 
     res.download(filepath, (err) => {
       if (err && !res.headersSent) {
@@ -191,17 +211,25 @@ export class UsersController {
   }
 
   @Post('me/reactivate')
-  reactivateAccount(
+  async reactivateAccount(
     @Body() data: { email: string; token?: string },
     @Body() reactivateDto: ReactivateAccountDto,
   ) {
-    return this.usersService.findByEmail(data.email).then((foundUser) => {
+    try {
+      const foundUser = await this.usersService.findByEmail(data.email);
+
       if (!foundUser) {
-        throw new Error('User not found');
+        throw new NotFoundException('User not found');
       }
 
       return this.usersService.reactivate(foundUser.id, reactivateDto);
-    });
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
   }
 
   // ─── Admin Verification ────────────────────────────────────────
