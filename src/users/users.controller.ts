@@ -37,6 +37,8 @@ import {
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+const UNAUTHORIZED_ACTION_MESSAGE = 'You are not authorized to perform this action';
+
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -125,7 +127,7 @@ export class UsersController {
   @Post(':id/export')
   async exportData(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
     if (user.sub !== id && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException("You are not authorized to export this user's data");
+      throw new ForbiddenException(UNAUTHORIZED_ACTION_MESSAGE);
     }
 
     try {
@@ -168,7 +170,7 @@ export class UsersController {
     const ownerId = this.extractExportOwnerId(filename);
 
     if (user.sub !== ownerId && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('You are not authorized to download this export');
+      throw new ForbiddenException(UNAUTHORIZED_ACTION_MESSAGE);
     }
 
     res.download(filepath, (err) => {
