@@ -503,8 +503,6 @@ export class AuthService {
     return sanitizeUser(foundUser);
   }
 
-  // Only one implementation should exist; duplicate removed.
-
   async getDashboard(user: AuthUserPayload) {
     const foundUser = await this.prisma.user.findUnique({
       where: { id: user.sub },
