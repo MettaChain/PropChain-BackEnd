@@ -102,18 +102,28 @@ describe('AvatarUploadController', () => {
 
       const result = await controller.deleteAvatar(deleteDto, { user: mockUser });
 
+<<<<<<< Updated upstream
       expect(avatarUploadService.deleteAvatar).toHaveBeenCalledWith(
         mockUser.id,
         deleteDto.filename,
       );
+=======
+      expect(avatarUploadService.deleteAvatar).toHaveBeenCalledWith(mockUser.id, filename);
+>>>>>>> Stashed changes
       expect(usersService.updateAvatar).toHaveBeenCalledWith(mockUser.id, null);
       expect(result).toEqual({ message: 'Avatar deleted successfully' });
     });
 
     it('should throw BadRequestException when user is not authenticated', async () => {
+<<<<<<< Updated upstream
       await expect(
         controller.deleteAvatar({ filename: 'test.jpg' }, { user: null } as any),
       ).rejects.toThrow(BadRequestException);
+=======
+      await expect(controller.deleteAvatar('test.jpg', { user: null } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+>>>>>>> Stashed changes
     });
   });
 
