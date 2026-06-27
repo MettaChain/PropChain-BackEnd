@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Body,
   Controller,
@@ -42,6 +40,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('users')
 export class UsersController {
+  private readonly downloadRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  private static readonly DOWNLOAD_LIMIT = 10;
+  private static readonly DOWNLOAD_WINDOW_MS = 60 * 60 * 1000;
+
   constructor(
     private readonly usersService: UsersService,
     private readonly activityLogService: ActivityLogService,
@@ -165,6 +167,23 @@ export class UsersController {
     @Res() res: Response,
     @CurrentUser() user: AuthUserPayload,
   ) {
+    const now = Date.now();
+    const entry = this.downloadRateLimitMap.get(user.sub);
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= UsersController.DOWNLOAD_LIMIT) {
+        throw new HttpException(
+          'Too many export downloads. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      entry.count++;
+    } else {
+      this.downloadRateLimitMap.set(user.sub, {
+        count: 1,
+        resetAt: now + UsersController.DOWNLOAD_WINDOW_MS,
+      });
+    }
+
     const filepath = path.join(process.cwd(), 'exports', filename);
 
     if (!fs.existsSync(filepath)) {
