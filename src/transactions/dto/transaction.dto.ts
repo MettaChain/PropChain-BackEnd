@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { IsString, IsNumber, IsOptional, IsEnum, IsUUID, IsDate, IsIn, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsUUID, IsDate, IsIn, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -213,6 +213,13 @@ export class TransactionAnalyticsQueryDto {
   @IsOptional()
   @IsEnum(TransactionTypeDto)
   type?: TransactionTypeDto;
+
+  @ApiPropertyOptional({ description: 'Maximum number of days for the date range (1-365)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(365)
+  maxDays?: number = 365;
 }
 
 export class TransactionVolumeTrendDto {

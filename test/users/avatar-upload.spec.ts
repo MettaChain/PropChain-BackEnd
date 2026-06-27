@@ -95,16 +95,16 @@ describe('AvatarUploadController', () => {
 
   describe('deleteAvatar', () => {
     it('should delete avatar successfully', async () => {
-      const deleteDto = { filename: 'test.jpg' };
+      const filename = 'test.jpg';
 
       jest.spyOn(avatarUploadService, 'deleteAvatar').mockResolvedValue();
       jest.spyOn(usersService, 'updateAvatar').mockResolvedValue(mockUser as any);
 
-      const result = await controller.deleteAvatar(deleteDto, { user: mockUser });
+      const result = await controller.deleteAvatar(filename, { user: mockUser });
 
       expect(avatarUploadService.deleteAvatar).toHaveBeenCalledWith(
         mockUser.id,
-        deleteDto.filename,
+        filename,
       );
       expect(usersService.updateAvatar).toHaveBeenCalledWith(mockUser.id, null);
       expect(result).toEqual({ message: 'Avatar deleted successfully' });
@@ -112,7 +112,7 @@ describe('AvatarUploadController', () => {
 
     it('should throw BadRequestException when user is not authenticated', async () => {
       await expect(
-        controller.deleteAvatar({ filename: 'test.jpg' }, { user: null } as any),
+        controller.deleteAvatar('test.jpg', { user: null } as any),
       ).rejects.toThrow(BadRequestException);
     });
   });

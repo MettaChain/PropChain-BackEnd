@@ -11,6 +11,7 @@ import {
   Query,
   Res,
   UseGuards,
+  UseInterceptors,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -37,6 +38,7 @@ import {
   UpdateTransactionStatusDto,
 } from './dto/admin.dto';
 import { RestoreBackupDto, UpdateBackupScheduleDto } from '../backup/dto/backup.dto';
+import { AdminAuditInterceptor } from './admin-audit.interceptor';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)

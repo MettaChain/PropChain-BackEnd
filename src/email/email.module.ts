@@ -6,7 +6,7 @@ import { EmailWebhookController } from './email-webhook.controller';
 import { PrismaModule } from '../database/prisma.module';
 import { TrackingModule } from '../tracking/tracking.module';
 import { MailerModule } from '@nestjs-modules/mailer';
-import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
+import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { BullModule } from '@nestjs/bullmq';
