@@ -18,6 +18,13 @@ import { EmailProcessor } from './email.processor';
     TrackingModule,
     BullModule.registerQueue({
       name: 'mail',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      },
     }),
     MailerModule.forRootAsync({
       useFactory: (config: ConfigService) => ({
