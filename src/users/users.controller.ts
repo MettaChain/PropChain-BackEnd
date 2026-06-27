@@ -190,18 +190,13 @@ export class UsersController {
     return this.usersService.deactivate(user.sub, deactivateDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('me/reactivate')
   reactivateAccount(
-    @Body() data: { email: string; token?: string },
+    @CurrentUser() user: AuthUserPayload,
     @Body() reactivateDto: ReactivateAccountDto,
   ) {
-    return this.usersService.findByEmail(data.email).then((foundUser) => {
-      if (!foundUser) {
-        throw new Error('User not found');
-      }
-
-      return this.usersService.reactivate(foundUser.id, reactivateDto);
-    });
+    return this.usersService.reactivate(user.sub, reactivateDto);
   }
 
   // ─── Admin Verification ────────────────────────────────────────
