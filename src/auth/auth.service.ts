@@ -63,6 +63,11 @@ type JwtPayload = {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly issuer = 'PropChain';
+
+  private hashEmail(email: string): string {
+    return createSha256(email).slice(0, 12);
+  }
+
   private readonly accessTokenTtlSeconds: number;
   private readonly refreshTokenTtlSeconds: number;
   private readonly jwtSecret: string;
@@ -201,7 +206,9 @@ export class AuthService {
       if (shouldLock) {
         const lockoutDuration = 30;
         await this.emailService.sendAccountLockedEmail(user.email, lockoutDuration).catch((err) => {
-          this.logger.error(`Failed to send account locked email to ${user.email}: ${err.message}`);
+          this.logger.error(
+            `Failed to send account locked email to user ${user.id} (${this.hashEmail(user.email)}): ${err.message}`,
+          );
         });
 
         throw new UnauthorizedException(
@@ -329,7 +336,7 @@ export class AuthService {
     const tokens = await this.issueTokenPair(user, payload.family, ipAddress, userAgent);
 
     this.logger.log(
-      `Token rotated for user ${user.id} (${user.email}). Family: ${payload.family}. IP: ${ipAddress}`,
+      `Token rotated for user ${user.id} (${this.hashEmail(user.email)}). Family: ${payload.family}. IP: ${ipAddress}`,
     );
 
     return {
@@ -426,7 +433,7 @@ export class AuthService {
 
     // Log the logout event
     this.logger.log(
-      `User ${user.sub} (${user.email}) logged out successfully at ${logoutTime.toISOString()}`,
+      `User ${user.sub} (${this.hashEmail(user.email)}) logged out successfully at ${logoutTime.toISOString()}`,
     );
 
     return {
@@ -476,7 +483,7 @@ export class AuthService {
     });
 
     this.logger.log(
-      `User ${user.sub} (${user.email}) logged out from all devices at ${logoutTime.toISOString()}. Total active blacklisted refresh tokens: ${blacklistedRefreshTokens.length}`,
+      `User ${user.sub} (${this.hashEmail(user.email)}) logged out from all devices at ${logoutTime.toISOString()}. Total active blacklisted refresh tokens: ${blacklistedRefreshTokens.length}`,
     );
 
     return {
