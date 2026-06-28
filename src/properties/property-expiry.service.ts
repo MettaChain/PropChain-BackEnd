@@ -75,23 +75,24 @@ export class PropertyExpiryService {
       },
     });
 
-    for (const property of properties) {
-      const title = `Property Listing Expiring Soon`;
-      const message = `Your property "${property.title}" is scheduled to expire in 7 days. Consider renewing it to keep it active.`;
+    await Promise.all(
+      properties.map((property) => {
+        const title = `Property Listing Expiring Soon`;
+        const message = `Your property "${property.title}" is scheduled to expire in 7 days. Consider renewing it to keep it active.`;
 
-      // Send notification to property owner
-      await this.notificationsService.sendNotification(
-        property.ownerId,
-        title,
-        message,
-        'PROPERTY_EXPIRY_WARNING',
-        {
-          propertyId: property.id,
-          propertyTitle: property.title,
-          expiryDate: property.expiryDate,
-        },
-      );
-    }
+        return this.notificationsService.sendNotification(
+          property.ownerId,
+          title,
+          message,
+          'PROPERTY_EXPIRY_WARNING',
+          {
+            propertyId: property.id,
+            propertyTitle: property.title,
+            expiryDate: property.expiryDate,
+          },
+        );
+      }),
+    );
   }
 
   /**
@@ -120,23 +121,24 @@ export class PropertyExpiryService {
       },
     });
 
-    for (const property of properties) {
-      const title = `Property Listing Expired`;
-      const message = `Your property "${property.title}" has expired due to reaching its expiry date. You can renew it to make it active again.`;
+    await Promise.all(
+      properties.map((property) => {
+        const title = `Property Listing Expired`;
+        const message = `Your property "${property.title}" has expired due to reaching its expiry date. You can renew it to make it active again.`;
 
-      // Send notification to property owner
-      await this.notificationsService.sendNotification(
-        property.ownerId,
-        title,
-        message,
-        'PROPERTY_EXPIRED',
-        {
-          propertyId: property.id,
-          propertyTitle: property.title,
-          expiryDate: property.expiryDate,
-        },
-      );
-    }
+        return this.notificationsService.sendNotification(
+          property.ownerId,
+          title,
+          message,
+          'PROPERTY_EXPIRED',
+          {
+            propertyId: property.id,
+            propertyTitle: property.title,
+            expiryDate: property.expiryDate,
+          },
+        );
+      }),
+    );
   }
 
   /**

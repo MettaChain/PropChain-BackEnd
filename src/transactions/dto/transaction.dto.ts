@@ -189,13 +189,13 @@ export enum TransactionAnalyticsGranularity {
 }
 
 export class TransactionAnalyticsQueryDto {
-  @ApiPropertyOptional({ description: 'Only include transactions created on or after this date' })
+  @ApiPropertyOptional({ description: 'Only include transactions created on or after this date. Maximum date window is 365 days when both startDate and endDate are provided.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
 
-  @ApiPropertyOptional({ description: 'Only include transactions created on or before this date' })
+  @ApiPropertyOptional({ description: 'Only include transactions created on or before this date. Maximum date window is 365 days when both startDate and endDate are provided.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()

@@ -35,63 +35,50 @@ export class NotificationsService {
       { user: transaction.seller, role: 'Seller' },
     ];
 
-    for (const party of parties) {
-      const { user, role } = party;
-      const preferences = user.preferences;
+    await Promise.all(
+      parties.map(async ({ user, role }) => {
+        const title = `Transaction ${transaction.status}`;
+        const message = `Your transaction for property "${transaction.property.title}" has been updated to ${transaction.status}.`;
 
-      const title = `Transaction ${transaction.status}`;
-      const message = `Your transaction for property "${transaction.property.title}" has been updated to ${transaction.status}.`;
+        const [canInApp, canEmail, canSms] = await Promise.all([
+          this.userPreferencesService.shouldDeliverNotification(user.id, 'TRANSACTION_UPDATE', 'inApp'),
+          this.userPreferencesService.shouldDeliverNotification(user.id, 'TRANSACTION_UPDATE', 'email'),
+          this.userPreferencesService.shouldDeliverNotification(user.id, 'TRANSACTION_UPDATE', 'sms'),
+        ]);
 
-      // 1. In-App Notification
-      const canInApp = await this.userPreferencesService.shouldDeliverNotification(
-        user.id,
-        'TRANSACTION_UPDATE',
-        'inApp',
-      );
-      if (canInApp) {
-        await this.sendNotification(user.id, title, message, 'TRANSACTION_UPDATE', {
-          transactionId: transaction.id,
-          status: transaction.status,
-        });
-      }
-
-      // 2. Email Notification with template
-      const canEmail = await this.userPreferencesService.shouldDeliverNotification(
-        user.id,
-        'TRANSACTION_UPDATE',
-        'email',
-      );
-      if (canEmail) {
-        await this.emailService.sendTransactionStatusEmail(user.email, transaction.status, {
-          transactionId: transaction.id,
-          propertyTitle: transaction.property.title,
-          propertyAddress: `${transaction.property.address}, ${transaction.property.city}, ${transaction.property.state} ${transaction.property.zipCode}`,
-          buyerName: transaction.buyer.firstName
-            ? `${transaction.buyer.firstName} ${transaction.buyer.lastName || ''}`
-            : transaction.buyer.email,
-          sellerName: transaction.seller.firstName
-            ? `${transaction.seller.firstName} ${transaction.seller.lastName || ''}`
-            : transaction.seller.email,
-          amount: `$${Number(transaction.amount || 0).toLocaleString()}`,
-          completionDate:
-            transaction.status === 'COMPLETED' ? new Date().toLocaleDateString() : undefined,
-          blockchainTxHash: transaction.blockchainTxHash || undefined,
-          cancellationReason: transaction.cancellationReason || undefined,
-          cancelledDate:
-            transaction.status === 'CANCELLED' ? new Date().toLocaleDateString() : undefined,
-        });
-      }
-
-      // 3. SMS Notification
-      const canSms = await this.userPreferencesService.shouldDeliverNotification(
-        user.id,
-        'TRANSACTION_UPDATE',
-        'sms',
-      );
-      if (canSms && user.phone) {
-        await this.smsService.sendSms(user.phone, message);
-      }
-    }
+        await Promise.all([
+          canInApp
+            ? this.sendNotification(user.id, title, message, 'TRANSACTION_UPDATE', {
+                transactionId: transaction.id,
+                status: transaction.status,
+              })
+            : Promise.resolve(),
+          canEmail
+            ? this.emailService.sendTransactionStatusEmail(user.email, transaction.status, {
+                transactionId: transaction.id,
+                propertyTitle: transaction.property.title,
+                propertyAddress: `${transaction.property.address}, ${transaction.property.city}, ${transaction.property.state} ${transaction.property.zipCode}`,
+                buyerName: transaction.buyer.firstName
+                  ? `${transaction.buyer.firstName} ${transaction.buyer.lastName || ''}`
+                  : transaction.buyer.email,
+                sellerName: transaction.seller.firstName
+                  ? `${transaction.seller.firstName} ${transaction.seller.lastName || ''}`
+                  : transaction.seller.email,
+                amount: `$${Number(transaction.amount || 0).toLocaleString()}`,
+                completionDate:
+                  transaction.status === 'COMPLETED' ? new Date().toLocaleDateString() : undefined,
+                blockchainTxHash: transaction.blockchainTxHash || undefined,
+                cancellationReason: transaction.cancellationReason || undefined,
+                cancelledDate:
+                  transaction.status === 'CANCELLED' ? new Date().toLocaleDateString() : undefined,
+              })
+            : Promise.resolve(),
+          canSms && user.phone
+            ? this.smsService.sendSms(user.phone, message)
+            : Promise.resolve(),
+        ]);
+      }),
+    );
   }
 
   async sendNotification(
