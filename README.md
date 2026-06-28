@@ -102,7 +102,7 @@ The application uses environment variables for configuration. Copy `.env.example
 ### Environment Variables
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+| :--- | :--- | :--- |
 | `DATABASE_URL` | PostgreSQL connection string | Required |
 | `PORT` | Server port | 3000 |
 | `NODE_ENV` | Environment mode | development |
@@ -112,6 +112,11 @@ The application uses environment variables for configuration. Copy `.env.example
 | `JWT_REFRESH_EXPIRES_IN` | Refresh token expiration | 7d |
 | `BCRYPT_ROUNDS` | Password hashing rounds | 12 |
 | `PASSWORD_HISTORY_LIMIT` | Password history limit | 5 |
+| `RECAPTCHA_SECRET` | Private API secret key for Google reCAPTCHA validation | Required |
+| `CAPTCHA_THRESHOLD` | Minimum score required to pass reCAPTCHA v3 verification | 0.5 |
+| `BASE_URL` | The root domain URL of this running API server instance | http://localhost:3000 |
+| `AVATAR_UPLOAD_DIR` | Local disk directory path for saving user profile avatars | ./uploads/avatars |
+| `CORS_ORIGINS` | Comma-separated list of allowed cross-origin request sources | http://localhost:3000 |
 
 ## 🗄️ Database Setup
 
