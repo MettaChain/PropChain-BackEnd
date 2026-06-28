@@ -315,6 +315,13 @@ export class TransactionsService {
    */
   async getAnalytics(query: TransactionAnalyticsQueryDto = {}): Promise<TransactionAnalyticsDto> {
     const where: Record<string, any> = {};
+    const maxDays = query.maxDays ?? 365;
+
+    if (query.startDate && query.endDate) {
+      if (query.endDate.getTime() < query.startDate.getTime()) {
+        throw new BadRequestException('endDate must be on or after startDate');
+      }
+    }
 
     if (query.type) {
       where.type = query.type;
@@ -324,6 +331,24 @@ export class TransactionsService {
       where.createdAt = {};
       if (query.startDate) where.createdAt.gte = query.startDate;
       if (query.endDate) where.createdAt.lte = query.endDate;
+
+      if (query.startDate && query.endDate) {
+        const diffMs = new Date(query.endDate).getTime() - new Date(query.startDate).getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays > maxDays) {
+          const cappedEnd = new Date(query.startDate);
+          cappedEnd.setDate(cappedEnd.getDate() + maxDays);
+          where.createdAt.lte = cappedEnd;
+        }
+      } else if (query.startDate && !query.endDate) {
+        const cappedEnd = new Date(query.startDate);
+        cappedEnd.setDate(cappedEnd.getDate() + maxDays);
+        where.createdAt.lte = cappedEnd;
+      } else if (!query.startDate && query.endDate) {
+        const cappedStart = new Date(query.endDate);
+        cappedStart.setDate(cappedStart.getDate() - maxDays);
+        where.createdAt.gte = cappedStart;
+      }
     }
 
     const transactions = await this.prisma.transaction.findMany({
@@ -465,6 +490,7 @@ export class TransactionsService {
 
     await this.commissionsService.createCommissionsForTransaction(transaction.id);
 
+    this.logger.log(`Transaction created via createTransaction: ${transaction.id}`);
     return transaction;
   }
 
@@ -508,6 +534,7 @@ export class TransactionsService {
         },
       })
       .then((result: any) => {
+        this.logger.log(`Tax strategy created for transaction ${transactionId}: ${dto.strategyType}`);
         this.notificationsService.sendNotification(
           user.sub,
           'Tax Strategy Created',
@@ -544,6 +571,7 @@ export class TransactionsService {
 
     if (!existing) throw new NotFoundException('Tax strategy not found');
 
+    this.logger.log(`Updating tax strategy ${strategyId} for transaction ${transactionId}`);
     return this.prisma.transactionTaxStrategy.update({
       where: { id: strategyId },
       data: {
@@ -563,6 +591,7 @@ export class TransactionsService {
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
 
+    this.logger.log(`Updating escrow for transaction ${transactionId}`);
     const data: any = {};
     if (dto.escrowStatus !== undefined) data.escrowStatus = dto.escrowStatus;
     if (dto.escrowAmount !== undefined) data.escrowAmount = dto.escrowAmount;

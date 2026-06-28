@@ -42,12 +42,12 @@ export class DocumentsController {
 
   @Get()
   findAll(@CurrentUser() user: AuthUserPayload, @Query() filter: FilterDocumentsDto) {
-    return this.documentsService.findAll(user.sub, filter, (user as any).role);
+    return this.documentsService.findAll(user.sub, filter, user.role);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
-    return this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    return this.documentsService.findAuthorizedById(id, user.sub, user.role);
   }
 
   @Put(':id')
@@ -56,13 +56,13 @@ export class DocumentsController {
     @Body() dto: UpdateDocumentDto,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    await this.documentsService.findAuthorizedById(id, user.sub, user.role);
     return this.documentsService.update(id, dto);
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
-    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    await this.documentsService.findAuthorizedById(id, user.sub, user.role);
     return this.documentsService.remove(id);
   }
 
@@ -70,7 +70,7 @@ export class DocumentsController {
 
   @Get(':id/versions')
   getVersions(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
-    return this.documentsService.getVersions(id, user.sub, (user as any).role);
+    return this.documentsService.getVersions(id, user.sub, user.role);
   }
 
   @Get(':id/versions/:versionId')
@@ -79,7 +79,7 @@ export class DocumentsController {
     @Param('versionId') versionId: string,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    return this.documentsService.getVersion(id, versionId, user.sub, (user as any).role);
+    return this.documentsService.getVersion(id, versionId, user.sub, user.role);
   }
 
   // ── #402 Expiration ──────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export class DocumentsController {
 
   @Put(':id/expiration/notified')
   async flagNotified(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
-    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    await this.documentsService.findAuthorizedById(id, user.sub, user.role);
     return this.documentsService.flagExpiryNotified(id);
   }
 
@@ -117,13 +117,13 @@ export class DocumentsController {
     @Body() dto: SignDocumentDto,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    await this.documentsService.findAuthorizedById(id, user.sub, user.role);
     return this.documentsService.signDocument(id, dto);
   }
 
   @Get(':id/verify')
   async verify(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
-    await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    await this.documentsService.findAuthorizedById(id, user.sub, user.role);
     return this.documentsService.verifySignature(id);
   }
 

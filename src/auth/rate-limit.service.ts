@@ -170,6 +170,18 @@ export class RateLimitService {
   }
 
   /**
+   * Check rate limit for a user tied to a specific IP
+   * Prevents abuse from multiple accounts on the same IP or a single user hopping IPs
+   */
+  async checkUserIpRateLimit(userId: string, ip: string): Promise<RateLimitStatus> {
+    const key = RATE_LIMIT_KEYS.USER_IP(userId, ip);
+    const limit = 200; // Combined user+IP limit
+    const windowMs = 15 * 60 * 1000; // 15 minutes
+
+    return this.checkRateLimit(key, limit, windowMs);
+  }
+
+  /**
    * Get rate limit status with headers
    */
   getHeaders(status: RateLimitStatus): Record<string, string> {

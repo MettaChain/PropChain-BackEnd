@@ -3,7 +3,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -11,10 +13,12 @@ import {
   Query,
   Res,
   UseGuards,
+  UseInterceptors,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -37,7 +41,9 @@ import {
   UpdateTransactionStatusDto,
 } from './dto/admin.dto';
 import { RestoreBackupDto, UpdateBackupScheduleDto } from '../backup/dto/backup.dto';
+import { AdminAuditInterceptor } from './admin-audit.interceptor';
 
+@ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
@@ -269,5 +275,18 @@ export class AdminController {
       sampleData,
       note: 'This is a preview with sample data. Actual emails will use real data.',
     };
+  }
+
+  @Delete('exports/:filename')
+  deleteExport(@Param('filename') filename: string) {
+    const filepath = path.join(process.cwd(), 'exports', filename);
+
+    if (!fs.existsSync(filepath)) {
+      throw new NotFoundException('Export file not found');
+    }
+
+    fs.unlinkSync(filepath);
+
+    return { message: 'Export file deleted successfully' };
   }
 }

@@ -25,6 +25,7 @@ import { AuthUserPayload } from './types/auth-user.type';
 import { GoogleProfile } from './strategies/google.strategy';
 import { UserRole } from '../types/prisma.types';
 import { Request } from 'express';
+import { VerifyEmailDto } from '../users/dto/email-change.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -187,5 +188,12 @@ export class AuthController {
   @Post('login-status')
   getLoginStatus(@Body() data: { email: string }) {
     return this.authService.getLoginStatus(data.email);
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() verifyEmailDto: VerifyEmailDto, @Req() request: Request) {
+    const ipAddress = request.ip || request.socket.remoteAddress;
+    const userAgent = request.headers['user-agent'];
+    return this.authService.verifyInitialEmail(verifyEmailDto.token, ipAddress, userAgent);
   }
 }

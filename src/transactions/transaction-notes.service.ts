@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CreateNoteDto } from './dto/transaction-note.dto';
@@ -12,7 +10,7 @@ export class TransactionNotesService {
     const tx = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
     if (!tx) throw new NotFoundException('Transaction not found');
 
-    return (this.prisma as any).transactionNote.create({
+    return this.prisma.transactionNote.create({
       data: {
         transactionId,
         authorId,
@@ -31,15 +29,12 @@ export class TransactionNotesService {
 
     const where: any = { transactionId };
     if (!isPrivileged && !isParty) {
-      // Non-party/non-admin can only see public notes authored by themselves
       where.isPublic = true;
     } else if (!isPrivileged) {
-      // Transaction parties see public notes and their own private notes
       where.OR = [{ isPublic: true }, { authorId: viewerId }];
     }
-    // Admins/agents see all notes
 
-    return (this.prisma as any).transactionNote.findMany({
+    return this.prisma.transactionNote.findMany({
       where,
       orderBy: { createdAt: 'asc' },
       include: {
@@ -49,7 +44,7 @@ export class TransactionNotesService {
   }
 
   async remove(noteId: string, requesterId: string, requesterRole: string) {
-    const note = await (this.prisma as any).transactionNote.findUnique({ where: { id: noteId } });
+    const note = await this.prisma.transactionNote.findUnique({ where: { id: noteId } });
     if (!note) throw new NotFoundException('Note not found');
 
     const isPrivileged = requesterRole === 'ADMIN';
@@ -57,6 +52,6 @@ export class TransactionNotesService {
       throw new ForbiddenException('Only the author or admin can delete this note');
     }
 
-    return (this.prisma as any).transactionNote.delete({ where: { id: noteId } });
+    return this.prisma.transactionNote.delete({ where: { id: noteId } });
   }
 }

@@ -12,6 +12,7 @@ import { CacheMonitoringService } from './cache-monitoring.service';
 
 @Injectable()
 export class CacheMetricsInterceptor implements NestInterceptor {
+  // CacheMonitoringService is expected to be a singleton provided by the CacheModule
   constructor(private cacheMonitoringService: CacheMonitoringService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {

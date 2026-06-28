@@ -14,8 +14,11 @@ import { RateLimitGuard } from './auth/guards/rate-limit.guard';
 import { RateLimitService } from './auth/rate-limit.service';
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 import { setupSwagger } from './config/swagger.config';
+import { validateEnvironment } from './utils/validate-env';
 
 async function bootstrap() {
+  validateEnvironment();
+
   if (process.env.OTEL_ENABLED !== 'false') {
     try {
       await otelSDK.start();
@@ -23,7 +26,6 @@ async function bootstrap() {
       console.error('OpenTelemetry SDK failed to start:', err);
     }
   }
-
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
@@ -59,8 +61,9 @@ async function bootstrap() {
   app.useGlobalInterceptors(new RateLimitHeadersInterceptor());
 
   // Apply cache metrics interceptor
-  const cacheMonitoringService = app.get(CacheMonitoringService);
-  app.useGlobalInterceptors(new CacheMetricsInterceptor(cacheMonitoringService));
+  // Retrieve the singleton instance from the DI container to ensure consistent dependency injection
+  const cacheMetricsInterceptor = app.get(CacheMetricsInterceptor);
+  app.useGlobalInterceptors(cacheMetricsInterceptor);
 
   // Apply OpenTelemetry tracing interceptor
   app.useGlobalInterceptors(new TraceInterceptor());

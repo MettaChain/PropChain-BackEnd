@@ -1,5 +1,7 @@
 // @ts-nocheck
 
+import { ConfigService } from '@nestjs/config';
+
 export type PasswordPolicy = {
   minLength: number;
   requireUppercase: boolean;
@@ -9,22 +11,22 @@ export type PasswordPolicy = {
   specialChars?: string;
 };
 
-export function getPasswordPolicy(): PasswordPolicy {
-  const minLength = Number(process.env.PASSWORD_MIN_LENGTH ?? 8);
+export function getPasswordPolicy(configService: ConfigService): PasswordPolicy {
+  const minLength = Number(configService.get('PASSWORD_MIN_LENGTH') ?? 8);
   return {
     minLength: Number.isFinite(minLength) && minLength > 0 ? minLength : 8,
-    requireUppercase: (process.env.PASSWORD_REQUIRE_UPPERCASE ?? 'true') === 'true',
-    requireLowercase: (process.env.PASSWORD_REQUIRE_LOWERCASE ?? 'true') === 'true',
-    requireDigit: (process.env.PASSWORD_REQUIRE_DIGIT ?? 'true') === 'true',
-    requireSpecial: (process.env.PASSWORD_REQUIRE_SPECIAL ?? 'true') === 'true',
+    requireUppercase: (configService.get('PASSWORD_REQUIRE_UPPERCASE') ?? 'true') === 'true',
+    requireLowercase: (configService.get('PASSWORD_REQUIRE_LOWERCASE') ?? 'true') === 'true',
+    requireDigit: (configService.get('PASSWORD_REQUIRE_DIGIT') ?? 'true') === 'true',
+    requireSpecial: (configService.get('PASSWORD_REQUIRE_SPECIAL') ?? 'true') === 'true',
     specialChars:
-      process.env.PASSWORD_SPECIAL_CHARS ?? '!@#$%^&*()_+-=[]{}|;:\",./<>?'.slice(0, 32),
+      configService.get('PASSWORD_SPECIAL_CHARS') ?? '!@#$%^&*()_+-=[]{}|;:\",./<>?'.slice(0, 32),
   };
 }
 
-export function validatePassword(password: string): string[] {
+export function validatePassword(password: string, configService: ConfigService): string[] {
   const errors: string[] = [];
-  const policy = getPasswordPolicy();
+  const policy = getPasswordPolicy(configService);
 
   if (!password || password.length < policy.minLength) {
     errors.push(`Password must be at least ${policy.minLength} characters long`);

@@ -78,11 +78,6 @@ export function generateBackupCodes(count = 8): string[] {
   return Array.from({ length: count }, () => randomBytes(4).toString('hex').toUpperCase());
 }
 
-export function getPasswordHistoryLimit(): number {
-  const parsed = Number(process.env.PASSWORD_HISTORY_LIMIT ?? 5);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
-}
-
 export function verifyBackupCode(candidate: string, backupCodeHashes: string[]) {
   const digest = createSha256(candidate.trim().toUpperCase());
   const digestBuffer = Buffer.from(digest);

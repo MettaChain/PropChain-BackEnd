@@ -32,7 +32,6 @@ import {
   comparePassword,
   createSha256,
   generateBackupCodes,
-  getPasswordHistoryLimit,
   hashPassword,
   parseDuration,
   randomBase32Secret,
@@ -63,6 +62,11 @@ type JwtPayload = {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly issuer = 'PropChain';
+
+  private hashEmail(email: string): string {
+    return createSha256(email).slice(0, 12);
+  }
+
   private readonly accessTokenTtlSeconds: number;
   private readonly refreshTokenTtlSeconds: number;
   private readonly jwtSecret: string;
@@ -111,7 +115,7 @@ export class AuthService {
       throw new BadRequestException('A user with that email already exists');
     }
 
-    const passwordErrors = validatePassword(data.password);
+    const passwordErrors = validatePassword(data.password, this.configService);
     if (passwordErrors.length > 0) {
       throw new BadRequestException(
         `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
@@ -119,6 +123,12 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(data.password, this.bcryptRounds);
+    const verificationToken = randomToken(32);
+    const verificationExpiresAt = new Date(Date.now() + parseDuration(
+      this.configService.get<string>('EMAIL_VERIFICATION_EXPIRES_IN') ?? '24h',
+      24 * 60 * 60,
+    ) * 1000);
+
     const user = await this.prisma.user.create({
       data: {
         email: data.email,
@@ -126,6 +136,8 @@ export class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: verificationExpiresAt,
         passwordHistory: {
           create: {
             passwordHash,
@@ -134,15 +146,35 @@ export class AuthService {
       },
     });
 
-    const tokens = await this.issueTokenPair(user);
+    // Send verification email
+    await this.emailService
+      .sendEmail({
+        to: user.email,
+        subject: 'Verify your email - PropChain',
+        template: 'email-verification',
+        context: { token: verificationToken },
+        userId: user.id,
+        emailType: 'email_verification',
+      })
+      .catch((err) => {
+        this.logger.error('Failed to queue verification email:', err?.message || err);
+      });
 
     return {
       user: sanitizeUser(user),
-      ...tokens,
+      message: 'Registration successful. Please check your email to verify your account.',
     };
   }
 
-  async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
+  /**
+   * Performs mandatory security checks before validating credentials.
+   * 
+   * Ordering Contract:
+   * 1. Lockout check: Prevent any further action if account is temporarily locked.
+   * 2. CAPTCHA check: If failed attempts exceed threshold, require CAPTCHA to proceed.
+   * 3. Credentials check: (Performed in the main login method after preflight)
+   */
+  private async preflightChecks(data: LoginDto, ipAddress?: string, userAgent?: string): Promise<void> {
     // Check if account is locked out
     const isLocked = await this.rateLimitService.isAccountLocked(data.email);
     if (isLocked) {
@@ -165,10 +197,14 @@ export class AuthService {
       }
       const isCaptchaValid = await this.verifyCaptcha(data.captchaToken);
       if (!isCaptchaValid) {
-        // We might also record a failed attempt here if we wanted to
+        await this.rateLimitService.recordFailedAttempt(data.email, ipAddress, userAgent);
         throw new UnauthorizedException('Invalid CAPTCHA');
       }
     }
+  }
+
+  async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
+    await this.preflightChecks(data, ipAddress, userAgent);
 
     const user = await this.usersService.findByEmail(data.email);
     if (!user) {
@@ -187,6 +223,10 @@ export class AuthService {
       );
     }
 
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Please verify your email before logging in.');
+    }
+
     const passwordMatches = await comparePassword(data.password, user.password ?? '');
     if (!passwordMatches) {
       // Record failed login attempt
@@ -201,7 +241,9 @@ export class AuthService {
       if (shouldLock) {
         const lockoutDuration = 30;
         await this.emailService.sendAccountLockedEmail(user.email, lockoutDuration).catch((err) => {
-          this.logger.error(`Failed to send account locked email to ${user.email}: ${err.message}`);
+          this.logger.error(
+            `Failed to send account locked email to user ${user.id} (${this.hashEmail(user.email)}): ${err.message}`,
+          );
         });
 
         throw new UnauthorizedException(
@@ -329,7 +371,7 @@ export class AuthService {
     const tokens = await this.issueTokenPair(user, payload.family, ipAddress, userAgent);
 
     this.logger.log(
-      `Token rotated for user ${user.id} (${user.email}). Family: ${payload.family}. IP: ${ipAddress}`,
+      `Token rotated for user ${user.id} (${this.hashEmail(user.email)}). Family: ${payload.family}. IP: ${ipAddress}`,
     );
 
     return {
@@ -426,7 +468,7 @@ export class AuthService {
 
     // Log the logout event
     this.logger.log(
-      `User ${user.sub} (${user.email}) logged out successfully at ${logoutTime.toISOString()}`,
+      `User ${user.sub} (${this.hashEmail(user.email)}) logged out successfully at ${logoutTime.toISOString()}`,
     );
 
     return {
@@ -476,7 +518,7 @@ export class AuthService {
     });
 
     this.logger.log(
-      `User ${user.sub} (${user.email}) logged out from all devices at ${logoutTime.toISOString()}. Total active blacklisted refresh tokens: ${blacklistedRefreshTokens.length}`,
+      `User ${user.sub} (${this.hashEmail(user.email)}) logged out from all devices at ${logoutTime.toISOString()}. Total active blacklisted refresh tokens: ${blacklistedRefreshTokens.length}`,
     );
 
     return {
@@ -502,8 +544,6 @@ export class AuthService {
 
     return sanitizeUser(foundUser);
   }
-
-  // Only one implementation should exist; duplicate removed.
 
   async getDashboard(user: AuthUserPayload) {
     const foundUser = await this.prisma.user.findUnique({
@@ -663,7 +703,7 @@ export class AuthService {
   }
 
   async changePassword(user: AuthUserPayload, data: ChangePasswordDto) {
-    const passwordHistoryLimit = getPasswordHistoryLimit();
+    const passwordHistoryLimit = this.getPasswordHistoryLimit();
     const existingUser = await this.prisma.user.findUnique({
       where: { id: user.sub },
       include: {
@@ -685,7 +725,7 @@ export class AuthService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
-    const passwordErrors = validatePassword(data.newPassword);
+    const passwordErrors = validatePassword(data.newPassword, this.configService);
     if (passwordErrors.length > 0) {
       throw new BadRequestException(
         `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
@@ -1090,7 +1130,7 @@ export class AuthService {
     };
   }
 
-  private async issueTokenPair(
+  async issueTokenPair(
     user: Prisma.User,
     tokenFamily?: string,
     ipAddress?: string,
@@ -1294,9 +1334,9 @@ export class AuthService {
       throw new BadRequestException('Account is blocked');
     }
 
-    const passwordHistoryLimit = getPasswordHistoryLimit();
+    const passwordHistoryLimit = this.getPasswordHistoryLimit();
 
-    const passwordErrors = validatePassword(data.newPassword);
+    const passwordErrors = validatePassword(data.newPassword, this.configService);
     if (passwordErrors.length > 0) {
       throw new BadRequestException(
         `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
@@ -1310,13 +1350,13 @@ export class AuthService {
       take: passwordHistoryLimit,
     });
 
-    for (const historyEntry of recentPasswords) {
-      const isReused = await comparePassword(data.newPassword, historyEntry.passwordHash);
-      if (isReused) {
-        throw new BadRequestException(
-          `Password reuse is not allowed for the last ${passwordHistoryLimit} passwords`,
-        );
-      }
+    const reuseResults = await Promise.all(
+      recentPasswords.map((entry) => comparePassword(data.newPassword, entry.passwordHash)),
+    );
+    if (reuseResults.some(Boolean)) {
+      throw new BadRequestException(
+        `Password reuse is not allowed for the last ${passwordHistoryLimit} passwords`,
+      );
     }
 
     const newPasswordHash = await hashPassword(data.newPassword, this.bcryptRounds);
@@ -1396,6 +1436,11 @@ export class AuthService {
     });
   }
 
+  private getPasswordHistoryLimit(): number {
+    const parsed = Number(this.configService.get('PASSWORD_HISTORY_LIMIT') ?? 5);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+  }
+
   private async verifyCaptcha(token: string): Promise<boolean> {
     const secret = this.configService.get<string>('RECAPTCHA_SECRET');
     if (!secret) {
@@ -1430,5 +1475,55 @@ export class AuthService {
       this.logger.error(`Error verifying CAPTCHA: ${error.message}`);
       return false;
     }
+  }
+
+  async verifyInitialEmail(token: string, ipAddress?: string, userAgent?: string) {
+    // Find user by verification token
+    const user = await this.prisma.user.findFirst({
+      where: {
+        emailVerificationToken: token,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    // Check if token is expired
+    if (!user.emailVerificationExpires || new Date() > user.emailVerificationExpires) {
+      // Clear expired token
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerificationToken: null,
+          emailVerificationExpires: null,
+        },
+      });
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    // Verify user not already verified
+    if (user.isVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    // Update user to isVerified and clear verification fields
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      },
+    });
+
+    // Issue token pair
+    const tokens = await this.issueTokenPair(updatedUser, undefined, ipAddress, userAgent);
+
+    return {
+      message: 'Email verified successfully',
+      user: sanitizeUser(updatedUser),
+      ...tokens,
+    };
   }
 }
