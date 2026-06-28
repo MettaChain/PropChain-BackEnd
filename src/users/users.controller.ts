@@ -37,6 +37,8 @@ import {
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+const UNAUTHORIZED_ACTION_MESSAGE = 'You are not authorized to perform this action';
+
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -125,7 +127,7 @@ export class UsersController {
   @Post(':id/export')
   async exportData(@Param('id') id: string, @CurrentUser() user: AuthUserPayload) {
     if (user.sub !== id && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException("You are not authorized to export this user's data");
+      throw new ForbiddenException(UNAUTHORIZED_ACTION_MESSAGE);
     }
 
     try {
@@ -168,7 +170,7 @@ export class UsersController {
     const ownerId = this.extractExportOwnerId(filename);
 
     if (user.sub !== ownerId && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('You are not authorized to download this export');
+      throw new ForbiddenException(UNAUTHORIZED_ACTION_MESSAGE);
     }
 
     res.download(filepath, (err) => {
@@ -190,18 +192,13 @@ export class UsersController {
     return this.usersService.deactivate(user.sub, deactivateDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('me/reactivate')
   reactivateAccount(
-    @Body() data: { email: string; token?: string },
+    @CurrentUser() user: AuthUserPayload,
     @Body() reactivateDto: ReactivateAccountDto,
   ) {
-    return this.usersService.findByEmail(data.email).then((foundUser) => {
-      if (!foundUser) {
-        throw new Error('User not found');
-      }
-
-      return this.usersService.reactivate(foundUser.id, reactivateDto);
-    });
+    return this.usersService.reactivate(user.sub, reactivateDto);
   }
 
   // ─── Admin Verification ────────────────────────────────────────

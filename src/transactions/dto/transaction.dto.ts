@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { IsString, IsNumber, IsOptional, IsEnum, IsUUID, IsDate, IsIn, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsUUID, IsDate, IsIn, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -189,13 +189,13 @@ export enum TransactionAnalyticsGranularity {
 }
 
 export class TransactionAnalyticsQueryDto {
-  @ApiPropertyOptional({ description: 'Only include transactions created on or after this date' })
+  @ApiPropertyOptional({ description: 'Only include transactions created on or after this date. Maximum date window is 365 days when both startDate and endDate are provided.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
 
-  @ApiPropertyOptional({ description: 'Only include transactions created on or before this date' })
+  @ApiPropertyOptional({ description: 'Only include transactions created on or before this date. Maximum date window is 365 days when both startDate and endDate are provided.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
@@ -213,6 +213,13 @@ export class TransactionAnalyticsQueryDto {
   @IsOptional()
   @IsEnum(TransactionTypeDto)
   type?: TransactionTypeDto;
+
+  @ApiPropertyOptional({ description: 'Maximum number of days for the date range (1-365)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(365)
+  maxDays?: number = 365;
 }
 
 export class TransactionVolumeTrendDto {

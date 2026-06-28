@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
@@ -21,6 +21,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { AppController } from './app.controller';
 import './common/common.types'; // Load registered enums
+import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AdminModule } from './admin/admin.module';
 import { FraudModule } from './fraud/fraud.module';
 import { SearchModule } from './search/search.module';
@@ -37,6 +38,7 @@ import { OpenHouseModule } from './open-house/open-house.module';
 import { MortgageCalculatorModule } from './mortgage-calculator/mortgage-calculator.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { AuditModule } from './audit/audit.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -79,13 +81,17 @@ import { AuditModule } from './audit/audit.module';
     FavoritesModule,
     PropertyViewsModule,
     PropertyComparisonModule,
-    // NeighborhoodsModule,
     OpenHouseModule,
     MortgageCalculatorModule,
     SupportTicketsModule,
     AuditModule,
+    MetricsModule,
   ],
 
   controllers: [AppController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

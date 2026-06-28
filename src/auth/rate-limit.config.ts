@@ -146,6 +146,7 @@ export const RATE_LIMIT_KEYS = {
   ENDPOINT: (endpoint: string) => `rate-limit:endpoint:${endpoint}`,
   USER: (userId: string) => `rate-limit:user:${userId}`,
   IP: (ip: string) => `rate-limit:ip:${ip}`,
+  USER_IP: (userId: string, ip: string) => `rate-limit:user-ip:${userId}:${ip}`,
   API_KEY: (apiKey: string) => `rate-limit:api-key:${apiKey}`,
 };
 

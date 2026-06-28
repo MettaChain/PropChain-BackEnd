@@ -16,7 +16,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AvatarUploadService } from './avatar-upload.service';
 import { UsersService } from './users.service';
-import { AvatarUploadResponseDto, AvatarDeleteDto } from './dto/avatar-upload.dto';
+import { AvatarUploadResponseDto } from './dto/avatar-upload.dto';
+import { FilenameValidationPipe } from './pipes/filename-validation.pipe';
 
 // Multer type definition
 interface MulterFile {
@@ -67,7 +68,7 @@ export class AvatarUploadController {
 
   @Delete('delete')
   async deleteAvatar(
-    @Body() deleteDto: AvatarDeleteDto,
+    @Body('filename', FilenameValidationPipe) filename: string,
     @Request() req: { user: { id: string } },
   ): Promise<{ message: string }> {
     if (!req.user || !req.user.id) {
@@ -76,7 +77,7 @@ export class AvatarUploadController {
 
     try {
       // Delete avatar file
-      await this.avatarUploadService.deleteAvatar(req.user.id, deleteDto.filename);
+      await this.avatarUploadService.deleteAvatar(req.user.id, filename);
 
       // Remove avatar URL from user's record
       await this.usersService.updateAvatar(req.user.id, null);
@@ -89,7 +90,7 @@ export class AvatarUploadController {
 
   @Get(':filename')
   async getAvatar(
-    @Param('filename') filename: string,
+    @Param('filename', FilenameValidationPipe) filename: string,
     @Request() req: { user: { id: string } },
   ): Promise<{ avatarUrl: string }> {
     if (!req.user || !req.user.id) {

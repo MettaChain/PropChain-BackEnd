@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AvatarUploadController } from '../../src/users/avatar-upload.controller';
 import { AvatarUploadService } from '../../src/users/avatar-upload.service';
 import { UsersService } from '../../src/users/users.service';
@@ -8,6 +9,24 @@ describe('AvatarUploadController', () => {
   let controller: AvatarUploadController;
   let avatarUploadService: AvatarUploadService;
   let usersService: UsersService;
+
+  describe('AvatarUploadService', () => {
+    let service: AvatarUploadService;
+
+    beforeEach(() => {
+      const configService = {
+        get: jest.fn((key: string, defaultValue?: string | number) => defaultValue),
+      } as unknown as ConfigService;
+
+      service = new AvatarUploadService(configService);
+    });
+
+    it('should reject filenames that attempt path traversal', async () => {
+      await expect(service.deleteAvatar('user_123', '../../secret.txt')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
 
   const mockUser = {
     id: 'user_123',
@@ -95,16 +114,16 @@ describe('AvatarUploadController', () => {
 
   describe('deleteAvatar', () => {
     it('should delete avatar successfully', async () => {
-      const deleteDto = { filename: 'test.jpg' };
+      const filename = 'test.jpg';
 
       jest.spyOn(avatarUploadService, 'deleteAvatar').mockResolvedValue();
       jest.spyOn(usersService, 'updateAvatar').mockResolvedValue(mockUser as any);
 
-      const result = await controller.deleteAvatar(deleteDto, { user: mockUser });
+      const result = await controller.deleteAvatar(filename, { user: mockUser });
 
       expect(avatarUploadService.deleteAvatar).toHaveBeenCalledWith(
         mockUser.id,
-        deleteDto.filename,
+        filename,
       );
       expect(usersService.updateAvatar).toHaveBeenCalledWith(mockUser.id, null);
       expect(result).toEqual({ message: 'Avatar deleted successfully' });
@@ -112,7 +131,7 @@ describe('AvatarUploadController', () => {
 
     it('should throw BadRequestException when user is not authenticated', async () => {
       await expect(
-        controller.deleteAvatar({ filename: 'test.jpg' }, { user: null } as any),
+        controller.deleteAvatar('test.jpg', { user: null } as any),
       ).rejects.toThrow(BadRequestException);
     });
   });
