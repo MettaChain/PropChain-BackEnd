@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Decimal } from '@prisma/client/runtime/library';
 import { TransactionsService } from './transactions.service';
@@ -253,6 +254,16 @@ describe('TransactionsService', () => {
       expect(result.completionRate).toBe(0);
       expect(result.revenue).toBe(0);
       expect(result.volumeTrends).toEqual([]);
+    });
+
+    it('should reject date ranges larger than 365 days', async () => {
+      const startDate = new Date('2025-01-01T00:00:00.000Z');
+      const endDate = new Date('2026-01-02T00:00:00.000Z');
+
+      await expect(
+        service.getAnalytics({ startDate, endDate, granularity: TransactionAnalyticsGranularity.MONTH }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.transaction.findMany).not.toHaveBeenCalled();
     });
   });
 });

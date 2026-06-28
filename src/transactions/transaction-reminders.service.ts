@@ -3,6 +3,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CacheService } from '../cache/cache.service';
+
+const LOCK_KEY = 'lock:transaction-reminders';
+const LOCK_TTL_SECONDS = 300; // 5 minutes — exceeds expected job runtime
 
 @Injectable()
 export class TransactionRemindersService {
@@ -11,9 +15,24 @@ export class TransactionRemindersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly cacheService: CacheService,
   ) {}
 
   async sendDeadlineReminders(daysAhead: number = 3): Promise<{ sent: number }> {
+    const acquired = await this.cacheService.setNx(LOCK_KEY, '1', LOCK_TTL_SECONDS);
+    if (!acquired) {
+      this.logger.log('Transaction reminders lock already held — skipping execution');
+      return { sent: 0 };
+    }
+
+    try {
+      return await this.processReminders(daysAhead);
+    } finally {
+      await this.cacheService.del(LOCK_KEY);
+    }
+  }
+
+  private async processReminders(daysAhead: number): Promise<{ sent: number }> {
     const now = new Date();
     const cutoff = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
 

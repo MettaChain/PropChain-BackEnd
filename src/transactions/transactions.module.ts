@@ -14,9 +14,16 @@ import { PrismaModule } from '../database/prisma.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CommissionsModule } from '../commissions/commissions.module';
+import { CacheModuleConfig } from '../cache/cache.module';
 
 @Module({
-  imports: [PrismaModule, BlockchainModule, NotificationsModule, CommissionsModule],
+  imports: [
+    PrismaModule,
+    BlockchainModule,
+    NotificationsModule,
+    CommissionsModule,
+    CacheModuleConfig,
+  ],
   providers: [
     TransactionsService,
     DisputesService,

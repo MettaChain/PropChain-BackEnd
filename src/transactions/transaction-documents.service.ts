@@ -80,7 +80,11 @@ export class TransactionDocumentsService {
     const tx = await this.ensureTransactionExists(transactionId);
     this.assertAccess(tx, userId, userRole);
 
-    const doc = await this.findOne(transactionId, documentId, userId, userRole);
+    const doc = await this.prisma.document.findFirst({
+      where: { id: documentId, transactionId },
+      include: { versions: { orderBy: { versionNumber: 'asc' } } },
+    });
+    if (!doc) throw new NotFoundException('Document not found for this transaction');
 
     const nextVersion = (doc.versions?.length ?? 0) + 1;
 
@@ -111,7 +115,10 @@ export class TransactionDocumentsService {
     const tx = await this.ensureTransactionExists(transactionId);
     this.assertAccess(tx, userId, userRole);
 
-    await this.findOne(transactionId, documentId, userId, userRole);
+    const doc = await this.prisma.document.findFirst({
+      where: { id: documentId, transactionId },
+    });
+    if (!doc) throw new NotFoundException('Document not found for this transaction');
     return this.prisma.documentVersion.findMany({
       where: { documentId },
       orderBy: { versionNumber: 'asc' },
@@ -126,7 +133,10 @@ export class TransactionDocumentsService {
     const tx = await this.ensureTransactionExists(transactionId);
     this.assertAccess(tx, userId, userRole);
 
-    await this.findOne(transactionId, documentId, userId, userRole);
+    const doc = await this.prisma.document.findFirst({
+      where: { id: documentId, transactionId },
+    });
+    if (!doc) throw new NotFoundException('Document not found for this transaction');
     return this.prisma.document.delete({ where: { id: documentId } });
   }
 

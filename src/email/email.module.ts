@@ -6,7 +6,7 @@ import { EmailWebhookController } from './email-webhook.controller';
 import { PrismaModule } from '../database/prisma.module';
 import { TrackingModule } from '../tracking/tracking.module';
 import { MailerModule } from '@nestjs-modules/mailer';
-import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
+import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { BullModule } from '@nestjs/bullmq';
@@ -18,6 +18,13 @@ import { EmailProcessor } from './email.processor';
     TrackingModule,
     BullModule.registerQueue({
       name: 'mail',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      },
     }),
     MailerModule.forRootAsync({
       useFactory: (config: ConfigService) => ({
