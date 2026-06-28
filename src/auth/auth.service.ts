@@ -174,7 +174,7 @@ export class AuthService {
    * 2. CAPTCHA check: If failed attempts exceed threshold, require CAPTCHA to proceed.
    * 3. Credentials check: (Performed in the main login method after preflight)
    */
-  private async preflightChecks(data: LoginDto): Promise<void> {
+  private async preflightChecks(data: LoginDto, ipAddress?: string, userAgent?: string): Promise<void> {
     // Check if account is locked out
     const isLocked = await this.rateLimitService.isAccountLocked(data.email);
     if (isLocked) {
@@ -204,7 +204,7 @@ export class AuthService {
   }
 
   async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
-    await this.preflightChecks(data);
+    await this.preflightChecks(data, ipAddress, userAgent);
 
     const user = await this.usersService.findByEmail(data.email);
     if (!user) {

@@ -75,12 +75,14 @@ describe('BlockchainService', () => {
     });
 
     it('should produce different hashes for different data', () => {
+      const ts = 1716812345678;
       const data1 = {
         transactionId: 'tx-123',
         propertyId: 'prop-456',
         buyerAddress: '0xBuyer',
         sellerAddress: '0xSeller',
         amount: 1000,
+        timestamp: ts,
       };
 
       const data2 = {
@@ -89,6 +91,7 @@ describe('BlockchainService', () => {
         buyerAddress: '0xBuyer',
         sellerAddress: '0xSeller',
         amount: 1000,
+        timestamp: ts,
       };
 
       const hash1 = service.generateBlockchainHash(data1);
@@ -98,12 +101,14 @@ describe('BlockchainService', () => {
     });
 
     it('should handle address normalization', () => {
+      const ts = 1716812345678;
       const data1 = {
         transactionId: 'tx-123',
         propertyId: 'prop-456',
         buyerAddress: '0xBUYER',
         sellerAddress: '0xSELLER',
         amount: 1000,
+        timestamp: ts,
       };
 
       const data2 = {
@@ -112,6 +117,7 @@ describe('BlockchainService', () => {
         buyerAddress: '0xbuyer',
         sellerAddress: '0xseller',
         amount: 1000,
+        timestamp: ts,
       };
 
       const hash1 = service.generateBlockchainHash(data1);
