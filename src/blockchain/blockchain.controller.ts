@@ -13,6 +13,8 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { BlockchainService } from './blockchain.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUserPayload } from '../auth/types/auth-user.type';
 import {
   RecordTransactionOnBlockchainDto,
   BlockchainTransactionDto,

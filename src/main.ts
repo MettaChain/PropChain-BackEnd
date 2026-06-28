@@ -51,8 +51,9 @@ async function bootstrap() {
   app.useGlobalInterceptors(new RateLimitHeadersInterceptor());
 
   // Apply cache metrics interceptor
-  const cacheMonitoringService = app.get(CacheMonitoringService);
-  app.useGlobalInterceptors(new CacheMetricsInterceptor(cacheMonitoringService));
+  // Retrieve the singleton instance from the DI container to ensure consistent dependency injection
+  const cacheMetricsInterceptor = app.get(CacheMetricsInterceptor);
+  app.useGlobalInterceptors(cacheMetricsInterceptor);
 
   app.useGlobalPipes(
     new ValidationPipe({

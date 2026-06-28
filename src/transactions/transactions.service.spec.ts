@@ -256,10 +256,9 @@ describe('TransactionsService', () => {
       expect(result.volumeTrends).toEqual([]);
     });
 
-    it('should reject date ranges larger than 365 days', async () => {
+    it('should cap date ranges larger than maxDays', async () => {
       const startDate = new Date('2025-01-01T00:00:00.000Z');
       const endDate = new Date('2026-01-02T00:00:00.000Z');
-
       await expect(
         service.getAnalytics({
           startDate,

@@ -30,7 +30,7 @@ export class DocumentsDownloadController {
     @CurrentUser() user: AuthUserPayload,
     @Res() res: Response,
   ) {
-    const doc = await this.documentsService.findAuthorizedById(id, user.sub, (user as any).role);
+    const doc = await this.documentsService.findAuthorizedById(id, user.sub, user.role);
 
     let targetFileUrl = doc.fileUrl;
     if (query.versionId) {
@@ -38,7 +38,7 @@ export class DocumentsDownloadController {
         id,
         query.versionId,
         user.sub,
-        (user as any).role,
+        user.role,
       );
       targetFileUrl = version.fileUrl;
     }

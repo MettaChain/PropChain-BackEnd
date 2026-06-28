@@ -1,11 +1,11 @@
-// @ts-nocheck
-
 import {
   Body,
   Controller,
   Delete,
   ForbiddenException,
   Get,
+  GoneException,
+  HttpException,
   HttpStatus,
   InternalServerErrorException,
   NotFoundException,
@@ -27,6 +27,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
 import { UsersService } from './users.service';
+import { ActivityLogService } from './activity-log.service';
 import {
   CreateUserDto,
   SearchUsersDto,
@@ -41,7 +42,14 @@ const UNAUTHORIZED_ACTION_MESSAGE = 'You are not authorized to perform this acti
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  private readonly downloadRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  private static readonly DOWNLOAD_LIMIT = 10;
+  private static readonly DOWNLOAD_WINDOW_MS = 60 * 60 * 1000;
+
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   // ─── Admin Endpoints ─────────────────────────────────────────────
 
@@ -161,10 +169,33 @@ export class UsersController {
     @Res() res: Response,
     @CurrentUser() user: AuthUserPayload,
   ) {
+    const now = Date.now();
+    const entry = this.downloadRateLimitMap.get(user.sub);
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= UsersController.DOWNLOAD_LIMIT) {
+        throw new HttpException(
+          'Too many export downloads. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      entry.count++;
+    } else {
+      this.downloadRateLimitMap.set(user.sub, {
+        count: 1,
+        resetAt: now + UsersController.DOWNLOAD_WINDOW_MS,
+      });
+    }
+
     const filepath = path.join(process.cwd(), 'exports', filename);
 
     if (!fs.existsSync(filepath)) {
       throw new NotFoundException('Export file not found');
+    }
+
+    const stats = fs.statSync(filepath);
+    const expirationTime = 24 * 60 * 60 * 1000;
+    if (Date.now() - stats.mtimeMs > expirationTime) {
+      throw new GoneException('Export file has expired');
     }
 
     const ownerId = this.extractExportOwnerId(filename);
@@ -172,6 +203,14 @@ export class UsersController {
     if (user.sub !== ownerId && user.role !== UserRole.ADMIN) {
       throw new ForbiddenException(UNAUTHORIZED_ACTION_MESSAGE);
     }
+
+    this.activityLogService.create(user.sub, {
+      action: 'EXPORT_DOWNLOAD',
+      entityType: 'USER',
+      entityId: ownerId,
+      description: `Downloaded export file: ${filename}`,
+      metadata: { filename, ownerId },
+    });
 
     res.download(filepath, (err) => {
       if (err && !res.headersSent) {

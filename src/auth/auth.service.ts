@@ -32,7 +32,6 @@ import {
   comparePassword,
   createSha256,
   generateBackupCodes,
-  getPasswordHistoryLimit,
   hashPassword,
   parseDuration,
   randomBase32Secret,
@@ -116,7 +115,7 @@ export class AuthService {
       throw new BadRequestException('A user with that email already exists');
     }
 
-    const passwordErrors = validatePassword(data.password);
+    const passwordErrors = validatePassword(data.password, this.configService);
     if (passwordErrors.length > 0) {
       throw new BadRequestException(
         `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
@@ -712,7 +711,7 @@ export class AuthService {
   }
 
   async changePassword(user: AuthUserPayload, data: ChangePasswordDto) {
-    const passwordHistoryLimit = getPasswordHistoryLimit();
+    const passwordHistoryLimit = this.getPasswordHistoryLimit();
     const existingUser = await this.prisma.user.findUnique({
       where: { id: user.sub },
       include: {
@@ -734,7 +733,7 @@ export class AuthService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
-    const passwordErrors = validatePassword(data.newPassword);
+    const passwordErrors = validatePassword(data.newPassword, this.configService);
     if (passwordErrors.length > 0) {
       throw new BadRequestException(
         `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
@@ -1347,9 +1346,9 @@ export class AuthService {
       throw new BadRequestException('Account is blocked');
     }
 
-    const passwordHistoryLimit = getPasswordHistoryLimit();
+    const passwordHistoryLimit = this.getPasswordHistoryLimit();
 
-    const passwordErrors = validatePassword(data.newPassword);
+    const passwordErrors = validatePassword(data.newPassword, this.configService);
     if (passwordErrors.length > 0) {
       throw new BadRequestException(
         `Password does not meet complexity requirements: ${passwordErrors.join('; ')}`,
@@ -1447,6 +1446,11 @@ export class AuthService {
         userAgent,
       },
     });
+  }
+
+  private getPasswordHistoryLimit(): number {
+    const parsed = Number(this.configService.get('PASSWORD_HISTORY_LIMIT') ?? 5);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
   }
 
   private async verifyCaptcha(token: string): Promise<boolean> {
