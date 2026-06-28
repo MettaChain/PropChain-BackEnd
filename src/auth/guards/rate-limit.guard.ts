@@ -55,14 +55,16 @@ export class RateLimitGuard implements CanActivate {
       // Check by user if authenticated
       // Tier defaults to 'free' as it is not included in the current JWT payload.
       // When 'tier' is added to JwtPayload, this logic will use the actual value.
+      const ip = this.getClientIp(request);
+
       if (request.user?.id) {
         const userTier = request.user.tier || 'free';
-        const userStatus = await this.rateLimitService.checkUserRateLimit(
-          request.user.id,
-          userTier,
-        );
 
-        // Apply rate limit headers
+        const [userStatus, userIpStatus] = await Promise.all([
+          this.rateLimitService.checkUserRateLimit(request.user.id, userTier),
+          this.rateLimitService.checkUserIpRateLimit(request.user.id, ip),
+        ]);
+
         Object.entries(this.rateLimitService.getHeaders(userStatus)).forEach(([key, value]) => {
           response.setHeader(key, value);
         });
@@ -75,17 +77,24 @@ export class RateLimitGuard implements CanActivate {
               retryAfter: userStatus.retryAfter,
             },
             HttpStatus.TOO_MANY_REQUESTS,
+            { cause: 'user_rate_limit_exceeded' },
+          );
+        }
+
+        if (userIpStatus.isExceeded) {
+          throw new HttpException(
             {
-              cause: 'user_rate_limit_exceeded',
+              statusCode: HttpStatus.TOO_MANY_REQUESTS,
+              message: 'Too many requests from this account on this IP. Please try again later.',
+              retryAfter: userIpStatus.retryAfter,
             },
+            HttpStatus.TOO_MANY_REQUESTS,
+            { cause: 'user_ip_rate_limit_exceeded' },
           );
         }
       } else {
-        // Check by IP for unauthenticated requests
-        const ip = this.getClientIp(request);
         const ipStatus = await this.rateLimitService.checkIpRateLimit(ip);
 
-        // Apply rate limit headers
         Object.entries(this.rateLimitService.getHeaders(ipStatus)).forEach(([key, value]) => {
           response.setHeader(key, value);
         });
@@ -98,9 +107,7 @@ export class RateLimitGuard implements CanActivate {
               retryAfter: ipStatus.retryAfter,
             },
             HttpStatus.TOO_MANY_REQUESTS,
-            {
-              cause: 'ip_rate_limit_exceeded',
-            },
+            { cause: 'ip_rate_limit_exceeded' },
           );
         }
       }
