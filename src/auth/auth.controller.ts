@@ -196,4 +196,11 @@ export class AuthController {
     const userAgent = request.headers['user-agent'];
     return this.authService.verifyInitialEmail(verifyEmailDto.token, ipAddress, userAgent);
   }
+
+  @Post('email/resend')
+  resendVerification(@Body() data: { email: string }, @Req() request: Request) {
+    const ipAddress = request.ip || request.socket.remoteAddress;
+    const userAgent = request.headers['user-agent'];
+    return this.authService.resendEmailVerification(data.email, ipAddress, userAgent);
+  }
 }
