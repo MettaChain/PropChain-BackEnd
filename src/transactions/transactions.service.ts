@@ -540,7 +540,9 @@ export class TransactionsService {
         },
       })
       .then((result: any) => {
-        this.logger.log(`Tax strategy created for transaction ${transactionId}: ${dto.strategyType}`);
+        this.logger.log(
+          `Tax strategy created for transaction ${transactionId}: ${dto.strategyType}`,
+        );
         this.notificationsService.sendNotification(
           user.sub,
           'Tax Strategy Created',

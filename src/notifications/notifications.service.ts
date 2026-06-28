@@ -41,9 +41,21 @@ export class NotificationsService {
         const message = `Your transaction for property "${transaction.property.title}" has been updated to ${transaction.status}.`;
 
         const [canInApp, canEmail, canSms] = await Promise.all([
-          this.userPreferencesService.shouldDeliverNotification(user.id, 'TRANSACTION_UPDATE', 'inApp'),
-          this.userPreferencesService.shouldDeliverNotification(user.id, 'TRANSACTION_UPDATE', 'email'),
-          this.userPreferencesService.shouldDeliverNotification(user.id, 'TRANSACTION_UPDATE', 'sms'),
+          this.userPreferencesService.shouldDeliverNotification(
+            user.id,
+            'TRANSACTION_UPDATE',
+            'inApp',
+          ),
+          this.userPreferencesService.shouldDeliverNotification(
+            user.id,
+            'TRANSACTION_UPDATE',
+            'email',
+          ),
+          this.userPreferencesService.shouldDeliverNotification(
+            user.id,
+            'TRANSACTION_UPDATE',
+            'sms',
+          ),
         ]);
 
         await Promise.all([
@@ -73,9 +85,7 @@ export class NotificationsService {
                   transaction.status === 'CANCELLED' ? new Date().toLocaleDateString() : undefined,
               })
             : Promise.resolve(),
-          canSms && user.phone
-            ? this.smsService.sendSms(user.phone, message)
-            : Promise.resolve(),
+          canSms && user.phone ? this.smsService.sendSms(user.phone, message) : Promise.resolve(),
         ]);
       }),
     );

@@ -121,18 +121,15 @@ describe('AvatarUploadController', () => {
 
       const result = await controller.deleteAvatar(filename, { user: mockUser });
 
-      expect(avatarUploadService.deleteAvatar).toHaveBeenCalledWith(
-        mockUser.id,
-        filename,
-      );
+      expect(avatarUploadService.deleteAvatar).toHaveBeenCalledWith(mockUser.id, filename);
       expect(usersService.updateAvatar).toHaveBeenCalledWith(mockUser.id, null);
       expect(result).toEqual({ message: 'Avatar deleted successfully' });
     });
 
     it('should throw BadRequestException when user is not authenticated', async () => {
-      await expect(
-        controller.deleteAvatar('test.jpg', { user: null } as any),
-      ).rejects.toThrow(BadRequestException);
+      await expect(controller.deleteAvatar('test.jpg', { user: null } as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

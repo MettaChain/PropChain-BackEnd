@@ -11,9 +11,7 @@ export class FilenameValidationPipe implements PipeTransform<string, string> {
     }
 
     if (value.length > MAX_FILENAME_LENGTH) {
-      throw new BadRequestException(
-        `Filename must not exceed ${MAX_FILENAME_LENGTH} characters`,
-      );
+      throw new BadRequestException(`Filename must not exceed ${MAX_FILENAME_LENGTH} characters`);
     }
 
     if (value.includes('..') || value.includes('/') || value.includes('\\')) {

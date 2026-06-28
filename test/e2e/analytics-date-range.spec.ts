@@ -18,7 +18,18 @@ describe('Analytics date range boundary (e2e)', () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         TransactionsService,
-        { provide: PrismaService, useValue: { transaction: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) }, $connect: jest.fn(), $disconnect: jest.fn(), $transaction: jest.fn((a: any) => Promise.all(a)) } },
+        {
+          provide: PrismaService,
+          useValue: {
+            transaction: {
+              findMany: jest.fn().mockResolvedValue([]),
+              count: jest.fn().mockResolvedValue(0),
+            },
+            $connect: jest.fn(),
+            $disconnect: jest.fn(),
+            $transaction: jest.fn((a: any) => Promise.all(a)),
+          },
+        },
         { provide: BlockchainService, useValue: {} },
         { provide: NotificationsService, useValue: {} },
         { provide: CommissionsService, useValue: {} },
@@ -31,12 +42,12 @@ describe('Analytics date range boundary (e2e)', () => {
     service = moduleRef.get<TransactionsService>(TransactionsService);
   });
 
-  it('should cap date range at maxDays when startDate and endDate exceed limit', async () => {
+  it('should reject date ranges exceeding maxDays', async () => {
     const startDate = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
     const endDate = new Date();
-    const result = await service.getAnalytics({ startDate, endDate, maxDays: 365 });
-    expect(result).toBeDefined();
-    expect(result.totalTransactions).toBe(0);
+    await expect(service.getAnalytics({ startDate, endDate, maxDays: 365 })).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should cap date range at 365 days when only startDate is provided', async () => {
