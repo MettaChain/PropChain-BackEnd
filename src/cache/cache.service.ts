@@ -262,4 +262,20 @@ export class CacheService {
       return false;
     }
   }
+
+  /**
+   * Atomic SET NX EX — sets key only if it does not exist.
+   * Returns true if the lock was acquired, false if it was already held.
+   * ttlSeconds: lock expiry to prevent stale locks on crash.
+   */
+  async setNx(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    try {
+      const client = (this.cacheManager as any).store.getClient();
+      const result = await client.set(key, value, 'EX', ttlSeconds, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      this.logger.error(`Error in setNx for key ${key}:`, error);
+      return false;
+    }
+  }
 }

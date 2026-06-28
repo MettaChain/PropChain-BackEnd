@@ -12,8 +12,10 @@ import { RateLimitGuard } from './auth/guards/rate-limit.guard';
 import { RateLimitService } from './auth/rate-limit.service';
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 import { setupSwagger } from './config/swagger.config';
+import { validateEnvironment } from './utils/validate-env';
 
 async function bootstrap() {
+  validateEnvironment();
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
