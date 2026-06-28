@@ -318,14 +318,8 @@ export class TransactionsService {
     const maxDays = query.maxDays ?? 365;
 
     if (query.startDate && query.endDate) {
-      const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
-      const durationMs = query.endDate.getTime() - query.startDate.getTime();
-
-      if (durationMs < 0) {
+      if (query.endDate.getTime() < query.startDate.getTime()) {
         throw new BadRequestException('endDate must be on or after startDate');
-      }
-      if (durationMs > maxRangeMs) {
-        throw new BadRequestException('Date range cannot exceed 365 days');
       }
     }
 
