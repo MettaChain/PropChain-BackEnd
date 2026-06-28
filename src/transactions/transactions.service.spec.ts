@@ -256,14 +256,31 @@ describe('TransactionsService', () => {
       expect(result.volumeTrends).toEqual([]);
     });
 
-    it('should reject date ranges larger than 365 days', async () => {
+    it('should cap date ranges larger than maxDays', async () => {
       const startDate = new Date('2025-01-01T00:00:00.000Z');
       const endDate = new Date('2026-01-02T00:00:00.000Z');
+      const cappedEnd = new Date(startDate);
+      cappedEnd.setDate(cappedEnd.getDate() + 365);
 
-      await expect(
-        service.getAnalytics({ startDate, endDate, granularity: TransactionAnalyticsGranularity.MONTH }),
-      ).rejects.toThrow(BadRequestException);
-      expect(prisma.transaction.findMany).not.toHaveBeenCalled();
+      mockPrismaService.transaction.findMany.mockResolvedValue([]);
+
+      const result = await service.getAnalytics({
+        startDate,
+        endDate,
+        granularity: TransactionAnalyticsGranularity.MONTH,
+      });
+
+      expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: expect.objectContaining({
+              gte: startDate,
+              lte: cappedEnd,
+            }),
+          }),
+        }),
+      );
+      expect(result.totalTransactions).toBe(0);
     });
   });
 });
