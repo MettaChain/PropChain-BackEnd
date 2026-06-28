@@ -13,6 +13,8 @@ import {
   UseGuards,
   Res,
   HttpStatus,
+  NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
@@ -33,7 +35,9 @@ import {
 import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
 import { PropertyReportService } from './report/property-report.service';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
+@ApiTags('Properties')
 @Controller('properties')
 export class PropertiesController {
   constructor(
@@ -106,13 +110,19 @@ export class PropertiesController {
 
       res.send(pdfBuffer);
     } catch (error) {
-      if (error.message?.includes('not found')) {
-        res.status(HttpStatus.NOT_FOUND).send({ message: error.message });
-        return;
+      // Re-throw known NestJS HTTP exceptions so the global exception filter
+      // handles them correctly without leaking internal details.
+      if (error instanceof NotFoundException || error instanceof InternalServerErrorException) {
+        throw error;
       }
-      res
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .send({ message: 'Failed to generate property report' });
+
+      // Remap Prisma "not found" errors to a safe NotFoundException.
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new NotFoundException(`Property with id "${id}" was not found`);
+      }
+
+      // All other unexpected errors become a generic 500 with no internal detail.
+      throw new InternalServerErrorException('Failed to generate property report');
     }
   }
 

@@ -317,6 +317,18 @@ export class TransactionsService {
     const where: Record<string, any> = {};
     const maxDays = query.maxDays ?? 365;
 
+    if (query.startDate && query.endDate) {
+      const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
+      const durationMs = query.endDate.getTime() - query.startDate.getTime();
+
+      if (durationMs < 0) {
+        throw new BadRequestException('endDate must be on or after startDate');
+      }
+      if (durationMs > maxRangeMs) {
+        throw new BadRequestException('Date range cannot exceed 365 days');
+      }
+    }
+
     if (query.type) {
       where.type = query.type;
     }
@@ -484,6 +496,7 @@ export class TransactionsService {
 
     await this.commissionsService.createCommissionsForTransaction(transaction.id);
 
+    this.logger.log(`Transaction created via createTransaction: ${transaction.id}`);
     return transaction;
   }
 
@@ -527,6 +540,7 @@ export class TransactionsService {
         },
       })
       .then((result: any) => {
+        this.logger.log(`Tax strategy created for transaction ${transactionId}: ${dto.strategyType}`);
         this.notificationsService.sendNotification(
           user.sub,
           'Tax Strategy Created',
@@ -563,6 +577,7 @@ export class TransactionsService {
 
     if (!existing) throw new NotFoundException('Tax strategy not found');
 
+    this.logger.log(`Updating tax strategy ${strategyId} for transaction ${transactionId}`);
     return this.prisma.transactionTaxStrategy.update({
       where: { id: strategyId },
       data: {
@@ -582,6 +597,7 @@ export class TransactionsService {
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
 
+    this.logger.log(`Updating escrow for transaction ${transactionId}`);
     const data: any = {};
     if (dto.escrowStatus !== undefined) data.escrowStatus = dto.escrowStatus;
     if (dto.escrowAmount !== undefined) data.escrowAmount = dto.escrowAmount;
