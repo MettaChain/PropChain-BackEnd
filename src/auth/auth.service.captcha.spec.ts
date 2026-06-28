@@ -184,6 +184,7 @@ describe('AuthService – CAPTCHA failure lockout', () => {
         password: '$2b$10$invalidhash',
         isBlocked: false,
         isDeactivated: false,
+        isVerified: true,
         twoFactorEnabled: false,
       });
 

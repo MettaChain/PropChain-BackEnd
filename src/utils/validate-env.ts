@@ -1,8 +1,4 @@
-const REQUIRED_ENV_VARS = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'JWT_REFRESH_SECRET',
-] as const;
+const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
 
 export function validateEnvironment(): void {
   const MISSING: string[] = [];

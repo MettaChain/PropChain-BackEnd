@@ -261,7 +261,11 @@ describe('TransactionsService', () => {
       const endDate = new Date('2026-01-02T00:00:00.000Z');
 
       await expect(
-        service.getAnalytics({ startDate, endDate, granularity: TransactionAnalyticsGranularity.MONTH }),
+        service.getAnalytics({
+          startDate,
+          endDate,
+          granularity: TransactionAnalyticsGranularity.MONTH,
+        }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.transaction.findMany).not.toHaveBeenCalled();
     });

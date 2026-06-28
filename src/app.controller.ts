@@ -19,7 +19,9 @@ export class AppController {
 
   @Get()
   @ApiVersion([ApiVersionEnum.V1, ApiVersionEnum.V2])
-  getHello(): string { return 'Welcome to PropChain API'; }
+  getHello(): string {
+    return 'Welcome to PropChain API';
+  }
 
   @Get('health')
   @ApiVersion([ApiVersionEnum.V1, ApiVersionEnum.V2])
@@ -67,7 +69,11 @@ export class AppController {
     }
 
     const allOk = Object.values(checks).every((c: any) => c.status === 'ok');
-    return { status: allOk ? 'OK' : 'DEGRADED', timestamp: new Date().toISOString(), services: checks };
+    return {
+      status: allOk ? 'OK' : 'DEGRADED',
+      timestamp: new Date().toISOString(),
+      services: checks,
+    };
   }
 
   @Get('health')

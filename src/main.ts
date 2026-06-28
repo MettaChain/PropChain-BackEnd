@@ -16,7 +16,7 @@ import { validateEnvironment } from './utils/validate-env';
 
 async function bootstrap() {
   validateEnvironment();
-  const app = await NestFactory.create(AppModule);
+
   const logger = new Logger('Bootstrap');
 
   // Node.js version check (#775)
