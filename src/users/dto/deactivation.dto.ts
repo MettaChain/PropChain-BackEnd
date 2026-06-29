@@ -20,4 +20,7 @@ export class ReactivateAccountDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsString()
+  token: string;
 }

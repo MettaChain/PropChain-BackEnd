@@ -232,6 +232,12 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('me/request-reactivation')
+  requestReactivation(@CurrentUser() user: AuthUserPayload) {
+    return this.usersService.requestReactivation(user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('me/reactivate')
   reactivateAccount(
     @CurrentUser() user: AuthUserPayload,

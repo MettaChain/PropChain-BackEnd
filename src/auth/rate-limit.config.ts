@@ -47,6 +47,10 @@ export const ENDPOINT_RATE_LIMITS: Record<string, { windowMs: number; max: numbe
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 20, // 20 refreshes per hour
   },
+  'POST /auth/email/resend': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 3, // 3 resends per hour
+  },
   'POST /auth/request-password-reset': {
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3, // 3 requests per hour

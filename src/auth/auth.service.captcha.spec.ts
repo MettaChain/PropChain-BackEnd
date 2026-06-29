@@ -171,6 +171,51 @@ describe('AuthService – CAPTCHA failure lockout', () => {
     });
   });
 
+  describe('5 CAPTCHA failures trigger account lockout', () => {
+    it('locks account after 5 invalid CAPTCHA submissions', async () => {
+      mockCaptchaFail();
+      rateLimitService.isAccountLocked
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+
+      rateLimitService.getFailedAttemptsCount.mockResolvedValue(3);
+
+      let callCount = 0;
+      rateLimitService.recordFailedAttempt.mockImplementation(async () => {
+        callCount++;
+        // After 5th failed attempt, the account is considered locked
+        if (callCount >= 5) {
+          rateLimitService.isAccountLocked.mockResolvedValue(true);
+          rateLimitService.getLockoutInfo.mockResolvedValue({
+            isLocked: true,
+            remainingLockoutMinutes: 30,
+          });
+          return true;
+        }
+        return false;
+      });
+
+      const loginArgs = {
+        email: 'user@example.com',
+        password: 'pass',
+        captchaToken: 'bad',
+      };
+
+      // First 5 attempts fail with "Invalid CAPTCHA"
+      for (let i = 0; i < 5; i++) {
+        await expect(service.login(loginArgs)).rejects.toThrow('Invalid CAPTCHA');
+      }
+
+      // 6th attempt: account is locked
+      await expect(service.login(loginArgs)).rejects.toThrow(/locked/i);
+
+      expect(rateLimitService.recordFailedAttempt).toHaveBeenCalledTimes(5);
+    });
+  });
+
   describe('password failure (unchanged behavior)', () => {
     it('still records a failed attempt on wrong password', async () => {
       rateLimitService.isAccountLocked.mockResolvedValue(false);

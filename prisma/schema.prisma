@@ -183,6 +183,8 @@ model User {
   pendingEmail             String?   @map("pending_email")
   emailVerificationToken   String?   @map("email_verification_token")
   emailVerificationExpires DateTime? @map("email_verification_expires")
+  reactivationToken        String?   @map("reactivation_token")
+  reactivationTokenExpires DateTime? @map("reactivation_token_expires")
   trustScore               Int       @default(0) @map("trust_score")
   lastTrustScoreUpdate     DateTime? @map("last_trust_score_update")
   createdAt                DateTime  @default(now()) @map("created_at")
@@ -240,6 +242,7 @@ model User {
     openHouseRsvps             OpenHouseRsvp[]
   transactionNotes        TransactionNote[]            @relation("TransactionNoteAuthor")
   deletedProperties       Property[]               @relation("DeletedProperties")
+  priceChanges            PropertyPriceHistory[]    @relation("PriceChangeAuthor")
 
   @@index([email])
   @@index([isDeactivated])
@@ -458,6 +461,7 @@ model Property {
   neighborhood Neighborhood?      @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
   amenities    PropertyAmenity[]
   deletedBy    User?            @relation("DeletedProperties", fields: [deletedById], references: [id], onDelete: SetNull)
+  priceHistory PropertyPriceHistory[]
 
   @@index([ownerId])
   @@index([status])
@@ -511,6 +515,26 @@ model PropertyFavorite {
   @@index([userId, createdAt])
   @@index([propertyId])
   @@map("property_favorites")
+}
+
+// Property price history tracking
+model PropertyPriceHistory {
+  id              String   @id @default(uuid())
+  propertyId      String   @map("property_id")
+  oldPrice        Decimal  @map("old_price")
+  newPrice        Decimal  @map("new_price")
+  changeAmount    Decimal  @map("change_amount")
+  changePercentage Float   @map("change_percentage")
+  changedBy       String?  @map("changed_by")
+  changeReason    String?  @map("change_reason") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  changedByUser User? @relation("PriceChangeAuthor", fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, createdAt])
+  @@index([createdAt])
+  @@map("property_price_history")
 }
 
 model PropertyView {

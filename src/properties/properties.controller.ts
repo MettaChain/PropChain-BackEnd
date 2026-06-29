@@ -78,8 +78,8 @@ export class PropertiesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.AGENT, UserRole.ADMIN)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updatePropertyDto: UpdatePropertyDto) {
-    return this.propertiesService.update(id, updatePropertyDto);
+  update(@Param('id') id: string, @Body() updatePropertyDto: UpdatePropertyDto, @CurrentUser() user: AuthUserPayload) {
+    return this.propertiesService.update(id, updatePropertyDto, user.sub);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

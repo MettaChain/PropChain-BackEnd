@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'fs';
 import { isAbsolute, join, relative, resolve } from 'path';
@@ -59,11 +59,16 @@ export class AvatarUploadService {
 
     // Create user-specific directory
     const userDir = join(this.uploadDir, userId);
+    const resolvedUserDir = resolve(userDir);
     await fs.mkdir(userDir, { recursive: true });
 
     // Save original file
     const originalPath = join(userDir, filename);
-    await fs.writeFile(originalPath, file.buffer);
+    const resolvedOriginalPath = resolve(originalPath);
+    if (!resolvedOriginalPath.startsWith(resolvedUserDir)) {
+      throw new ForbiddenException('Avatar path traversal not allowed');
+    }
+    await fs.writeFile(resolvedOriginalPath, file.buffer);
 
     // Generate different sizes (simplified version - in production you'd use sharp)
     await this.generateAvatarSizes(originalPath, userDir, filename);
