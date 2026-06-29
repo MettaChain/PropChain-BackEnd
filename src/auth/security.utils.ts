@@ -33,6 +33,10 @@ export function sanitizeUser<T extends Record<string, unknown>>(user: T) {
   return safeUser;
 }
 
+export function redactEmail(email: string): string {
+  return createSha256(email).slice(0, 8);
+}
+
 export function createSha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }

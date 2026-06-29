@@ -36,6 +36,7 @@ import {
   parseDuration,
   randomBase32Secret,
   randomToken,
+  redactEmail,
   sanitizeUser,
   verifyBackupCode,
   verifyTotpCode,
@@ -64,7 +65,7 @@ export class AuthService {
   private readonly issuer = 'PropChain';
 
   private hashEmail(email: string): string {
-    return createSha256(email).slice(0, 12);
+    return redactEmail(email);
   }
 
   private readonly accessTokenTtlSeconds: number;

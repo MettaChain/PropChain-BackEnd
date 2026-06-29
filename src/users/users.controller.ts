@@ -39,10 +39,13 @@ import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.d
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 const UNAUTHORIZED_ACTION_MESSAGE = 'You are not authorized to perform this action';
+const REACTIVATE_LIMIT = 5;
+const REACTIVATE_WINDOW_MS = 60 * 60 * 1000;
 
 @Controller('users')
 export class UsersController {
   private readonly downloadRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  private readonly reactivateRateLimitMap = new Map<string, { count: number; resetAt: number }>();
   private static readonly DOWNLOAD_LIMIT = 10;
   private static readonly DOWNLOAD_WINDOW_MS = 60 * 60 * 1000;
 
@@ -237,6 +240,22 @@ export class UsersController {
     @CurrentUser() user: AuthUserPayload,
     @Body() reactivateDto: ReactivateAccountDto,
   ) {
+    const emailLower = user.email.toLowerCase();
+    const now = Date.now();
+    const entry = this.reactivateRateLimitMap.get(emailLower);
+
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= REACTIVATE_LIMIT) {
+        throw new HttpException('Too many reactivation attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+      }
+      entry.count++;
+    } else {
+      this.reactivateRateLimitMap.set(emailLower, {
+        count: 1,
+        resetAt: now + REACTIVATE_WINDOW_MS,
+      });
+    }
+
     return this.usersService.reactivate(user.sub, reactivateDto);
   }
 

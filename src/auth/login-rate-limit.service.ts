@@ -2,6 +2,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { redactEmail } from './security.utils';
 
 export interface LoginAttemptConfig {
   maxAttempts: number;
@@ -85,7 +86,7 @@ export class LoginRateLimitService {
 
     if (shouldLock) {
       this.logger.warn(
-        `Account locked due to too many failed login attempts: ${email} (IP: ${ipAddress || 'unknown'})`,
+        `Account locked due to too many failed login attempts: ${redactEmail(email)} (IP: ${ipAddress || 'unknown'})`,
       );
     }
 
@@ -110,7 +111,7 @@ export class LoginRateLimitService {
       },
     });
 
-    this.logger.log(`Successful login: ${email} (IP: ${ipAddress || 'unknown'})`);
+    this.logger.log(`Successful login: ${redactEmail(email)} (IP: ${ipAddress || 'unknown'})`);
   }
 
   /**
@@ -153,7 +154,7 @@ export class LoginRateLimitService {
       },
     });
 
-    this.logger.log(`Account manually unlocked: ${email}`);
+    this.logger.log(`Account manually unlocked: ${redactEmail(email)}`);
   }
 
   /**
