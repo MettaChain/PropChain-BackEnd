@@ -6,6 +6,45 @@ This guide explains how to maintain the project changelog for PropChain-BackEnd.
 
 ---
 
+## Log Redaction Policy
+
+### What is redacted
+
+The following PII (Personally Identifiable Information) is redacted in log output:
+
+- **Email addresses**: replaced with a SHA-256 hash truncated to the first 12 characters
+  (e.g. `user@example.com` → `a1b2c3d4e5f6`)
+
+### How it works
+
+The private `hashEmail(email)` helper in `AuthService` performs the redaction:
+
+```typescript
+private hashEmail(email: string): string {
+  return createSha256(email).slice(0, 12);
+}
+```
+
+All log lines that reference a user's email address route through `hashEmail()` so that
+plaintext emails are never written to the logs.
+
+### DEBUG_PII environment variable
+
+| Variable     | Default | Description                                                     |
+|--------------|---------|-----------------------------------------------------------------|
+| `DEBUG_PII`  | `false` | When `true`, plaintext PII is logged instead of redacted values |
+
+- **Local development**: set `DEBUG_PII=true` in `.env` to see real email addresses in logs.
+- **All other environments**: `DEBUG_PII` must remain `false` or unset.
+
+### Security
+
+Enabling `DEBUG_PII` in production would write sensitive user data to log files, creating
+a data-breach risk. CI/CD pipelines should verify that `DEBUG_PII` is not set to `true`
+in deployed environments.
+
+---
+
 ## 📍 Changelog Location
 
 - **File**: `CHANGELOG.md` (root directory)

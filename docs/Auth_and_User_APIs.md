@@ -40,6 +40,50 @@ Success response (201 Created):
 Errors:
 - 400 Bad Request — validation failure (missing/weak password, invalid email)
 - 400 Bad Request — email already exists
+- 400 Bad Request — registration already pending from this IP
+
+---
+
+## Email verification flow
+
+Purpose: verify the email address used during registration.
+
+After a successful `POST /auth/register`, the newly created user has `isVerified: false` and
+cannot log in — login will return `401 Unauthorized` with the message
+`"Please verify your email before logging in."`.
+
+The user receives an email containing a verification link that points to the
+`POST /auth/verify-email` endpoint:
+
+**Request:**
+```json
+{ "token": "62-char-random-token" }
+```
+
+**Success response (200 OK):**
+```json
+{
+  "message": "Email verified successfully",
+  "user": { "id": "user_abc123", "email": "user@example.com", "firstName": "Jane" },
+  "accessToken": "ey...",
+  "refreshToken": "ey..."
+}
+```
+
+Errors:
+- 400 Bad Request — invalid or expired verification token
+- 400 Bad Request — email already verified
+
+### Token expiry
+
+The verification token expires after the duration configured in
+`EMAIL_VERIFICATION_EXPIRES_IN` (default: `24h`). When the token expires, the user must request
+a new verification email via `POST /api/users/email/resend` (or re-register).
+
+### Registration from the same IP
+
+To prevent abuse, a second registration from the same IP is blocked until the pending email
+verification is either completed or the token expires. This is a soft, in-memory guard.
 
 ---
 

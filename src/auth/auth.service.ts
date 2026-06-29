@@ -64,6 +64,10 @@ export class AuthService {
   private readonly issuer = 'PropChain';
 
   private hashEmail(email: string): string {
+    const debugPii = this.configService.get<string>('DEBUG_PII') === 'true';
+    if (debugPii) {
+      return email;
+    }
     return createSha256(email).slice(0, 12);
   }
 
