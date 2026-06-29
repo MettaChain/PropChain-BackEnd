@@ -267,7 +267,7 @@ export class DuplicateDetectionService {
   }
 
   async getFlags(): Promise<any[]> {
-    return (this.prisma as any).propertyDuplicate.findMany({
+    return this.prisma.propertyDuplicate.findMany({
       where: { flaggedForReview: true, isMerged: false, isResolved: false },
       include: {
         property: {
@@ -282,13 +282,13 @@ export class DuplicateDetectionService {
   }
 
   async resolveFlag(flagId: string): Promise<any> {
-    const flag = await (this.prisma as any).propertyDuplicate.findUnique({
+    const flag = await this.prisma.propertyDuplicate.findUnique({
       where: { id: flagId },
     });
     if (!flag) {
       throw new NotFoundException('Duplicate flag not found');
     }
-    return (this.prisma as any).propertyDuplicate.update({
+    return this.prisma.propertyDuplicate.update({
       where: { id: flagId },
       data: { isResolved: true },
     });

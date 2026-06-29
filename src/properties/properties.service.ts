@@ -849,7 +849,7 @@ export class PropertiesService {
       throw new BadRequestException('Assigned user must have the AGENT role');
     }
 
-    const existing = await (this.prisma as any).propertyAgent.findUnique({
+    const existing = await this.prisma.propertyAgent.findUnique({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -861,7 +861,7 @@ export class PropertiesService {
       throw new BadRequestException('Agent is already assigned to this property');
     }
 
-    return (this.prisma as any).propertyAgent.create({
+    return this.prisma.propertyAgent.create({
       data: {
         propertyId,
         agentId: dto.agentId,
@@ -905,7 +905,7 @@ export class PropertiesService {
       );
     }
 
-    const assignment = await (this.prisma as any).propertyAgent.findUnique({
+    const assignment = await this.prisma.propertyAgent.findUnique({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -917,7 +917,7 @@ export class PropertiesService {
       throw new NotFoundException('Agent assignment not found for this property');
     }
 
-    return (this.prisma as any).propertyAgent.update({
+    return this.prisma.propertyAgent.update({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -958,7 +958,7 @@ export class PropertiesService {
       );
     }
 
-    const assignment = await (this.prisma as any).propertyAgent.findUnique({
+    const assignment = await this.prisma.propertyAgent.findUnique({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -970,7 +970,7 @@ export class PropertiesService {
       throw new NotFoundException('Agent assignment not found for this property');
     }
 
-    return (this.prisma as any).propertyAgent.delete({
+    return this.prisma.propertyAgent.delete({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -988,7 +988,7 @@ export class PropertiesService {
       throw new NotFoundException('Property not found');
     }
 
-    const assignments = await (this.prisma as any).propertyAgent.findMany({
+    const assignments = await this.prisma.propertyAgent.findMany({
       where: { propertyId },
       include: {
         agent: {
@@ -1023,7 +1023,7 @@ export class PropertiesService {
     if (!property) {
       throw new NotFoundException('Property not found');
     }
-    return (this.prisma as any).propertyAmenity.create({
+    return this.prisma.propertyAmenity.create({
       data: {
         propertyId,
         name: dto.name,
@@ -1039,20 +1039,20 @@ export class PropertiesService {
     if (!property) {
       throw new NotFoundException('Property not found');
     }
-    return (this.prisma as any).propertyAmenity.findMany({
+    return this.prisma.propertyAmenity.findMany({
       where: { propertyId },
       orderBy: { createdAt: 'asc' },
     });
   }
 
   async updateAmenity(propertyId: string, amenityId: string, dto: UpdateAmenityDto) {
-    const amenity = await (this.prisma as any).propertyAmenity.findUnique({
+    const amenity = await this.prisma.propertyAmenity.findUnique({
       where: { id: amenityId },
     });
     if (!amenity || amenity.propertyId !== propertyId) {
       throw new NotFoundException('Amenity not found for this property');
     }
-    return (this.prisma as any).propertyAmenity.update({
+    return this.prisma.propertyAmenity.update({
       where: { id: amenityId },
       data: {
         name: dto.name,
@@ -1064,12 +1064,12 @@ export class PropertiesService {
   }
 
   async removeAmenity(propertyId: string, amenityId: string) {
-    const amenity = await (this.prisma as any).propertyAmenity.findUnique({
+    const amenity = await this.prisma.propertyAmenity.findUnique({
       where: { id: amenityId },
     });
     if (!amenity || amenity.propertyId !== propertyId) {
       throw new NotFoundException('Amenity not found for this property');
     }
-    return (this.prisma as any).propertyAmenity.delete({ where: { id: amenityId } });
+    return this.prisma.propertyAmenity.delete({ where: { id: amenityId } });
   }
 }

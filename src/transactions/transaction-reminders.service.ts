@@ -78,7 +78,7 @@ export class TransactionRemindersService {
         sent++;
       }
 
-      await (this.prisma as any).transactionMilestone.update({
+      await this.prisma.transactionMilestone.update({
         where: { id: milestone.id },
         data: { reminderSentAt: new Date() },
       });
