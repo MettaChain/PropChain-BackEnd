@@ -145,6 +145,12 @@ export function verifyTotpCode({
   return false;
 }
 
+export function generateReactivationToken(): { token: string; hash: string } {
+  const token = randomToken(32);
+  const hash = createSha256(token);
+  return { token, hash };
+}
+
 export function parseDuration(input: string, fallbackSeconds: number): number {
   const value = input?.trim();
   if (!value) {

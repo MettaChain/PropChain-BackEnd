@@ -7,10 +7,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, SearchUsersDto, UpdatePreferencesDto, UpdateUserDto } from './dto/user.dto';
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
-import { hashPassword, sanitizeUser } from '../auth/security.utils';
+import { hashPassword, sanitizeUser, createSha256, generateReactivationToken } from '../auth/security.utils';
 import * as fs from 'fs';
 import * as path from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -484,19 +485,76 @@ export class UsersService implements OnModuleInit {
     return updatedUser;
   }
 
-  async reactivate(userId: string, data: ReactivateAccountDto = {}) {
-    void data;
-
+  async requestReactivation(userId: string): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (!user.isDeactivated) {
-      throw new Error('Account is not deactivated');
+      throw new BadRequestException('Account is not deactivated');
+    }
+
+    const { token, hash } = generateReactivationToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        reactivationToken: hash,
+        reactivationTokenExpires: expiresAt,
+      },
+    });
+
+    this.logger.log(`Reactivation token generated for user ${userId} (${user.email})`);
+
+    return {
+      message: 'Reactivation token generated. Use the token to reactivate your account.',
+    };
+  }
+
+  async reactivate(userId: string, data: ReactivateAccountDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.isDeactivated) {
+      throw new BadRequestException('Account is not deactivated');
+    }
+
+    if (!user.reactivationToken || !user.reactivationTokenExpires) {
+      throw new BadRequestException('No reactivation token has been requested. Please request a token first.');
+    }
+
+    if (new Date() > user.reactivationTokenExpires) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          reactivationToken: null,
+          reactivationTokenExpires: null,
+        },
+      });
+      throw new BadRequestException('Reactivation token has expired. Please request a new one.');
+    }
+
+    // Constant-time comparison of token hash
+    const providedHash = createSha256(data.token);
+    const storedHash = user.reactivationToken;
+    const storedHashBuffer = Buffer.from(storedHash);
+    const providedHashBuffer = Buffer.from(providedHash);
+
+    if (
+      storedHashBuffer.length !== providedHashBuffer.length ||
+      !crypto.timingSafeEqual(storedHashBuffer, providedHashBuffer)
+    ) {
+      throw new BadRequestException('Invalid reactivation token');
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -505,6 +563,8 @@ export class UsersService implements OnModuleInit {
         isDeactivated: false,
         deactivatedAt: null,
         scheduledDeletionAt: null,
+        reactivationToken: null,
+        reactivationTokenExpires: null,
       },
       select: {
         id: true,

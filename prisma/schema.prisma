@@ -183,6 +183,8 @@ model User {
   pendingEmail             String?   @map("pending_email")
   emailVerificationToken   String?   @map("email_verification_token")
   emailVerificationExpires DateTime? @map("email_verification_expires")
+  reactivationToken        String?   @map("reactivation_token")
+  reactivationTokenExpires DateTime? @map("reactivation_token_expires")
   trustScore               Int       @default(0) @map("trust_score")
   lastTrustScoreUpdate     DateTime? @map("last_trust_score_update")
   createdAt                DateTime  @default(now()) @map("created_at")
