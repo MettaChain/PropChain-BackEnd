@@ -50,14 +50,14 @@ import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 
 type JwtPayload = {
-  sub: string;
-  email: string;
-  role: UserRole;
-  type: 'access' | 'refresh';
-  jti: string;
-  family?: string; // Token rotation family ID
-  exp?: number;
-};
+   sub: string;
+   email: string;
+   role: UserRole;
+   type: 'access' | 'refresh';
+   jti: string;
+   family?: string;
+   exp?: number;
+ };
 
 @Injectable()
 export class AuthService {
@@ -65,7 +65,11 @@ export class AuthService {
   private readonly issuer = 'PropChain';
 
   private hashEmail(email: string): string {
-    return redactEmail(email);
+    const debugPii = this.configService.get<string>('DEBUG_PII') === 'true';
+    if (debugPii) {
+      return email;
+    }
+    return createSha256(email).slice(0, 12);
   }
 
   private readonly accessTokenTtlSeconds: number;
@@ -151,7 +155,7 @@ export class AuthService {
       },
     });
 
-    // Send verification email
+    // Send verification email and await result
     await this.emailService
       .sendEmail({
         to: user.email,
@@ -165,9 +169,12 @@ export class AuthService {
         this.logger.error('Failed to queue verification email:', err?.message || err);
       });
 
+    // Only issue short-lived verification token after email is sent
+    // Full token pair is issued in verifyInitialEmail after verification succeeds
     return {
       user: sanitizeUser(user),
       message: 'Registration successful. Please check your email to verify your account.',
+      verificationToken,
     };
   }
 
@@ -1538,5 +1545,53 @@ export class AuthService {
       user: sanitizeUser(updatedUser),
       ...tokens,
     };
+  }
+
+  async resendEmailVerification(email: string, ipAddress?: string, userAgent?: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      return;
+    }
+
+    if (user.isBlocked) {
+      return;
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    const verificationToken = randomToken(32);
+    const verificationExpiresAt = new Date(
+      Date.now() +
+        parseDuration(
+          this.configService.get<string>('EMAIL_VERIFICATION_EXPIRES_IN') ?? '24h',
+          24 * 60 * 60,
+        ) *
+          1000,
+    );
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: verificationExpiresAt,
+      },
+    });
+
+    await this.emailService
+      .sendEmail({
+        to: user.email,
+        subject: 'Verify your email - PropChain',
+        template: 'email-verification',
+        context: { token: verificationToken },
+        userId: user.id,
+        emailType: 'email_verification',
+      })
+      .catch((err) => {
+        this.logger.error('Failed to queue verification email:', err?.message || err);
+      });
+
+    this.logger.log(`Verification email resent for user ${user.id}`);
   }
 }

@@ -172,14 +172,38 @@ export class PropertiesService {
     });
   }
 
-  async update(id: string, updatePropertyDto: UpdatePropertyDto) {
+  async update(id: string, updatePropertyDto: UpdatePropertyDto, userId?: string) {
     const { price, squareFeet, lotSize, latitude, longitude, hoaMonthlyFee, ...rest } =
       updatePropertyDto;
 
+    // Get existing property to check for price changes
+    const existingProperty = await this.prisma.property.findUnique({ where: { id } });
+    if (!existingProperty) throw new NotFoundException(`Property ${id} not found`);
+
+    // Record price change if price is being updated
+    if (price !== undefined && price !== Number(existingProperty.price)) {
+      const oldPrice = existingProperty.price;
+      const newPrice = new Decimal(price.toString());
+      const changeAmount = newPrice.minus(oldPrice);
+      const changePercentage = oldPrice.equals(new Decimal(0))
+        ? 0
+        : changeAmount.div(oldPrice).mul(100).toNumber();
+
+      await this.prisma.propertyPriceHistory.create({
+        data: {
+          propertyId: id,
+          oldPrice,
+          newPrice,
+          changeAmount,
+          changePercentage,
+          changedBy: userId,
+          changeReason: rest.changeReason || null,
+        },
+      });
+    }
+
     // Duplicate address check (if address fields are being updated)
     if (rest.address || rest.city || rest.state || rest.zipCode || rest.country) {
-      const existingProperty = await this.prisma.property.findUnique({ where: { id } });
-      if (!existingProperty) throw new NotFoundException(`Property ${id} not found`);
       const newAddress = {
         address: rest.address ?? existingProperty.address,
         city: rest.city ?? existingProperty.city,
@@ -242,7 +266,7 @@ export class PropertiesService {
       }
     }
 
-    return this.prisma.property.update({
+    const updatedProperty = await this.prisma.property.update({
       where: { id },
       data: {
         ...rest,
@@ -256,6 +280,9 @@ export class PropertiesService {
         expiryDate: updatePropertyDto.expiryDate,
       },
     });
+
+    await this.cacheService.invalidateByTag(CACHE_TAGS.PROPERTIES);
+    return updatedProperty;
   }
 
   async remove(id: string, user: AuthUserPayload) {
