@@ -50,7 +50,7 @@ import { MetricsModule } from './metrics/metrics.module';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
-      playground: true,
+      // playground removed: Apollo Server v5 defaults to Apollo Sandbox (uses @apollo/server@^5 peer)
       subscriptions: {
         'graphql-ws': true,
       },
@@ -92,6 +92,9 @@ import { MetricsModule } from './metrics/metrics.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // NestJS-level wildcard: `forRoutes('*')` is intercepted by NestJS's
+    // RouterExplorer and applied to every registered controller route
+    // regardless of underlying Express 5 / path-to-regexp v8 syntax changes.
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }

@@ -19,23 +19,14 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
 
-  // Node.js version check (#775)
+  // Node.js version check (#775, #754 NestJS 11 requires Node 20+)
   const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
-  if (nodeMajor < 18) {
-    logger.error(`Node.js >= 18 required, found ${process.versions.node}`);
+  if (nodeMajor < 20) {
+    logger.error(`Node.js >= 20 required (NestJS 11), found ${process.versions.node}`);
     process.exit(1);
   }
 
   const app = await NestFactory.create(AppModule);
-
-  // Enable validation
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
 
   // Enable CORS
   app.enableCors();
@@ -64,6 +55,7 @@ async function bootstrap() {
   const cacheMetricsInterceptor = app.get(CacheMetricsInterceptor);
   app.useGlobalInterceptors(cacheMetricsInterceptor);
 
+  // Enable a single ValidationPipe with implicit conversion (#754 NestJS 11 upgrade)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
