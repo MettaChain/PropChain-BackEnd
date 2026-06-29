@@ -8,6 +8,8 @@ import { AuthModule } from '../auth/auth.module';
 import { SignedUrlService } from './signed-url/signed-url.service';
 import { NotConfiguredSignedUrlProvider } from './signed-url/not-configured.signed-url-provider';
 import { S3SignedUrlProvider } from './signed-url/s3-signed-url-provider';
+import { GcsSignedUrlProvider } from './signed-url/gcs-signed-url-provider';
+import { AzureSignedUrlProvider } from './signed-url/azure-signed-url-provider';
 import { DocumentsDownloadController } from './documents-download.controller';
 import { SignedUrlProvider } from './signed-url/signed-url-provider.interface';
 
@@ -18,7 +20,9 @@ export const SIGNED_URL_PROVIDER_TOKEN = 'SIGNED_URL_PROVIDER_TOKEN';
  * SIGNED_URL_PROVIDER environment variable.
  *
  * Supported values:
- *   - 's3'          -> S3SignedUrlProvider (requires AWS credentials)
+ *   - 's3'          -> S3SignedUrlProvider (no-op shell for integrators)
+ *   - 'gcs'         -> GcsSignedUrlProvider (no-op shell for integrators)
+ *   - 'azure'       -> AzureSignedUrlProvider (no-op shell for integrators)
  *   - (unset/other) -> NotConfiguredSignedUrlProvider (throws a configured error)
  */
 function signedUrlProviderFactory(): new (...args: any[]) => SignedUrlProvider {
@@ -26,6 +30,10 @@ function signedUrlProviderFactory(): new (...args: any[]) => SignedUrlProvider {
   switch (provider) {
     case 's3':
       return S3SignedUrlProvider;
+    case 'gcs':
+      return GcsSignedUrlProvider;
+    case 'azure':
+      return AzureSignedUrlProvider;
     default:
       return NotConfiguredSignedUrlProvider;
   }
