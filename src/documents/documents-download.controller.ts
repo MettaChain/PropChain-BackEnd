@@ -1,15 +1,30 @@
 // @ts-nocheck
 
-import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { DownloadDocumentDto, RequestSignedUploadDto } from './dto/document-access.dto';
+import {
+  DownloadDocumentDto,
+  RequestSignedUploadDto,
+  SignedUploadUrlResponseDto,
+} from './dto/document-access.dto';
 import { DocumentsService } from './documents.service';
 import { SignedUrlService } from './signed-url/signed-url.service';
 import { SignedUrlOperation } from './signed-url/signed-url-provider.interface';
 
+@ApiTags('Documents')
+@ApiBearerAuth()
 @Controller('documents')
 @UseGuards(JwtAuthGuard)
 export class DocumentsDownloadController {
@@ -24,6 +39,23 @@ export class DocumentsDownloadController {
    * Then we redirect to a short-lived signed GET URL.
    */
   @Get(':id/download')
+  @ApiOperation({
+    summary: 'Download a document',
+    description: 'Authorizes access and redirects to a short-lived signed download URL.',
+  })
+  @ApiParam({ name: 'id', description: 'Document ID' })
+  @ApiQuery({
+    name: 'versionId',
+    required: false,
+    description: 'Optional version ID to download a specific version',
+    type: String,
+  })
+  @ApiResponse({
+    status: HttpStatus.FOUND,
+    description: 'Redirects to a signed download URL',
+  })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Document or version not found' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async download(
     @Param('id') id: string,
     @Query() query: DownloadDocumentDto,
@@ -61,6 +93,18 @@ export class DocumentsDownloadController {
    * Client uploads directly to object store, then calls document metadata create.
    */
   @Post('signed-upload-url')
+  @ApiOperation({
+    summary: 'Request a signed upload URL',
+    description: 'Returns a pre-signed URL for client-side direct upload to object storage.',
+  })
+  @ApiBody({ type: RequestSignedUploadDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Signed upload URL generated',
+    type: SignedUploadUrlResponseDto,
+  })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid request data' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async requestSignedUploadUrl(
     @Body() dto: RequestSignedUploadDto,
     @CurrentUser() user: AuthUserPayload,

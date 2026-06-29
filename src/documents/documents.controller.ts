@@ -11,7 +11,9 @@ import {
   Query,
   Res,
   UseGuards,
+  HttpStatus,
 } from '@nestjs/common';
+import { ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import {
@@ -130,6 +132,25 @@ export class DocumentsController {
   // ── #404 / #569 Bulk Download (with authorization) ──────────────────────
 
   @Post('bulk-download')
+  @ApiOperation({
+    summary: 'Bulk download documents',
+    description: 'Downloads multiple authorized documents as a ZIP archive.',
+  })
+  @ApiBody({ type: BulkDownloadDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'ZIP archive stream',
+    content: {
+      'application/zip': {
+        schema: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No documents found' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Access denied to one or more documents',
+  })
   bulkDownload(
     @Body() dto: BulkDownloadDto,
     @Res() res: Response,
