@@ -1,5 +1,5 @@
 ﻿import { Type } from 'class-transformer';
-import { IsISO8601, IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsInt, Min, Max } from 'class-validator';
 
 export class AuditLogQueryDto {
   @IsOptional()
@@ -7,14 +7,12 @@ export class AuditLogQueryDto {
   actorId?: string;
 
   @IsOptional()
-  @IsISO8601()
-  @Type(() => Date)
-  dateFrom?: Date;
+  @IsDateString()
+  dateFrom?: string;
 
   @IsOptional()
-  @IsISO8601()
-  @Type(() => Date)
-  dateTo?: Date;
+  @IsDateString()
+  dateTo?: string;
 
   @IsOptional()
   @Type(() => Number)
