@@ -49,7 +49,7 @@ export class CommissionsService {
         const amount = transaction.amount.mul(agentAssignment.commissionRate);
 
         // Check if commission record already exists
-        const existing = await (this.prisma as any).commission.findUnique({
+        const existing = await this.prisma.commission.findUnique({
           where: {
             transactionId_agentId: {
               transactionId,
@@ -65,7 +65,7 @@ export class CommissionsService {
           continue;
         }
 
-        await (this.prisma as any).commission.create({
+        await this.prisma.commission.create({
           data: {
             transactionId,
             agentId: agentAssignment.agentId,
@@ -96,7 +96,7 @@ export class CommissionsService {
       const dbStatus =
         status === 'COMPLETED' ? 'COMPLETED' : status === 'CANCELLED' ? 'CANCELLED' : 'PENDING';
 
-      const result = await (this.prisma as any).commission.updateMany({
+      const result = await this.prisma.commission.updateMany({
         where: { transactionId },
         data: { status: dbStatus as any },
       });
@@ -142,7 +142,7 @@ export class CommissionsService {
     }
 
     const [items, total] = await Promise.all([
-      (this.prisma as any).commission.findMany({
+      this.prisma.commission.findMany({
         where,
         skip,
         take: limit,
@@ -172,7 +172,7 @@ export class CommissionsService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      (this.prisma as any).commission.count({ where }),
+      this.prisma.commission.count({ where }),
     ]);
 
     return {
@@ -195,7 +195,7 @@ export class CommissionsService {
    * Find details of a single commission record
    */
   async findOne(id: string, user: AuthUserPayload) {
-    const commission = await (this.prisma as any).commission.findUnique({
+    const commission = await this.prisma.commission.findUnique({
       where: { id },
       include: {
         agent: {
@@ -256,31 +256,31 @@ export class CommissionsService {
   async getStats(user: AuthUserPayload) {
     if (user.role === 'ADMIN') {
       // Global Statistics
-      const completedAgg = await (this.prisma as any).commission.aggregate({
+      const completedAgg = await this.prisma.commission.aggregate({
         _sum: { amount: true },
         where: { status: 'COMPLETED' },
       });
 
-      const pendingAgg = await (this.prisma as any).commission.aggregate({
+      const pendingAgg = await this.prisma.commission.aggregate({
         _sum: { amount: true },
         where: { status: 'PENDING' },
       });
 
-      const cancelledAgg = await (this.prisma as any).commission.aggregate({
+      const cancelledAgg = await this.prisma.commission.aggregate({
         _sum: { amount: true },
         where: { status: 'CANCELLED' },
       });
 
       // Get count of completed vs pending
-      const completedCount = await (this.prisma as any).commission.count({
+      const completedCount = await this.prisma.commission.count({
         where: { status: 'COMPLETED' },
       });
-      const pendingCount = await (this.prisma as any).commission.count({
+      const pendingCount = await this.prisma.commission.count({
         where: { status: 'PENDING' },
       });
 
       // Breakdown per agent
-      const commissions = await (this.prisma as any).commission.findMany({
+      const commissions = await this.prisma.commission.findMany({
         include: {
           agent: {
             select: {
@@ -330,21 +330,21 @@ export class CommissionsService {
       };
     } else {
       // Agent-specific Statistics
-      const completedAgg = await (this.prisma as any).commission.aggregate({
+      const completedAgg = await this.prisma.commission.aggregate({
         _sum: { amount: true },
         where: { agentId: user.sub, status: 'COMPLETED' },
       });
 
-      const pendingAgg = await (this.prisma as any).commission.aggregate({
+      const pendingAgg = await this.prisma.commission.aggregate({
         _sum: { amount: true },
         where: { agentId: user.sub, status: 'PENDING' },
       });
 
-      const completedCount = await (this.prisma as any).commission.count({
+      const completedCount = await this.prisma.commission.count({
         where: { agentId: user.sub, status: 'COMPLETED' },
       });
 
-      const pendingCount = await (this.prisma as any).commission.count({
+      const pendingCount = await this.prisma.commission.count({
         where: { agentId: user.sub, status: 'PENDING' },
       });
 

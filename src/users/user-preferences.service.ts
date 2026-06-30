@@ -144,42 +144,7 @@ export class UserPreferencesService {
     channel: 'email' | 'sms' | 'push' | 'inApp',
   ): Promise<boolean> {
     const prefs = await this.findByUserId(userId);
-
-    // Check if the channel is enabled globally
-    const channelMap: Record<string, boolean> = {
-      email: prefs.emailNotifications,
-      sms: prefs.smsNotifications,
-      push: prefs.pushNotifications,
-      inApp: prefs.inAppNotifications,
-    };
-    if (!channelMap[channel]) return false;
-
-    // Check per-event channel override
-    const perEvent = (prefs.perEventSettings as Record<string, any> | null) ?? {};
-    if (perEvent[eventType] && perEvent[eventType][channel] === false) return false;
-
-    // Check event type subscription (empty array = all events allowed)
-    const subscribedTypes: string[] = prefs.notificationEventTypes ?? [];
-    if (subscribedTypes.length > 0 && !subscribedTypes.includes(eventType)) return false;
-
-    // Check quiet hours
-    if (prefs.quietHoursEnabled && prefs.quietHoursStart && prefs.quietHoursEnd) {
-      const tz = prefs.timezone ?? 'UTC';
-      const now = new Date();
-      const formatter = new Intl.DateTimeFormat('en-GB', {
-        timeZone: tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-      const currentTime = formatter.format(now); // "HH:MM"
-
-      if (isInQuietWindow(currentTime, prefs.quietHoursStart, prefs.quietHoursEnd)) {
-        return false;
-      }
-    }
-
-    return true;
+    return shouldDeliverNotificationFromPrefs(prefs, eventType, channel);
   }
 }
 
@@ -204,4 +169,73 @@ function isInQuietWindow(current: string, start: string, end: string): boolean {
   }
   // Overnight window
   return c >= s || c < e;
+}
+
+/**
+ * Pure decision function: given a UserPreferences-shaped object plus an event
+ * type and a channel, returns whether a notification should be delivered.
+ *
+ * Reused by:
+ *  - `UserPreferencesService.shouldDeliverNotification(userId, …)` — fetches
+ *    prefs via `findByUserId` then delegates here so the logic lives in
+ *    exactly one place.
+ *  - `NotificationsService.handleTransactionUpdate` — consumes the
+ *    already-included `user.preferences` from the parties query, removing
+ *    6 redundant `findUnique` roundtrips per transaction update (#765).
+ *
+ * Takes a structurally-typed object so callers can pass either a real
+ * Prisma `UserPreferences` row or schema-default values for users who have
+ * never set preferences (no DB write side-effect).
+ */
+export function shouldDeliverNotificationFromPrefs(
+  prefs: {
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+    pushNotifications: boolean;
+    inAppNotifications: boolean;
+    notificationEventTypes?: string[] | null;
+    quietHoursEnabled: boolean;
+    quietHoursStart?: string | null;
+    quietHoursEnd?: string | null;
+    timezone?: string | null;
+    perEventSettings?: Record<string, any> | null;
+  },
+  eventType: string,
+  channel: 'email' | 'sms' | 'push' | 'inApp',
+): boolean {
+  // 1. Channel enabled globally?
+  const channelMap: Record<string, boolean> = {
+    email: prefs.emailNotifications,
+    sms: prefs.smsNotifications,
+    push: prefs.pushNotifications,
+    inApp: prefs.inAppNotifications,
+  };
+  if (!channelMap[channel]) return false;
+
+  // 2. Per-event channel override (channel explicitly disabled for this event)
+  const perEvent = (prefs.perEventSettings as Record<string, any> | null) ?? {};
+  if (perEvent[eventType] && perEvent[eventType][channel] === false) return false;
+
+  // 3. Event-type subscription — empty array means all events are allowed
+  const subscribedTypes: string[] = prefs.notificationEventTypes ?? [];
+  if (subscribedTypes.length > 0 && !subscribedTypes.includes(eventType)) return false;
+
+  // 4. Quiet hours — only enforced when start, end, and the flag are all set
+  if (prefs.quietHoursEnabled && prefs.quietHoursStart && prefs.quietHoursEnd) {
+    const tz = prefs.timezone ?? 'UTC';
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const currentTime = formatter.format(now); // "HH:MM"
+
+    if (isInQuietWindow(currentTime, prefs.quietHoursStart, prefs.quietHoursEnd)) {
+      return false;
+    }
+  }
+
+  return true;
 }

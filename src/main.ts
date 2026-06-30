@@ -19,10 +19,17 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
 
-  // Node.js version check (#775)
+  // Node.js version check (#775):
+  // package.json declares engines.node >= 18, but several transitive
+  // dependencies (e.g. @nestjs/* v11) require Node 20+. Enforce that here
+  // and exit early with a clear message well before any module loads.
   const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
-  if (nodeMajor < 18) {
-    logger.error(`Node.js >= 18 required, found ${process.versions.node}`);
+  const REQUIRED_NODE_MAJOR = 20;
+  if (Number.isNaN(nodeMajor) || nodeMajor < REQUIRED_NODE_MAJOR) {
+    logger.error(
+      `Node.js >= ${REQUIRED_NODE_MAJOR} required, found ${process.versions.node}. ` +
+        `Please upgrade Node.js (see https://nodejs.org/).`,
+    );
     process.exit(1);
   }
 

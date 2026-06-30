@@ -50,6 +50,12 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('Trust Score', 'Trust score calculation and management')
     .addTag('Email', 'Email verification endpoints')
     .addTag('Versioning', 'API versioning information')
+    .addTag('Admin', 'Administrative endpoints — admin role only (role-restricted)')
+    .addTag(
+      'Fraud',
+      'Fraud detection and investigation endpoints — admin role only (role-restricted). ' +
+        'Currently routed through the Admin module; a future change may extract these into a dedicated controller.',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
