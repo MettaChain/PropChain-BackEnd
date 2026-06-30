@@ -57,16 +57,22 @@ export class DocumentsDownloadController {
   }
 
   /**
-   * Request a signed upload URL for client-side upload.
-   * Client uploads directly to object store, then calls document metadata create.
+   * Shared logic: build the signed PUT URL response for client-side upload.
+   * The client's two-step flow is:
+   *  1. POST /documents/upload-url -> receive `url` (where to PUT the bytes)
+   *  2. PUT file to `url` directly against the storage provider
+   *  3. POST /documents/metadata with the resulting objectKey
+   *
+   * Extracted from `requestSignedUploadUrl` so both routes (`/upload-url` per
+   * issue #750 and `/signed-upload-url` for backward compatibility) share
+   * identical behavior.
    */
-  @Post('signed-upload-url')
-  async requestSignedUploadUrl(
-    @Body() dto: RequestSignedUploadDto,
-    @CurrentUser() user: AuthUserPayload,
+  private async buildUploadUrlResponse(
+    dto: RequestSignedUploadDto,
+    user: AuthUserPayload,
   ) {
     // Authorization: document metadata will ultimately be owned by the requester.
-    // If dto.documentId exists, service should ensure requester owns it.
+    // If dto.documentId exists, the service should ensure the requester owns it.
     const objectKey = await this.documentsService.buildUploadObjectKey({
       ...dto,
       userId: user.sub,
@@ -85,6 +91,38 @@ export class DocumentsDownloadController {
       objectKey: signed.objectKey,
       expiresAt: signed.expiresAt,
     };
+  }
+
+  /**
+   * Request a signed upload URL for client-side upload.
+   * Client uploads directly to object store, then calls document metadata create.
+   *
+   * @deprecated Prefer `POST /documents/upload-url` (#750). This route is kept
+   * for backward compatibility and will continue to work indefinitely.
+   */
+  @Post('signed-upload-url')
+  async requestSignedUploadUrl(
+    @Body() dto: RequestSignedUploadDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.buildUploadUrlResponse(dto, user);
+  }
+
+  /**
+   * #750 — Two-step document upload: returns a short-lived signed PUT URL.
+   * Client uploads the file directly to that URL, then calls
+   * `POST /documents/metadata` with the returned `objectKey` to persist
+   * document metadata.
+   *
+   * Behaviorally identical to `POST /documents/signed-upload-url`; the route
+   * path matches the issue's spec.
+   */
+  @Post('upload-url')
+  async requestUploadUrl(
+    @Body() dto: RequestSignedUploadDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.buildUploadUrlResponse(dto, user);
   }
 
   /**
