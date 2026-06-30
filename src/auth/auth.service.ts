@@ -50,14 +50,14 @@ import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 
 type JwtPayload = {
-   sub: string;
-   email: string;
-   role: UserRole;
-   type: 'access' | 'refresh';
-   jti: string;
-   family?: string;
-   exp?: number;
- };
+  sub: string;
+  email: string;
+  role: UserRole;
+  type: 'access' | 'refresh';
+  jti: string;
+  family?: string;
+  exp?: number;
+};
 
 @Injectable()
 export class AuthService {
@@ -264,6 +264,66 @@ export class AuthService {
     }
   }
 
+  /**
+   * Verify a fetched user's credentials: account state checks (blocked/
+   * deactivated/unverified) and bcrypt password comparison.
+   *
+   * Centralises the post-findByEmail gating plus the bcrypt compare and the
+   * rate-limit / fraud / lockout-email side effects. Extracted from login()
+   * for testability and readability (issue #744).
+   *
+   * @throws UnauthorizedException on any gate failure or password mismatch
+   */
+  private async verifyCredentials(
+    user: {
+      id: string;
+      email: string;
+      password: string | null;
+      isBlocked: boolean;
+      isDeactivated: boolean;
+      isVerified: boolean;
+    },
+    password: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    if (user.isBlocked) {
+      throw new UnauthorizedException('Your account has been blocked. Please contact support.');
+    }
+    if (user.isDeactivated) {
+      throw new UnauthorizedException(
+        'Your account has been deactivated. Please contact support to reactivate your account.',
+      );
+    }
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Please verify your email before logging in.');
+    }
+
+    const passwordMatches = await comparePassword(password, user.password ?? '');
+    if (!passwordMatches) {
+      const shouldLock = await this.rateLimitService.recordFailedAttempt(
+        user.email,
+        ipAddress,
+        userAgent,
+      );
+      await this.fraudService.evaluateFailedLogin(user.email, ipAddress, userAgent);
+
+      if (shouldLock) {
+        const lockoutDuration = 30;
+        await this.emailService.sendAccountLockedEmail(user.email, lockoutDuration).catch((err) => {
+          this.logger.error(
+            `Failed to send account locked email to user ${user.id} (${this.hashEmail(user.email)}): ${err.message}`,
+          );
+        });
+        throw new UnauthorizedException(
+          `Account locked due to too many failed login attempts. Please try again in ${lockoutDuration} minutes.`,
+        );
+      }
+
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+
   async login(data: LoginDto, ipAddress?: string, userAgent?: string) {
     await this.preflightChecks(data, ipAddress, userAgent);
 
@@ -274,46 +334,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (user.isBlocked) {
-      throw new UnauthorizedException('Your account has been blocked. Please contact support.');
-    }
-
-    if (user.isDeactivated) {
-      throw new UnauthorizedException(
-        'Your account has been deactivated. Please contact support to reactivate your account.',
-      );
-    }
-
-    if (!user.isVerified) {
-      throw new UnauthorizedException('Please verify your email before logging in.');
-    }
-
-    const passwordMatches = await comparePassword(data.password, user.password ?? '');
-    if (!passwordMatches) {
-      // Record failed login attempt
-      const shouldLock = await this.rateLimitService.recordFailedAttempt(
-        data.email,
-        ipAddress,
-        userAgent,
-      );
-
-      await this.fraudService.evaluateFailedLogin(data.email, ipAddress, userAgent);
-
-      if (shouldLock) {
-        const lockoutDuration = 30;
-        await this.emailService.sendAccountLockedEmail(user.email, lockoutDuration).catch((err) => {
-          this.logger.error(
-            `Failed to send account locked email to user ${user.id} (${this.hashEmail(user.email)}): ${err.message}`,
-          );
-        });
-
-        throw new UnauthorizedException(
-          `Account locked due to too many failed login attempts. Please try again in ${lockoutDuration} minutes.`,
-        );
-      }
-
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    await this.verifyCredentials(user, data.password, ipAddress, userAgent);
 
     if (user.twoFactorEnabled) {
       const hasTotpCode = Boolean(data.totpCode?.trim());
