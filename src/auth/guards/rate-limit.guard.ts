@@ -7,6 +7,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RateLimitService } from '../rate-limit.service';
@@ -31,6 +32,8 @@ export const CustomRateLimit = (options: {
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
+  private readonly logger = new Logger(RateLimitGuard.name);
+
   constructor(
     private reflector: Reflector,
     @Inject(RateLimitService) private rateLimitService: RateLimitService,
@@ -141,7 +144,7 @@ export class RateLimitGuard implements CanActivate {
         throw error;
       }
       // If rate limit check fails, allow the request
-      console.error('Rate limit check error:', error);
+      this.logger.error('Rate limit check error', error instanceof Error ? error.stack : String(error));
       return true;
     }
   }
