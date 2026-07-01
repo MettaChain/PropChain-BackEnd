@@ -23,6 +23,17 @@ async function bootstrap() {
   const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
   if (nodeMajor < 20) {
     logger.error(`Node.js >= 20 required (NestJS 11), found ${process.versions.node}`);
+  // Node.js version check (#775):
+  // package.json declares engines.node >= 18, but several transitive
+  // dependencies (e.g. @nestjs/* v11) require Node 20+. Enforce that here
+  // and exit early with a clear message well before any module loads.
+  const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+  const REQUIRED_NODE_MAJOR = 20;
+  if (Number.isNaN(nodeMajor) || nodeMajor < REQUIRED_NODE_MAJOR) {
+    logger.error(
+      `Node.js >= ${REQUIRED_NODE_MAJOR} required, found ${process.versions.node}. ` +
+        `Please upgrade Node.js (see https://nodejs.org/).`,
+    );
     process.exit(1);
   }
 

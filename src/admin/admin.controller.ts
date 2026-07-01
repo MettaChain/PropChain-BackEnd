@@ -163,21 +163,25 @@ export class AdminController {
     return this.adminService.updateTransactionStatus(transactionId, payload, user.sub);
   }
 
+  @ApiTags('Fraud')
   @Get('fraud/alerts')
   listFraudAlerts(@Query() query: FraudAlertsQueryDto) {
     return this.adminService.listFraudAlerts(query);
   }
 
+  @ApiTags('Fraud')
   @Get('fraud/alerts/summary')
   getFraudAlertsSummary() {
     return this.adminService.getFraudAlertsSummary();
   }
 
+  @ApiTags('Fraud')
   @Get('fraud/alerts/:id')
   getFraudAlertDetails(@Param('id') alertId: string) {
     return this.adminService.getFraudAlertDetails(alertId);
   }
 
+  @ApiTags('Fraud')
   @Patch('fraud/alerts/:id')
   reviewFraudAlert(
     @Param('id') alertId: string,
@@ -187,6 +191,7 @@ export class AdminController {
     return this.adminService.reviewFraudAlert(alertId, payload, user.sub);
   }
 
+  @ApiTags('Fraud')
   @Post('fraud/alerts/:id/notes')
   addFraudAlertNote(
     @Param('id') alertId: string,
@@ -196,6 +201,7 @@ export class AdminController {
     return this.adminService.addFraudAlertNote(alertId, payload, user.sub);
   }
 
+  @ApiTags('Fraud')
   @Post('fraud/alerts/:id/block-user')
   blockFraudUser(
     @Param('id') alertId: string,
@@ -205,11 +211,13 @@ export class AdminController {
     return this.adminService.blockFraudUser(alertId, user.sub, payload);
   }
 
+  @ApiTags('Fraud')
   @Post('fraud/users/:id/scan')
   scanUserForFraud(@Param('id') userId: string, @CurrentUser() user: AuthUserPayload) {
     return this.adminService.scanUserForFraud(userId, user.sub);
   }
 
+  @ApiTags('Fraud')
   @Post('fraud/properties/:id/scan')
   scanPropertyForFraud(@Param('id') propertyId: string, @CurrentUser() user: AuthUserPayload) {
     return this.adminService.scanPropertyForFraud(propertyId, user.sub);

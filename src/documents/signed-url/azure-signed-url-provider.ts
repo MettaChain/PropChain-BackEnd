@@ -8,16 +8,16 @@ import {
 } from './signed-url-provider.interface';
 
 /**
- * Placeholder strategy for AWS S3 signed URLs.
+ * Placeholder strategy for Azure Blob Storage signed URLs.
  * This shell intentionally throws until an integrator wires in a real implementation.
  */
 @Injectable()
-export class S3SignedUrlProvider implements SignedUrlProvider {
+export class AzureSignedUrlProvider implements SignedUrlProvider {
   isConfigured(): boolean {
     return false;
   }
 
   async getSignedUrl(_req: SignedUrlRequest): Promise<SignedUrlResponse> {
-    throw new Error('S3 signed URL provider is not configured.');
+    throw new Error('Azure signed URL provider is not configured.');
   }
 }

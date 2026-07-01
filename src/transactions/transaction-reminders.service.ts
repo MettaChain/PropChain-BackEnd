@@ -51,7 +51,7 @@ export class TransactionRemindersService {
 
     let sent = 0;
     for (const milestone of milestones) {
-      const tx = (milestone as any).transaction;
+      const tx = milestone.transaction;
 
       const optOutBuyer = await this.getUserOptOut(tx.buyerId);
       const optOutSeller = await this.getUserOptOut(tx.sellerId);
@@ -78,7 +78,7 @@ export class TransactionRemindersService {
         sent++;
       }
 
-      await (this.prisma as any).transactionMilestone.update({
+      await this.prisma.transactionMilestone.update({
         where: { id: milestone.id },
         data: { reminderSentAt: new Date() },
       });

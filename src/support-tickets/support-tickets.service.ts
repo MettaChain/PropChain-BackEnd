@@ -14,21 +14,21 @@ export class SupportTicketsService {
 
   async addInternalNote(ticketId: string, authorId: string, content: string) {
     await this.assertTicketExists(ticketId);
-    return (this.prisma as any).transactionNote.create({
+    return this.prisma.transactionNote.create({
       data: { transactionId: ticketId, authorId, content, isPublic: false },
     });
   }
 
   async addPublicReply(ticketId: string, authorId: string, content: string) {
     await this.assertTicketExists(ticketId);
-    return (this.prisma as any).transactionNote.create({
+    return this.prisma.transactionNote.create({
       data: { transactionId: ticketId, authorId, content, isPublic: true },
     });
   }
 
   async listForAgent(ticketId: string) {
     await this.assertTicketExists(ticketId);
-    return (this.prisma as any).transactionNote.findMany({
+    return this.prisma.transactionNote.findMany({
       where: { transactionId: ticketId },
       orderBy: { createdAt: 'asc' },
     });
@@ -36,7 +36,7 @@ export class SupportTicketsService {
 
   async listPublicForUser(ticketId: string) {
     await this.assertTicketExists(ticketId);
-    return (this.prisma as any).transactionNote.findMany({
+    return this.prisma.transactionNote.findMany({
       where: { transactionId: ticketId, isPublic: true },
       orderBy: { createdAt: 'asc' },
     });
