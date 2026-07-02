@@ -213,4 +213,42 @@ describe('DocumentsService', () => {
       expect(result.count).toBe(1);
     });
   });
+
+  // ── Basic CRUD Operations ────────────────────────────────────────────────
+  describe('CRUD operations', () => {
+    it('create', async () => {
+      mockPrismaService.document.create.mockResolvedValue({ id: 'doc-1' });
+      const result = await service.create({ documentType: 'TITLE_DEED', propertyId: 'prop-1' } as any, 'user-1');
+      expect(result.id).toBe('doc-1');
+      expect(mockPrismaService.document.create).toHaveBeenCalled();
+    });
+
+    it('findAll', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([{ id: 'doc-1' }]);
+      const result = await service.findAll('user-1', { category: 'legal', status: 'ACTIVE' }, 'USER');
+      expect(result.length).toBe(1);
+    });
+
+    it('findOne throws if not found', async () => {
+      mockPrismaService.document.findUnique.mockResolvedValue(null);
+      await expect(service.findOne('doc-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('findOne returns doc', async () => {
+      mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
+      expect(await service.findOne('doc-1')).toEqual({ id: 'doc-1' });
+    });
+
+    it('update', async () => {
+      mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
+      mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', fileName: 'new' });
+      expect(await service.update('doc-1', { fileName: 'new' })).toHaveProperty('fileName', 'new');
+    });
+
+    it('remove', async () => {
+      mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
+      mockPrismaService.document.delete.mockResolvedValue({ id: 'doc-1' });
+      expect(await service.remove('doc-1')).toEqual({ id: 'doc-1' });
+    });
+  });
 });

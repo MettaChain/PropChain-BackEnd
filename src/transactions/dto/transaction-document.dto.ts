@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsString, IsIn, IsOptional, IsNumber, Min } from 'class-validator';
 
 export const DOCUMENT_TYPE_ENUM = [
@@ -12,9 +10,11 @@ export const DOCUMENT_TYPE_ENUM = [
   'FLOOR_PLAN',
 ] as const;
 
+export type DocumentTypeValue = (typeof DOCUMENT_TYPE_ENUM)[number];
+
 export class AttachDocumentDto {
   @IsIn(DOCUMENT_TYPE_ENUM)
-  documentType: (typeof DOCUMENT_TYPE_ENUM)[number];
+  documentType: DocumentTypeValue;
 
   @IsString()
   fileName: string;

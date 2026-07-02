@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { IsString, IsOptional, IsArray, IsDateString, IsBoolean, IsIn } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const DOCUMENT_TYPE_ENUM = [
   'TITLE_DEED',
@@ -85,6 +86,11 @@ export class SignDocumentDto {
 }
 
 export class BulkDownloadDto {
+  @ApiProperty({
+    description: 'Document IDs to include in the ZIP archive',
+    type: [String],
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+  })
   @IsArray()
   @IsString({ each: true })
   documentIds: string[];
