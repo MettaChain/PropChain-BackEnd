@@ -28,16 +28,18 @@ describe('DocumentsController', () => {
     bulkDownload: jest.fn(),
   };
 
-  const mockUser: AuthUserPayload = { sub: 'user-1', role: UserRole.USER, email: 'test@test.com' };
+  const mockUser: AuthUserPayload = { sub: 'user-1', role: UserRole.USER, email: 'test@test.com', type: 'access' };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DocumentsController],
       providers: [{ provide: DocumentsService, useValue: mockDocumentsService }],
     })
-    .overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true })
-    .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
-    .compile();
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<DocumentsController>(DocumentsController);
     service = module.get<DocumentsService>(DocumentsService);

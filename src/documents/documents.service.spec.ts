@@ -218,14 +218,21 @@ describe('DocumentsService', () => {
   describe('CRUD operations', () => {
     it('create', async () => {
       mockPrismaService.document.create.mockResolvedValue({ id: 'doc-1' });
-      const result = await service.create({ documentType: 'TITLE_DEED', propertyId: 'prop-1' } as any, 'user-1');
+      const result = await service.create(
+        { documentType: 'TITLE_DEED', propertyId: 'prop-1' } as any,
+        'user-1',
+      );
       expect(result.id).toBe('doc-1');
       expect(mockPrismaService.document.create).toHaveBeenCalled();
     });
 
     it('findAll', async () => {
       mockPrismaService.document.findMany.mockResolvedValue([{ id: 'doc-1' }]);
-      const result = await service.findAll('user-1', { category: 'legal', status: 'ACTIVE' }, 'USER');
+      const result = await service.findAll(
+        'user-1',
+        { category: 'legal', status: 'ACTIVE' },
+        'USER',
+      );
       expect(result.length).toBe(1);
     });
 
@@ -241,8 +248,8 @@ describe('DocumentsService', () => {
 
     it('update', async () => {
       mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
-      mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', fileName: 'new' });
-      expect(await service.update('doc-1', { fileName: 'new' })).toHaveProperty('fileName', 'new');
+      mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', status: 'VERIFIED' });
+      expect(await service.update('doc-1', { status: 'VERIFIED' } as any)).toHaveProperty('status', 'VERIFIED');
     });
 
     it('remove', async () => {

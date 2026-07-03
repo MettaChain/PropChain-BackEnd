@@ -252,7 +252,10 @@ export class UsersController {
 
     if (entry && now < entry.resetAt) {
       if (entry.count >= REACTIVATE_LIMIT) {
-        throw new HttpException('Too many reactivation attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+        throw new HttpException(
+          'Too many reactivation attempts. Try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
       }
       entry.count++;
     } else {

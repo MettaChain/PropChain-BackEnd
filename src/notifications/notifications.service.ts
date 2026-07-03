@@ -69,21 +69,9 @@ export class NotificationsService {
         // to schema defaults locally instead of triggering the upsert
         // side-effect in `UserPreferencesService.findByUserId`.
         const prefs = user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS;
-        const canInApp = shouldDeliverNotificationFromPrefs(
-          prefs,
-          'TRANSACTION_UPDATE',
-          'inApp',
-        );
-        const canEmail = shouldDeliverNotificationFromPrefs(
-          prefs,
-          'TRANSACTION_UPDATE',
-          'email',
-        );
-        const canSms = shouldDeliverNotificationFromPrefs(
-          prefs,
-          'TRANSACTION_UPDATE',
-          'sms',
-        );
+        const canInApp = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'inApp');
+        const canEmail = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'email');
+        const canSms = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'sms');
 
         await Promise.all([
           canInApp

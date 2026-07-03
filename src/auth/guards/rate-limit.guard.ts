@@ -144,7 +144,10 @@ export class RateLimitGuard implements CanActivate {
         throw error;
       }
       // If rate limit check fails, allow the request
-      this.logger.error('Rate limit check error', error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        'Rate limit check error',
+        error instanceof Error ? error.stack : String(error),
+      );
       return true;
     }
   }

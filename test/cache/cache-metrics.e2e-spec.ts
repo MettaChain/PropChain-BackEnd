@@ -15,7 +15,8 @@ class FakePrismaService {
   user = {
     findUnique: async ({ where }: any) => {
       if (where?.id) return this.users.get(where.id) ?? null;
-      if (where?.email) return Array.from(this.users.values()).find((u) => u.email === where.email) ?? null;
+      if (where?.email)
+        return Array.from(this.users.values()).find((u) => u.email === where.email) ?? null;
       return null;
     },
     update: async ({ where, data }: any) => {
@@ -55,9 +56,7 @@ describe('CacheMetricsInterceptor e2e — singleton verification', () => {
     const metricsBefore = monitoringService.getMetrics();
     expect(metricsBefore.totalRequests).toBe(0);
 
-    await request(app.getHttpServer())
-      .get('/api/properties')
-      .expect(200);
+    await request(app.getHttpServer()).get('/api/properties').expect(200);
 
     const metricsAfter = monitoringService.getMetrics();
     expect(metricsAfter.totalRequests).toBeGreaterThanOrEqual(1);

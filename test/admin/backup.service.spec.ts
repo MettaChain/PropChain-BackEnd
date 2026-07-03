@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { BackupStatus, BackupTrigger, RestoreStatus } from '@prisma/client';
+import { BackupStatus, BackupTrigger } from '@prisma/client';
 import { BackupService } from '../../src/backup/backup.service';
 import { PrismaService } from '../../src/database/prisma.service';
 import { NotificationsService } from '../../src/notifications/notifications.service';
@@ -64,15 +64,15 @@ describe('BackupService', () => {
       id: 'backup-1',
       filename: 'backup.sql',
       filePath: 'C:/tmp/backups/backup.sql',
-      status: BackupStatus.COMPLETED,
-      trigger: BackupTrigger.MANUAL,
+      status: 'COMPLETED' as any,
+      trigger: 'MANUAL' as unknown as BackupTrigger,
       sizeBytes: BigInt(128),
       checksum: 'abc',
       startedAt: new Date('2026-04-25T08:00:00.000Z'),
       completedAt: new Date('2026-04-25T08:05:00.000Z'),
       errorMessage: null,
       initiatedById: 'user-1',
-      restoreStatus: RestoreStatus.IDLE,
+      restoreStatus: 'IDLE' as any,
       restoredAt: null,
       restoreError: null,
       restoredById: null,
