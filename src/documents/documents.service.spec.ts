@@ -272,15 +272,18 @@ describe('DocumentsService', () => {
       await safeExec(service.markExpiredDocuments());
       await safeExec(service.deleteExpired());
       await safeExec(service.flagExpiryNotified('doc-1'));
-      await safeExec(service.signDocument('doc-1', { signature: 'test' } as any, 'user-1' as any));
-      await safeExec(service.verifySignature('doc-1', 'signature-hash'));
+      // Fixed: Removed the 3rd argument
+      await safeExec(service.signDocument('doc-1', { signature: 'test' } as any));
+      // Fixed: Removed the 2nd argument
+      await safeExec(service.verifySignature('doc-1'));
 
       // Execute alternate paths (missing users, admin roles, null parameters)
       await safeExec(service.getVersions('doc-1', null as any, 'ADMIN'));
       await safeExec(service.getVersion('doc-1', 'v1', null as any, 'ADMIN'));
       await safeExec(service.findAuthorizedById('doc-1', null as any, null as any));
       await safeExec(service.findAll(null as any, { category: 'legal' } as any, 'ADMIN'));
-      await safeExec(service.signDocument('doc-1', {} as any, null as any));
+      // Fixed: Removed the 3rd argument
+      await safeExec(service.signDocument('doc-1', {} as any));
     });
   });
   
