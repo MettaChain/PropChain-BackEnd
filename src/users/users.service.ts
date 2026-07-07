@@ -11,7 +11,12 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { CreateUserDto, SearchUsersDto, UpdatePreferencesDto, UpdateUserDto } from './dto/user.dto';
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
-import { hashPassword, sanitizeUser, createSha256, generateReactivationToken } from '../auth/security.utils';
+import {
+  hashPassword,
+  sanitizeUser,
+  createSha256,
+  generateReactivationToken,
+} from '../auth/security.utils';
 import * as fs from 'fs';
 import * as path from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -530,7 +535,9 @@ export class UsersService implements OnModuleInit {
     }
 
     if (!user.reactivationToken || !user.reactivationTokenExpires) {
-      throw new BadRequestException('No reactivation token has been requested. Please request a token first.');
+      throw new BadRequestException(
+        'No reactivation token has been requested. Please request a token first.',
+      );
     }
 
     if (new Date() > user.reactivationTokenExpires) {

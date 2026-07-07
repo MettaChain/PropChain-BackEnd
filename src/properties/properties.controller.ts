@@ -78,7 +78,11 @@ export class PropertiesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.AGENT, UserRole.ADMIN)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updatePropertyDto: UpdatePropertyDto, @CurrentUser() user: AuthUserPayload) {
+  update(
+    @Param('id') id: string,
+    @Body() updatePropertyDto: UpdatePropertyDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
     return this.propertiesService.update(id, updatePropertyDto, user.sub);
   }
 
@@ -163,6 +167,8 @@ export class PropertiesController {
     return this.propertiesService.rejectProperty(id, user.sub);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post('bulk/status')
   async bulkUpdatePropertyStatus(
     @Body() body: BulkPropertyStatusUpdateDto,
@@ -171,6 +177,8 @@ export class PropertiesController {
     return this.propertiesService.bulkUpdatePropertyStatus(body.propertyIds, body.status);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post('bulk/delete')
   async bulkDeleteProperties(
     @Body() body: BulkPropertyDeleteDto,
@@ -179,6 +187,8 @@ export class PropertiesController {
     return this.propertiesService.bulkDeleteProperties(body.propertyIds);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post('bulk/export')
   async bulkExportProperties(
     @Body() body: BulkPropertyExportDto,

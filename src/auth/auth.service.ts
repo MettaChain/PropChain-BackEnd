@@ -1384,23 +1384,25 @@ export class AuthService {
 
     // Generate new reset token
     const resetToken = randomToken(32);
+    const tokenHash = createSha256(resetToken);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await this.prisma.passwordResetToken.create({
       data: {
         userId: user.id,
-        token: resetToken,
+        token: tokenHash,
         expiresAt,
       },
     });
 
-    // Send reset email
+    // Send reset email with raw token (not the hash)
     await this.emailService.sendPasswordResetEmail(user.email, resetToken);
   }
 
   async resetPassword(data: ResetPasswordDto): Promise<void> {
+    const tokenHash = createSha256(data.token);
     const resetToken = await this.prisma.passwordResetToken.findUnique({
-      where: { token: data.token },
+      where: { token: tokenHash },
       include: { user: true },
     });
 
@@ -1530,8 +1532,11 @@ export class AuthService {
   private async verifyCaptcha(token: string): Promise<boolean> {
     const secret = this.configService.get<string>('RECAPTCHA_SECRET');
     if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('RECAPTCHA_SECRET is not configured in production');
+      }
       this.logger.warn('RECAPTCHA_SECRET is not configured, skipping CAPTCHA verification');
-      return true; // Bypass if not configured in dev
+      return true; // Bypass only in non-production
     }
 
     try {

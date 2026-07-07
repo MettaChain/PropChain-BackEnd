@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Document, DocumentVersion, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AttachDocumentDto, AddVersionDto } from './dto/transaction-document.dto';

@@ -1,6 +1,16 @@
 // @ts-nocheck
 
-import { Body, Controller, Get, HttpStatus, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -99,10 +109,7 @@ export class DocumentsDownloadController {
    * issue #750 and `/signed-upload-url` for backward compatibility) share
    * identical behavior.
    */
-  private async buildUploadUrlResponse(
-    dto: RequestSignedUploadDto,
-    user: AuthUserPayload,
-  ) {
+  private async buildUploadUrlResponse(dto: RequestSignedUploadDto, user: AuthUserPayload) {
     // Authorization: document metadata will ultimately be owned by the requester.
     // If dto.documentId exists, the service should ensure the requester owns it.
     const objectKey = await this.documentsService.buildUploadObjectKey({
