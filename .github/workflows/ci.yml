@@ -80,6 +80,13 @@ jobs:
         JWT_SECRET: test-secret-key
         JWT_REFRESH_SECRET: test-refresh-secret-key
 
+    - name: Check documents module test coverage (>70%)
+      run: npx jest src/documents --coverage --collectCoverageFrom="src/documents/**/*.ts" --collectCoverageFrom="!src/documents/**/*.module.ts" --collectCoverageFrom="!src/documents/**/*.dto.ts" --coverageThreshold='{"global":{"statements":70,"branches":70,"functions":70,"lines":70}}'
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+        JWT_SECRET: test-secret-key
+        JWT_REFRESH_SECRET: test-refresh-secret-key
+
   build:
     runs-on: ubuntu-latest
     needs: [lint, test]
