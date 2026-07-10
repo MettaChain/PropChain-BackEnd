@@ -309,3 +309,6 @@ export class UpdateEscrowDto {
   @IsIn(['PENDING', 'PARTIAL', 'COMPLETE'])
   paymentStatus?: string;
 }
+
+// Re-exports for backward compatibility during migration (#770)
+export { TransactionTypeDto, TransactionStatusDto } from '../../common/common.types';
