@@ -4,7 +4,6 @@ import { Controller, Post, Body, HttpCode } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('webhooks')
 interface EmailBouncePayload {
   email?: string;
   recipient?: string;
@@ -14,6 +13,7 @@ interface EmailBouncePayload {
   diagnosticCode?: string;
 }
 
+@ApiTags('webhooks')
 @Controller('webhooks/email')
 export class EmailWebhookController {
   constructor(private emailService: EmailService) {}
