@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -41,12 +42,104 @@ export interface PaginatedPropertiesResult<T = unknown> {
 
 @Injectable()
 export class PropertiesService {
+  private geocodeRateLimitWindow = 60 * 1000;
+  private geocodeMaxPerMinute = 50;
+  private geocodeTimestamps: number[] = [];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly fraudService: FraudService,
     private readonly geocodingService: GeocodingService,
     private readonly cacheService: CacheService,
   ) {}
+
+  private async checkGeocodeRateLimit(): Promise<boolean> {
+    const now = Date.now();
+    this.geocodeTimestamps = this.geocodeTimestamps.filter(
+      (t) => now - t < this.geocodeRateLimitWindow,
+    );
+    return this.geocodeTimestamps.length < this.geocodeMaxPerMinute;
+  }
+
+  private async recordGeocodeCall(): Promise<void> {
+    this.geocodeTimestamps.push(Date.now());
+  }
+
+  private async shouldGeocode(
+    propertyId: string,
+    addressFields: { address: string; city: string; state: string; zipCode: string; country: string },
+  ): Promise<boolean> {
+    const existing = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: {
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        country: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+
+    if (!existing) return false;
+    if (existing.latitude && existing.longitude) return false;
+    return this.geocodingService.hasAddressChanged(
+      {
+        address: existing.address,
+        city: existing.city,
+        state: existing.state,
+        zipCode: existing.zipCode,
+        country: existing.country,
+      },
+      addressFields,
+    );
+  }
+
+  private async attemptGeocode(
+    propertyId: string,
+    addressFields: { address: string; city: string; state: string; zipCode: string; country: string },
+  ): Promise<{ lat: number; lng: number } | null> {
+    if (!(await this.shouldGeocode(propertyId, addressFields))) {
+      return null;
+    }
+
+    if (!(await this.checkGeocodeRateLimit())) {
+      this.logger.warn(`Geocoding rate limit hit for property ${propertyId}`);
+      return null;
+    }
+
+    await this.recordGeocodeCall();
+
+    const geo = await this.geocodingService.geocodeAddress(addressFields);
+    if (!geo) {
+      await this.markGeocodingFailed(propertyId);
+      return null;
+    }
+
+    return { lat: geo.latitude, lng: geo.longitude };
+  }
+
+  private async markGeocodingFailed(propertyId: string): Promise<void> {
+    const existing = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { metadata: true },
+    });
+
+    const metadata = (existing?.metadata as Record<string, any>) || {};
+    await this.prisma.property.update({
+      where: { id: propertyId },
+      data: {
+        metadata: {
+          ...metadata,
+          regeocodingFailed: true,
+          regeocodingFailedAt: new Date().toISOString(),
+        },
+      } as any,
+    });
+  }
+
+  private readonly logger = new Logger('PropertiesService');
 
   async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
     const { price, squareFeet, lotSize, latitude, longitude, hoaMonthlyFee, ...rest } =
@@ -70,16 +163,19 @@ export class PropertiesService {
     let resolvedLat = latitude;
     let resolvedLng = longitude;
     if (resolvedLat === undefined || resolvedLng === undefined) {
-      const geo = await this.geocodingService.geocodeAddress({
-        address: rest.address,
-        city: rest.city,
-        state: rest.state,
-        zipCode: rest.zipCode,
-        country: rest.country,
-      });
+      const geo = await this.attemptGeocode(
+        'new',
+        {
+          address: rest.address,
+          city: rest.city,
+          state: rest.state,
+          zipCode: rest.zipCode,
+          country: rest.country || 'USA',
+        },
+      );
       if (geo) {
-        resolvedLat = resolvedLat ?? geo.latitude;
-        resolvedLng = resolvedLng ?? geo.longitude;
+        resolvedLat = geo.lat;
+        resolvedLng = geo.lng;
       }
     }
 
@@ -237,6 +333,8 @@ export class PropertiesService {
           state: true,
           zipCode: true,
           country: true,
+          latitude: true,
+          longitude: true,
         },
       });
 
@@ -257,10 +355,15 @@ export class PropertiesService {
         };
 
         if (this.geocodingService.hasAddressChanged(before, after)) {
-          const geo = await this.geocodingService.geocodeAddress(after);
-          if (geo) {
-            resolvedLat = geo.latitude;
-            resolvedLng = geo.longitude;
+          if (existing.latitude && existing.longitude) {
+            resolvedLat = existing.latitude;
+            resolvedLng = existing.longitude;
+          } else {
+            const geo = await this.attemptGeocode(id, after);
+            if (geo) {
+              resolvedLat = geo.lat;
+              resolvedLng = geo.lng;
+            }
           }
         }
       }

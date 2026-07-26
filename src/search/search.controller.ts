@@ -42,9 +42,14 @@ export class SearchController {
   @ApiOperation({ summary: 'Get live autocomplete suggestions for partial input' })
   @ApiQuery({ name: 'q', required: true, description: 'Partial search query' })
   @ApiQuery({ name: 'limit', required: false, description: 'Max number of suggestions' })
-  async autocomplete(@Query('q') query: string, @Query('limit') limit?: string) {
+  async autocomplete(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+    @Request() req?: AuthenticatedRequest,
+  ) {
     const parsedLimit = limit ? Math.max(1, Math.min(20, Number(limit))) : 10;
-    return this.searchAutocompleteService.getSuggestions(query || '', parsedLimit);
+    const userId = req?.user?.id;
+    return this.searchAutocompleteService.getSuggestions(query || '', parsedLimit, userId);
   }
 
   @Get('filters/saved')

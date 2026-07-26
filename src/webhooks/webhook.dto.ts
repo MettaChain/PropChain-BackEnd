@@ -1,6 +1,16 @@
 // @ts-nocheck
 
-import { IsArray, IsBoolean, IsEnum, IsOptional, IsString, IsUrl } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsEmail,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum WebhookEventType {
   PROPERTY_CREATED = 'PROPERTY_CREATED',
@@ -42,4 +52,27 @@ export class UpdateWebhookDto {
   @IsOptional()
   @IsString()
   description?: string;
+}
+
+export class VerifyWebhookDto {
+  @IsString()
+  challenge: string;
+}
+
+export class WebhookChallengeResponse {
+  challenge: string;
+}
+
+export class WebhookDeliveryLogDto {
+  id: string;
+  webhookId: string;
+  eventType: string;
+  payload: any;
+  status: string;
+  responseCode: number | null;
+  attempts: number;
+  maxAttempts: number;
+  error: string | null;
+  deliveredAt: Date | null;
+  createdAt: Date;
 }
