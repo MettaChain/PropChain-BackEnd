@@ -35,7 +35,7 @@ import {
 import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
 import { PropertyReportService } from './report/property-report.service';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Properties')
 @Controller('properties')
@@ -45,6 +45,7 @@ export class PropertiesController {
     private readonly propertyReportService: PropertyReportService,
   ) {}
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPropertyDto: CreatePropertyDto, @CurrentUser() user: AuthUserPayload) {
@@ -75,6 +76,7 @@ export class PropertiesController {
     return this.propertiesService.findOne(id);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.AGENT, UserRole.ADMIN)
   @Put(':id')
@@ -86,6 +88,7 @@ export class PropertiesController {
     return this.propertiesService.update(id, updatePropertyDto, user.sub);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Delete(':id')
@@ -93,6 +96,7 @@ export class PropertiesController {
     return this.propertiesService.remove(id, user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id/restore')
@@ -100,6 +104,7 @@ export class PropertiesController {
     return this.propertiesService.restore(id, user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get(':id/report')
   async generateReport(@Param('id') id: string, @Res() res: Response): Promise<void> {
@@ -138,6 +143,7 @@ export class PropertiesController {
    *
    * Allowed for the property's owner, AGENT, or ADMIN.
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
   transitionStatus(
@@ -153,6 +159,7 @@ export class PropertiesController {
     );
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id/approve')
@@ -160,6 +167,7 @@ export class PropertiesController {
     return this.propertiesService.approveProperty(id, user.sub);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id/reject')
@@ -167,6 +175,7 @@ export class PropertiesController {
     return this.propertiesService.rejectProperty(id, user.sub);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('bulk/status')
@@ -177,6 +186,7 @@ export class PropertiesController {
     return this.propertiesService.bulkUpdatePropertyStatus(body.propertyIds, body.status);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('bulk/delete')
@@ -187,6 +197,7 @@ export class PropertiesController {
     return this.propertiesService.bulkDeleteProperties(body.propertyIds);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('bulk/export')
@@ -197,6 +208,7 @@ export class PropertiesController {
     return this.propertiesService.bulkExportProperties(body.propertyIds, body.filter);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post(':id/agents')
   async assignAgent(
@@ -207,6 +219,7 @@ export class PropertiesController {
     return this.propertiesService.assignAgent(propertyId, dto, user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Put(':id/agents/:agentId')
   async updateAgentAssignment(
@@ -218,6 +231,7 @@ export class PropertiesController {
     return this.propertiesService.updateAgentAssignment(propertyId, agentId, dto, user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Delete(':id/agents/:agentId')
   async removeAgentAssignment(
@@ -235,6 +249,7 @@ export class PropertiesController {
 
   // ---- Amenity endpoints (#551) ----
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post(':id/amenities')
   async addAmenity(@Param('id') propertyId: string, @Body() dto: CreateAmenityDto) {
@@ -246,6 +261,7 @@ export class PropertiesController {
     return this.propertiesService.getAmenities(propertyId);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Patch(':id/amenities/:amenityId')
   async updateAmenity(
@@ -256,6 +272,7 @@ export class PropertiesController {
     return this.propertiesService.updateAmenity(propertyId, amenityId, dto);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Delete(':id/amenities/:amenityId')
   async removeAmenity(@Param('id') propertyId: string, @Param('amenityId') amenityId: string) {

@@ -26,6 +26,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ActivityLogService } from './activity-log.service';
 import {
@@ -42,6 +43,8 @@ const UNAUTHORIZED_ACTION_MESSAGE = 'You are not authorized to perform this acti
 const REACTIVATE_LIMIT = 5;
 const REACTIVATE_WINDOW_MS = 60 * 60 * 1000;
 
+@ApiTags('Users')
+@ApiBearerAuth('access-token')
 @Controller('users')
 export class UsersController {
   private readonly downloadRateLimitMap = new Map<string, { count: number; resetAt: number }>();

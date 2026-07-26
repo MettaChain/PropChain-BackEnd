@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Body,
   Controller,
@@ -18,7 +16,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -44,6 +42,7 @@ import { RestoreBackupDto, UpdateBackupScheduleDto } from '../backup/dto/backup.
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 
 @ApiTags('Admin')
+@ApiBearerAuth('access-token')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
@@ -105,8 +104,12 @@ export class AdminController {
   }
 
   @Patch('users/:id')
-  updateUser(@Param('id') userId: string, @Body() payload: AdminUpdateUserDto) {
-    return this.adminService.updateUser(userId, payload);
+  updateUser(
+    @Param('id') userId: string,
+    @Body() payload: AdminUpdateUserDto,
+    @CurrentUser() user: AuthUserPayload,
+  ) {
+    return this.adminService.updateUser(userId, payload, user.sub);
   }
 
   @Post('users/:id/block')
