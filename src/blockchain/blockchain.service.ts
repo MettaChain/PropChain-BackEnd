@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Injectable,
   Logger,
@@ -456,7 +454,7 @@ export class BlockchainService {
       verified: tx.status === 'confirmed',
       transactionHash: tx.transactionHash,
       blockNumber: tx.blockNumber || 0,
-      from: tx.id.substring(0, 42),
+      from: tx.blockchainHash || '0x0000000000000000000000000000000000000000',
       to: tx.contractAddress,
       value: '0',
       status: tx.status === 'confirmed' ? 'success' : 'pending',

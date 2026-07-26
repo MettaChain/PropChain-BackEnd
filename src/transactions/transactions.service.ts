@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
@@ -91,7 +89,8 @@ export class TransactionsService {
     try {
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
-      const skip = (page - 1) * limit;
+      const cursor = (query as any).cursor as string | undefined;
+      const skip = cursor ? undefined : (page - 1) * limit;
 
       const where: any = {};
       if (query.propertyId) where.propertyId = query.propertyId;
@@ -99,11 +98,14 @@ export class TransactionsService {
       if (query.sellerId) where.sellerId = query.sellerId;
       if (query.status) where.status = query.status;
       if (query.type) where.type = query.type;
+      if (cursor) {
+        where.createdAt = { lt: new Date(Buffer.from(cursor, 'base64').toString()) };
+      }
 
       const [transactions, total] = await Promise.all([
         this.prisma.transaction.findMany({
           where,
-          skip,
+          ...(skip !== undefined ? { skip } : {}),
           take: limit,
           include: {
             property: { select: { id: true, title: true, address: true } },
@@ -115,11 +117,17 @@ export class TransactionsService {
         this.prisma.transaction.count({ where }),
       ]);
 
+      const nextCursor = transactions.length === limit
+        ? Buffer.from((transactions[transactions.length - 1] as any).createdAt.toISOString()).toString('base64')
+        : null;
+
       return {
         total,
         page,
         limit,
         items: transactions.map((t: any) => this.toResponseDto(t)),
+        nextCursor,
+        previousCursor: cursor || null,
       };
     } catch (error) {
       this.logger.error(`Failed to list transactions: ${error.message}`, error.stack);

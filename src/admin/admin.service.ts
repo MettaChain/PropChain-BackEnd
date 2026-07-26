@@ -1,6 +1,4 @@
-// @ts-nocheck
-
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { BackupService } from '../backup/backup.service';
 import { UpdateBackupScheduleDto } from '../backup/dto/backup.dto';
@@ -21,6 +19,8 @@ import { PropertyStatus, TransactionStatus, TransactionType } from '../types/pri
 import { FraudService } from '../fraud/fraud.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { TransactionsService } from '../transactions/transactions.service';
+
+const logger = new Logger('AdminService');
 
 @Injectable()
 export class AdminService {
@@ -109,9 +109,11 @@ export class AdminService {
   async listUsers(query: AdminUsersQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const skip = (query as any).cursor
+      ? undefined
+      : (page - 1) * limit;
 
-    const where = {
+    const where: any = {
       role: query.role,
       OR: query.search
         ? [
@@ -122,10 +124,14 @@ export class AdminService {
         : undefined,
     };
 
+    if ((query as any).cursor) {
+      where.createdAt = { lt: new Date(Buffer.from((query as any).cursor, 'base64').toString()) };
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        skip,
+        ...(skip !== undefined ? { skip } : {}),
         take: limit,
         orderBy: { createdAt: 'desc' },
         select: {
@@ -142,13 +148,17 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    return { total, page, limit, items };
+    const nextCursor = items.length === limit
+      ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+      : null;
+
+    return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
   }
 
-  async updateUser(userId: string, payload: AdminUpdateUserDto) {
+  async updateUser(userId: string, payload: AdminUpdateUserDto, actorId?: string) {
     const existingUser = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, email: true },
     });
 
     if (!existingUser) {
@@ -171,8 +181,46 @@ export class AdminService {
       },
     });
 
+    // Audit log for role changes (#886)
     if (payload.role && payload.role !== existingUser.role) {
+      await this.prisma.activityLog
+        .create({
+          data: {
+            userId: actorId ?? 'system',
+            action: 'ROLE_CHANGE',
+            entityType: 'USER',
+            entityId: userId,
+            description: `Role changed from ${existingUser.role} to ${payload.role} for user ${existingUser.email}`,
+            metadata: {
+              previousRole: existingUser.role,
+              newRole: payload.role,
+              targetUserId: userId,
+            },
+          },
+        })
+        .catch((err: unknown) => {
+          logger.error(`Failed to audit-log role change for ${userId}: ${err}`);
+        });
+
       await this.sessionsService.revokeAllSessions(userId);
+    }
+
+    // Audit log for block state changes
+    if (payload.isBlocked !== undefined) {
+      await this.prisma.activityLog
+        .create({
+          data: {
+            userId: actorId ?? 'system',
+            action: payload.isBlocked ? 'USER_BLOCKED' : 'USER_UNBLOCKED',
+            entityType: 'USER',
+            entityId: userId,
+            description: `User ${existingUser.email} ${payload.isBlocked ? 'blocked' : 'unblocked'}`,
+            metadata: { targetUserId: userId, isBlocked: payload.isBlocked },
+          },
+        })
+        .catch((err: unknown) => {
+          logger.error(`Failed to audit-log block state for ${userId}: ${err}`);
+        });
     }
 
     return updatedUser;
@@ -193,16 +241,22 @@ export class AdminService {
   async getModerationQueue(query: ModerationQueueQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const skip = (query as any).cursor
+      ? undefined
+      : (page - 1) * limit;
 
-    const where = {
+    const where: any = {
       status: query.status ?? PropertyStatus.PENDING,
     };
+
+    if ((query as any).cursor) {
+      where.createdAt = { lt: new Date(Buffer.from((query as any).cursor, 'base64').toString()) };
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.property.findMany({
         where,
-        skip,
+        ...(skip !== undefined ? { skip } : {}),
         take: limit,
         orderBy: { createdAt: 'asc' },
         include: {
@@ -219,7 +273,11 @@ export class AdminService {
       this.prisma.property.count({ where }),
     ]);
 
-    return { total, page, limit, items };
+    const nextCursor = items.length === limit
+      ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+      : null;
+
+    return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
   }
 
   async approveProperty(propertyId: string) {
@@ -292,18 +350,24 @@ export class AdminService {
   async monitorTransactions(query: TransactionMonitoringQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const skip = (query as any).cursor
+      ? undefined
+      : (page - 1) * limit;
 
-    const where = {
+    const where: any = {
       status: query.status,
       type: query.type,
       propertyId: query.propertyId,
     };
 
+    if ((query as any).cursor) {
+      where.createdAt = { lt: new Date(Buffer.from((query as any).cursor, 'base64').toString()) };
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.transaction.findMany({
         where,
-        skip,
+        ...(skip !== undefined ? { skip } : {}),
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -321,7 +385,11 @@ export class AdminService {
       this.prisma.transaction.count({ where }),
     ]);
 
-    return { total, page, limit, items };
+    const nextCursor = items.length === limit
+      ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+      : null;
+
+    return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
   }
 
   async transactionMonitoringSummary() {
