@@ -1425,8 +1425,8 @@ model TourRequest {
   updatedAt   DateTime          @updatedAt @map("updated_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  requester User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
-  agent     User?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  requester User    @relation("TourRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  agent     User?   @relation("TourRequestAgent", fields: [agentId], references: [id], onDelete: SetNull)
 
   @@index([propertyId])
   @@index([requesterId])
