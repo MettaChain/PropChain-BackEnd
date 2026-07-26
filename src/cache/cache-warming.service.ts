@@ -5,13 +5,14 @@
  * Pre-loads frequently accessed data on startup
  */
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { CacheService } from './cache.service';
 import { CACHE_KEYS, CACHE_TTL } from './cache.config';
 
 @Injectable()
-export class CacheWarmingService implements OnModuleInit {
+export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheWarmingService.name);
+  private warmingInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(private cacheService: CacheService) {}
 
@@ -19,6 +20,14 @@ export class CacheWarmingService implements OnModuleInit {
     if (process.env.CACHE_WARMING_ENABLED === 'true') {
       this.logger.log('Starting cache warming...');
       await this.warmCache();
+    }
+  }
+
+  onModuleDestroy(): void {
+    if (this.warmingInterval) {
+      clearInterval(this.warmingInterval);
+      this.warmingInterval = null;
+      this.logger.log('Cache warming interval cleared');
     }
   }
 
@@ -33,7 +42,7 @@ export class CacheWarmingService implements OnModuleInit {
       // Schedule periodic cache warming
       if (process.env.CACHE_WARMING_INTERVAL) {
         const interval = parseInt(process.env.CACHE_WARMING_INTERVAL, 10);
-        setInterval(() => this.warmCache(), interval);
+        this.warmingInterval = setInterval(() => this.warmCache(), interval);
         this.logger.log(`Cache warming scheduled every ${interval}ms`);
       }
     } catch (error) {

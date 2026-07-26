@@ -1328,8 +1328,18 @@ export class AuthService {
   }
 
   /**
+<<<<<<< ours
    * Generate a new API key value with 'pc_' prefix and 24 random characters.
    * Format: pc_<24-char-random-hex>
+=======
+   * Generate an API key value in the format `pc_<48-hex-chars>`.
+   *
+   * - Prefix `pc_` identifies PropChain-issued keys (51 chars total).
+   * - The 24-byte random payload provides 192 bits of entropy via
+   *   `crypto.randomBytes` (hex-encoded, 48 characters).
+   * - Keys are stored hashed (SHA-256) in the database; the raw value
+   *   is shown to the user only once at creation time.
+>>>>>>> theirs
    */
   private generateApiKeyValue() {
     return `pc_${randomToken(24)}`;
