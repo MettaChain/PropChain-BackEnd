@@ -465,6 +465,7 @@ model Property {
   favorites    PropertyFavorite[]
   views        PropertyView[]
   openHouses   OpenHouse[]
+  tourRequests TourRequest[]
   neighborhood Neighborhood?      @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
   amenities    PropertyAmenity[]
   deletedBy    User?            @relation("DeletedProperties", fields: [deletedById], references: [id], onDelete: SetNull)
