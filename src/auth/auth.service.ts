@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -89,7 +90,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly rateLimitService: LoginRateLimitService,
     private readonly fraudService: FraudService,
-    private readonly apiKeyAnalyticsService: ApiKeyAnalyticsService,
+    @Optional() private readonly apiKeyAnalyticsService?: ApiKeyAnalyticsService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
     this.jwtRefreshSecret =
