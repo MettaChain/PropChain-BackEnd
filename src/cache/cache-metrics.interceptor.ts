@@ -33,7 +33,7 @@ export class CacheMetricsInterceptor implements NestInterceptor {
   // CacheMonitoringService is expected to be a singleton provided by the CacheModule
   constructor(private cacheMonitoringService: CacheMonitoringService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const startTime = Date.now();
 
     return next.handle().pipe(

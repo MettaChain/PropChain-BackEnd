@@ -8,7 +8,7 @@
 import { Injectable } from '@nestjs/common';
 import { ApiVersionEnum } from './api-version.constants';
 
-export interface VersionedResponse<T = any> {
+export interface VersionedResponse<T = unknown> {
   apiVersion: ApiVersionEnum;
   data: T;
   timestamp: string;

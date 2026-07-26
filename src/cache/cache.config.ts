@@ -10,7 +10,9 @@ import * as redisStore from 'cache-manager-redis-store';
 
 export const REDIS_CONFIG: CacheModuleOptions = {
   isGlobal: true,
-  store: redisStore as any,
+  // cache-manager-redis-store's store type doesn't match @nestjs/cache-manager's
+  // CacheModuleOptions type -- unavoidable third-party interop
+  store: redisStore as unknown as CacheModuleOptions['store'],
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD,

@@ -9,6 +9,11 @@ import { Injectable, CanActivate, ExecutionContext, BadRequestException } from '
 import { Reflector } from '@nestjs/core';
 import { ApiVersionEnum, SUPPORTED_API_VERSIONS, isVersionSunset } from './api-version.constants';
 import { API_VERSION_KEY } from './api-version.decorator';
+import { Request } from 'express';
+
+interface RequestWithApiVersion extends Request {
+  apiVersion?: ApiVersionEnum;
+}
 
 @Injectable()
 export class VersionGuard implements CanActivate {
@@ -16,7 +21,7 @@ export class VersionGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const currentVersion = (request as any).apiVersion as ApiVersionEnum;
+    const currentVersion = (request as RequestWithApiVersion).apiVersion;
 
     // Get supported versions for this endpoint from metadata
     const endpointVersions = this.reflector.get<ApiVersionEnum[]>(

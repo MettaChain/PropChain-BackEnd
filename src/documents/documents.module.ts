@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Module } from '@nestjs/common';
+import { Module, Type } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
 import { PrismaModule } from '../database/prisma.module';
@@ -25,7 +25,7 @@ export const SIGNED_URL_PROVIDER_TOKEN = 'SIGNED_URL_PROVIDER_TOKEN';
  *   - 'azure'       -> AzureSignedUrlProvider (no-op shell for integrators)
  *   - (unset/other) -> NotConfiguredSignedUrlProvider (throws a configured error)
  */
-function signedUrlProviderFactory(): new (...args: any[]) => SignedUrlProvider {
+function signedUrlProviderFactory(): Type<SignedUrlProvider> {
   const provider = process.env.SIGNED_URL_PROVIDER?.toLowerCase();
   switch (provider) {
     case 's3':

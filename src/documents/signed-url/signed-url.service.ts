@@ -19,7 +19,7 @@ export class SignedUrlService {
   async getSignedUrl(req: SignedUrlRequest): Promise<SignedUrlResponse> {
     try {
       return await this.provider.getSignedUrl(req);
-    } catch (e: any) {
+    } catch (e: unknown) {
       throw new InternalServerErrorException(e?.message ?? 'Failed to get signed URL');
     }
   }

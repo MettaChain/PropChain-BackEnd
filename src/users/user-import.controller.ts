@@ -23,7 +23,7 @@ export class UserImportController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
-  async importCsv(@UploadedFile() file: any) {
+  async importCsv(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }

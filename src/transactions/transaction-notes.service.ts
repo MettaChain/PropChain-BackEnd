@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateNoteDto } from './dto/transaction-note.dto';
 
 @Injectable()
@@ -27,7 +28,7 @@ export class TransactionNotesService {
 
     const isParty = tx.buyerId === viewerId || tx.sellerId === viewerId;
 
-    const where: any = { transactionId };
+    const where: Prisma.TransactionNoteWhereInput = { transactionId };
     if (!isPrivileged && !isParty) {
       where.isPublic = true;
     } else if (!isPrivileged) {

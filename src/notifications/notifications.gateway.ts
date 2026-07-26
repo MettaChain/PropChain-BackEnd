@@ -47,7 +47,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     }
   }
 
-  sendToUser(userId: string, event: string, data: any): boolean {
+  sendToUser(userId: string, event: string, data: unknown): boolean {
     const sockets = this.userSockets.get(userId);
     if (sockets && sockets.length > 0) {
       sockets.forEach((socketId) => {

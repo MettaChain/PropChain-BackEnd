@@ -11,7 +11,7 @@ import { AuditService } from '../../audit/audit.service';
 export class AdminAccessLoggingInterceptor implements NestInterceptor {
   constructor(private readonly auditService: AuditService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest();
 
     const response = context.switchToHttp().getResponse();

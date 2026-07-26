@@ -14,6 +14,10 @@ import {
   isVersionSunset,
 } from './api-version.constants';
 
+interface RequestWithApiVersion extends Request {
+  apiVersion?: ApiVersionEnum;
+}
+
 @Injectable()
 export class VersionMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
@@ -35,7 +39,7 @@ export class VersionMiddleware implements NestMiddleware {
     }
 
     // Store version in request object for use in controllers
-    (req as any).apiVersion = version;
+    (req as RequestWithApiVersion).apiVersion = version;
 
     next();
   }

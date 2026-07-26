@@ -11,7 +11,7 @@ import { RATE_LIMIT_HEADERS } from '../rate-limit.config';
  */
 @Injectable()
 export class RateLimitHeadersInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 

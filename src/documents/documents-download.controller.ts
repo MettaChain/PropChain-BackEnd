@@ -30,6 +30,7 @@ import {
   SignedUploadUrlResponseDto,
 } from './dto/document-access.dto';
 import { DocumentsService } from './documents.service';
+import { CreateDocumentDto } from './dto/document.dto';
 import { SignedUrlService } from './signed-url/signed-url.service';
 import { SignedUrlOperation } from './signed-url/signed-url-provider.interface';
 
@@ -181,7 +182,7 @@ export class DocumentsDownloadController {
    * This expects that fileUrl points to the stored object (CDN URL or provider URL).
    */
   @Post('metadata')
-  async createMetadata(@Body() dto: any, @CurrentUser() user: AuthUserPayload) {
+  async createMetadata(@Body() dto: CreateDocumentDto, @CurrentUser() user: AuthUserPayload) {
     // This endpoint intentionally accepts CreateDocumentDto shape.
     return this.documentsService.create(dto, user.sub);
   }

@@ -2,6 +2,7 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateMilestoneDto, UpdateMilestoneDto } from './dto/timeline.dto';
 import { MilestoneStatus } from '../types/prisma.types';
 
@@ -38,7 +39,7 @@ export class TimelineService {
       throw new NotFoundException('Milestone not found');
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.TransactionMilestoneUpdateInput = {};
     if (dto.title) updateData.title = dto.title;
     if (dto.description) updateData.description = dto.description;
     if (dto.status) updateData.status = dto.status;

@@ -5,6 +5,7 @@ import { PrismaService } from '../database/prisma.service';
 import { parse } from 'csv-parse/sync';
 import { hashPassword } from '../auth/security.utils';
 import { UserRole } from '../types/prisma.types';
+import { Prisma } from '@prisma/client';
 
 interface UserImportRecord {
   email: string;
@@ -45,7 +46,7 @@ export class UserImportService {
       throw new BadRequestException('CSV file is empty');
     }
 
-    const usersToCreate: any[] = [];
+    const usersToCreate: Prisma.UserCreateInput[] = [];
 
     for (let i = 0; i < records.length; i++) {
       const record = records[i];

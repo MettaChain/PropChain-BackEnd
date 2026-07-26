@@ -11,7 +11,7 @@ import { AuthUserPayload } from '../auth/types/auth-user.type';
 export class AnalyticsInterceptor implements NestInterceptor {
   constructor(private readonly analytics: AnalyticsService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest();
     const res = context.switchToHttp().getResponse();
     const start = Date.now();

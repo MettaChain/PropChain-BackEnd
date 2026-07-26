@@ -6,7 +6,7 @@ import { tap } from 'rxjs/operators';
 
 @Injectable()
 export class CacheHeadersInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const res = context.switchToHttp().getResponse();
     const start = Date.now();
 

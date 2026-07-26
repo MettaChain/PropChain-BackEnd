@@ -9,7 +9,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDisputeDto, ResolveDisputeDto } from './dto/dispute.dto';
-import { DisputeStatus } from '../types/prisma.types';
+import { DisputeStatus, UserRole } from '../types/prisma.types';
 
 @Injectable()
 export class DisputesService {
@@ -46,7 +46,7 @@ export class DisputesService {
 
     // Notify admins (#564)
     const admins = await this.prisma.user.findMany({
-      where: { role: 'ADMIN' as any },
+      where: { role: 'ADMIN' as UserRole },
       select: { id: true },
       take: 10,
     });

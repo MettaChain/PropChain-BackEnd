@@ -5,6 +5,7 @@ import { ActivityLogService } from './activity-log.service';
 import { GetActivityLogsDto } from './dto/activity-log.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthUserPayload } from '../auth/types/auth-user.type';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users/activity-logs')
@@ -12,7 +13,7 @@ export class ActivityLogController {
   constructor(private readonly activityLogService: ActivityLogService) {}
 
   @Get()
-  getActivityLogs(@CurrentUser() user: any, @Query() filters: GetActivityLogsDto) {
+  getActivityLogs(@CurrentUser() user: AuthUserPayload, @Query() filters: GetActivityLogsDto) {
     return this.activityLogService.findByUserId(user.id, filters);
   }
 }

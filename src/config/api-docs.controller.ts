@@ -7,8 +7,12 @@
 
 import { Controller, Get, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Application, Response } from 'express';
 import { ApiVersionEnum, API_VERSIONS } from '../versioning/api-version.constants';
+
+interface AppWithOpenApiDoc extends Application {
+  openAPIDocument?: Record<string, unknown>;
+}
 
 @ApiExcludeController()
 @Controller('api')
@@ -19,7 +23,7 @@ export class ApiDocsController {
   @Get('openapi.json')
   getOpenApiSpec(@Res() res: Response) {
     // This will be populated by setupSwagger
-    const spec = (res.req.app as any).openAPIDocument;
+    const spec = (res.req.app as AppWithOpenApiDoc).openAPIDocument;
 
     if (spec) {
       res.json(spec);

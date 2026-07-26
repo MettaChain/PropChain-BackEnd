@@ -8,6 +8,10 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { INestApplication } from '@nestjs/common';
 
+interface AppWithOpenApiDoc {
+  openAPIDocument?: Record<string, unknown>;
+}
+
 export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('PropChain API')
@@ -137,5 +141,5 @@ export function setupOpenAPIEndpoint(app: INestApplication): void {
   const document = SwaggerModule.createDocument(app, config);
 
   // Store document in app for access via endpoint
-  (app as any).openAPIDocument = document;
+  (app as unknown as AppWithOpenApiDoc).openAPIDocument = document;
 }

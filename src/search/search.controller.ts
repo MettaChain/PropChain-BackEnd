@@ -57,7 +57,7 @@ export class SearchController {
   @Post('filters/save')
   @ApiOperation({ summary: 'Save a search filter' })
   @ApiResponse({ status: 201, description: 'Filter saved successfully' })
-  async saveFilter(@Request() req: AuthenticatedRequest, @Body() filter: any) {
+  async saveFilter(@Request() req: AuthenticatedRequest, @Body() filter: Record<string, unknown>) {
     return this.searchService.saveFilter(req.user.id, filter);
   }
 
