@@ -5,7 +5,18 @@
  * This demonstrates how to implement versioning in controllers
  */
 
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Put,
+  Delete,
+  UseGuards,
+  Query,
+  Logger,
+} from '@nestjs/common';
 import { ApiVersion } from '../versioning/api-version.decorator';
 import { GetVersion } from '../versioning/get-version.decorator';
 import { ApiVersionEnum } from '../versioning/api-version.constants';
@@ -19,6 +30,8 @@ import { ApiVersionEnum } from '../versioning/api-version.constants';
  */
 @Controller('users')
 export class UsersControllerExample {
+  private readonly logger = new Logger(UsersControllerExample.name);
+
   /**
    * V1 & V2: List all users
    * Both versions support this endpoint with same response format
@@ -27,7 +40,7 @@ export class UsersControllerExample {
   @ApiVersion([ApiVersionEnum.V1, ApiVersionEnum.V2])
   findAll(@GetVersion() version: ApiVersionEnum) {
     // Can branch logic based on version if needed
-    console.log(`Getting users for version: ${version}`);
+    this.logger.log(`Getting users for version: ${version}`);
     return {
       users: [],
       version,

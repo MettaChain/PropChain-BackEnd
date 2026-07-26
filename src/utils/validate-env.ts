@@ -1,3 +1,7 @@
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('EnvValidation');
+
 const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
 
 export function validateEnvironment(): void {
@@ -10,7 +14,7 @@ export function validateEnvironment(): void {
   }
 
   if (MISSING.length > 0) {
-    console.error(
+    logger.error(
       `\n  Fatal: Missing required environment variables:\n` +
         MISSING.map((k) => `    - ${k}`).join('\n') +
         `\n\n  Please set them in .env or .env.local before starting the application.\n`,
