@@ -1293,6 +1293,21 @@ model ExportJob {
   @@map("export_jobs")
 }
 
+model ComparisonShare {
+  id           String   @id @default(uuid())
+  shareToken   String   @unique @map("share_token")
+  propertyIds  String[] @map("property_ids")
+  createdById  String?  @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  expiresAt    DateTime? @map("expires_at")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([shareToken])
+  @@index([createdById])
+  @@map("comparison_shares")
+}
+
 enum JobType {
   EXPORT
   IMPORT

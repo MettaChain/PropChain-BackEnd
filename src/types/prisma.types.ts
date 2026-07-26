@@ -78,6 +78,7 @@ export enum PropertyStatus {
   SOLD = 'SOLD',
   RENTED = 'RENTED',
   ARCHIVED = 'ARCHIVED',
+  EXPIRED = 'EXPIRED',
 }
 
 export enum TransactionType {
