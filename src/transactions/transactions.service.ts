@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -10,6 +11,7 @@ import { TimelineService } from './timeline.service';
 import { TransactionAuditService } from './transaction-audit.service';
 import { canTransitionTransactionStatus } from './transaction-status.constants';
 import { TransactionStatus } from '../types/prisma.types';
+import { BlockchainTransactionDto, BlockchainVerificationResultDto } from '../blockchain/dto/blockchain.dto';
 import {
   CreateTransactionDto,
   UpdateTransactionDto,
@@ -22,6 +24,20 @@ import {
   TransactionAnalyticsGranularity,
   TransactionAnalyticsQueryDto,
 } from './dto/transaction.dto';
+
+type TransactionWithFullRelations = Prisma.TransactionGetPayload<{
+  include: {
+    property: { select: { id: true; title: true; address: true } };
+    buyer: { select: { id: true; firstName: true; lastName: true; email: true } };
+    seller: { select: { id: true; firstName: true; lastName: true; email: true } };
+  };
+}>;
+
+interface UpdateEscrowDto {
+  escrowStatus?: string;
+  escrowAmount?: number;
+  paymentStatus?: string;
+}
 
 @Injectable()
 export class TransactionsService {
@@ -67,10 +83,10 @@ export class TransactionsService {
           buyerId: dto.buyerId,
           sellerId: dto.sellerId,
           amount: dto.amount,
-          type: dto.type as any,
+          type: dto.type as Prisma.TransactionType,
           status: 'PENDING',
           notes: dto.notes,
-          feeBreakdown: feeBreakdown as any,
+          feeBreakdown: feeBreakdown as Prisma.InputJsonValue,
         },
       });
 
@@ -93,7 +109,7 @@ export class TransactionsService {
       const limit = query.limit ?? 20;
       const skip = (page - 1) * limit;
 
-      const where: any = {};
+      const where: Prisma.TransactionWhereInput = {};
       if (query.propertyId) where.propertyId = query.propertyId;
       if (query.buyerId) where.buyerId = query.buyerId;
       if (query.sellerId) where.sellerId = query.sellerId;
@@ -119,7 +135,7 @@ export class TransactionsService {
         total,
         page,
         limit,
-        items: transactions.map((t: any) => this.toResponseDto(t)),
+        items: transactions.map((t) => this.toResponseDto(t)),
       };
     } catch (error) {
       this.logger.error(`Failed to list transactions: ${error.message}`, error.stack);
@@ -168,7 +184,7 @@ export class TransactionsService {
       const updated = await this.prisma.transaction.update({
         where: { id },
         data: {
-          status: dto.status as any,
+          status: dto.status as Prisma.TransactionStatus,
           notes: dto.notes,
         },
       });
@@ -188,7 +204,10 @@ export class TransactionsService {
   /**
    * Record transaction on blockchain
    */
-  async recordOnBlockchain(id: string, dto: RecordTransactionOnChainDto): Promise<any> {
+  async recordOnBlockchain(
+    id: string,
+    dto: RecordTransactionOnChainDto,
+  ): Promise<{ transaction: TransactionResponseDto; blockchain: BlockchainTransactionDto }> {
     try {
       const transaction = await this.prisma.transaction.findUnique({
         where: { id },
@@ -262,7 +281,7 @@ export class TransactionsService {
   /**
    * Verify transaction on blockchain
    */
-  async verifyOnBlockchain(id: string): Promise<any> {
+  async verifyOnBlockchain(id: string): Promise<BlockchainVerificationResultDto> {
     try {
       const transaction = await this.prisma.transaction.findUnique({
         where: { id },
@@ -314,7 +333,7 @@ export class TransactionsService {
    * Get transaction analytics for operational dashboards.
    */
   async getAnalytics(query: TransactionAnalyticsQueryDto = {}): Promise<TransactionAnalyticsDto> {
-    const where: Record<string, any> = {};
+    const where: Prisma.TransactionWhereInput = {};
     const maxDays = query.maxDays ?? 365;
 
     if (query.startDate && query.endDate) {
@@ -359,17 +378,17 @@ export class TransactionsService {
     });
 
     const totalTransactions = transactions.length;
-    const completedTransactions = transactions.filter((t: any) => t.status === 'COMPLETED');
-    const pendingTransactions = transactions.filter((t: any) => t.status === 'PENDING').length;
-    const cancelledTransactions = transactions.filter((t: any) => t.status === 'CANCELLED').length;
+    const completedTransactions = transactions.filter((t) => t.status === 'COMPLETED');
+    const pendingTransactions = transactions.filter((t) => t.status === 'PENDING').length;
+    const cancelledTransactions = transactions.filter((t) => t.status === 'CANCELLED').length;
 
     const totalVolume = this.roundCurrency(
-      transactions.reduce((sum: number, transaction: any) => {
+      transactions.reduce((sum: number, transaction) => {
         return sum + this.toNumber(transaction.amount);
       }, 0),
     );
     const revenue = this.roundCurrency(
-      completedTransactions.reduce((sum: number, transaction: any) => {
+      completedTransactions.reduce((sum: number, transaction) => {
         return sum + this.toNumber(transaction.amount);
       }, 0),
     );
@@ -421,7 +440,7 @@ export class TransactionsService {
 
       const updated = await this.prisma.transaction.update({
         where: { id: transactionId },
-        data: { status: status as any },
+        data: { status: status as Prisma.TransactionStatus },
       });
 
       // Audit log the transition (#557)
@@ -458,7 +477,7 @@ export class TransactionsService {
       type: string;
     },
     user: { sub: string; email: string; role: string; type: string },
-  ): Promise<any> {
+  ): Promise<TransactionWithFullRelations> {
     const [property, buyer, seller] = await Promise.all([
       this.prisma.property.findUnique({ where: { id: dto.propertyId } }),
       this.prisma.user.findUnique({ where: { id: dto.buyerId } }),
@@ -475,7 +494,7 @@ export class TransactionsService {
         buyerId: dto.buyerId,
         sellerId: dto.sellerId,
         amount: dto.amount,
-        type: dto.type as any,
+        type: dto.type as Prisma.TransactionType,
         status: 'PENDING',
       },
       include: {
@@ -500,10 +519,10 @@ export class TransactionsService {
       strategyType: string;
       estimatedTaxRate?: number;
       explanation?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     },
     user: { sub: string; email: string; role: string; type: string },
-  ): Promise<any> {
+  ): Promise<Prisma.TransactionTaxStrategy> {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },
       include: { property: { select: { id: true, city: true, state: true, country: true } } },
@@ -530,7 +549,7 @@ export class TransactionsService {
           version: 1,
         },
       })
-      .then((result: any) => {
+      .then((result) => {
         this.logger.log(
           `Tax strategy created for transaction ${transactionId}: ${dto.strategyType}`,
         );
@@ -563,7 +582,7 @@ export class TransactionsService {
       jurisdiction?: string;
     },
     user: { sub: string; email: string; role: string; type: string },
-  ): Promise<any> {
+  ): Promise<Prisma.TransactionTaxStrategy> {
     const existing = await this.prisma.transactionTaxStrategy.findFirst({
       where: { id: strategyId, transactionId },
     });
@@ -576,7 +595,7 @@ export class TransactionsService {
       data: {
         ...(dto.strategyType && { strategyType: dto.strategyType }),
         ...(dto.jurisdiction && { jurisdiction: dto.jurisdiction }),
-        version: (existing as any).version + 1,
+        version: existing.version + 1,
       },
     });
   }
@@ -584,14 +603,14 @@ export class TransactionsService {
   /**
    * Convert transaction to response DTO
    */
-  async updateEscrow(transactionId: string, dto: any, actorId?: string) {
+  async updateEscrow(transactionId: string, dto: UpdateEscrowDto, actorId?: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
 
     this.logger.log(`Updating escrow for transaction ${transactionId}`);
-    const data: any = {};
+    const data: Prisma.TransactionUpdateInput = {};
     if (dto.escrowStatus !== undefined) data.escrowStatus = dto.escrowStatus;
     if (dto.escrowAmount !== undefined) data.escrowAmount = dto.escrowAmount;
     if (dto.paymentStatus !== undefined) data.paymentStatus = dto.paymentStatus;
@@ -615,7 +634,7 @@ export class TransactionsService {
     return this.toResponseDto(updated);
   }
 
-  private toResponseDto(transaction: any): TransactionResponseDto {
+  private toResponseDto(transaction: Prisma.Transaction): TransactionResponseDto {
     return {
       id: transaction.id,
       propertyId: transaction.propertyId,
