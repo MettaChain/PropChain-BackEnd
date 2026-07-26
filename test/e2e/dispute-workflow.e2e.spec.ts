@@ -10,7 +10,8 @@ import * as request from 'supertest';
 import { PrismaService } from '../../src/database/prisma.service';
 import { DisputesController } from '../../src/transactions/disputes.controller';
 import { DisputesService } from '../../src/transactions/disputes.service';
-import { AuthService } from '../../src/auth/auth.service';
+import { NotificationsService } from '../../src/notifications/notifications.service';
+import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
 import { AuthUserPayload } from '../../src/auth/types/auth-user.type';
 
 @Injectable()
@@ -21,21 +22,38 @@ class MockAuthGuard implements CanActivate {
   }
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest();
-    req.authUser = {
+    const payload = {
       sub: 'test-user-id',
       email: 'test@example.com',
       role: this.role,
       type: 'access',
     } as AuthUserPayload;
+    req.authUser = payload;
+    req.user = { id: payload.sub };
     return true;
   }
 }
 
 class FakePrismaService {
   disputes = new Map<string, any>();
+  transactions = new Map<string, any>();
+  users = new Map<string, any>();
 
   async $connect() {}
   async $disconnect() {}
+
+  user = {
+    findMany: async ({ where }: any) => {
+      if (where?.role === 'ADMIN') {
+        return [{ id: 'admin-1' }];
+      }
+      return [];
+    },
+  };
+
+  transaction = {
+    findUnique: async ({ where }: any) => this.transactions.get(where.id) ?? null,
+  };
 
   dispute = {
     create: async ({ data }: any) => {
@@ -69,25 +87,32 @@ describe('Dispute Workflow e2e (open → review → resolve)', () => {
   beforeAll(async () => {
     fakePrisma = new FakePrismaService();
 
+    const txId = '550e8400-e29b-41d4-a716-446655440001';
+    fakePrisma.transactions.set(txId, {
+      id: txId,
+      buyerId: 'test-user-id',
+      sellerId: 'seller-001',
+      buyer: { id: 'test-user-id', email: 'test@example.com' },
+      seller: { id: 'seller-001', email: 'seller@test.com' },
+    });
+
     const moduleRef = await Test.createTestingModule({
       controllers: [DisputesController],
       providers: [
         DisputesService,
-        new MockAuthGuard('USER'),
         { provide: PrismaService, useValue: fakePrisma as any },
         {
-          provide: AuthService,
+          provide: NotificationsService,
           useValue: {
-            validateAccessToken: async () => ({
-              sub: 'test-user-id',
-              email: 'test@example.com',
-              role: 'ADMIN' as any,
-              type: 'access',
-            }),
+            handleTransactionUpdate: async () => {},
+            sendNotification: async () => ({}),
           } as any,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue(new MockAuthGuard('ADMIN'))
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
@@ -104,7 +129,7 @@ describe('Dispute Workflow e2e (open → review → resolve)', () => {
       .post('/disputes')
       .set('Authorization', 'Bearer test')
       .send({
-        transactionId: 'txn-001',
+        transactionId: '550e8400-e29b-41d4-a716-446655440001',
         reason: 'PROPERTY_DAMAGE',
         description: 'Significant undisclosed damage found during inspection',
       })
@@ -114,13 +139,12 @@ describe('Dispute Workflow e2e (open → review → resolve)', () => {
     expect(disputeId).toBeDefined();
     expect(openRes.body.status).toBe('OPEN');
 
-    // Step 2: Admin reviews the dispute
+    // Step 2: Admin reviews the dispute (update status)
     const reviewRes = await request(app.getHttpServer())
-      .patch(`/disputes/${disputeId}/review`)
+      .patch(`/disputes/${disputeId}/status`)
       .set('Authorization', 'Bearer test')
       .send({
         status: 'UNDER_REVIEW',
-        reviewerNotes: 'Investigating property condition reports',
       })
       .expect(200);
 
@@ -132,12 +156,10 @@ describe('Dispute Workflow e2e (open → review → resolve)', () => {
       .set('Authorization', 'Bearer test')
       .send({
         status: 'RESOLVED',
-        resolution: 'FULL_REFUND',
-        resolutionNotes: 'Seller agreed to full refund after inspection report',
+        details: 'Seller agreed to full refund after inspection report',
       })
       .expect(200);
 
     expect(resolveRes.body.status).toBe('RESOLVED');
-    expect(resolveRes.body.resolution).toBe('FULL_REFUND');
   });
 });

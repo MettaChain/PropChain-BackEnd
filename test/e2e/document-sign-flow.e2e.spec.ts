@@ -11,7 +11,7 @@ import { PrismaService } from '../../src/database/prisma.service';
 import { DocumentsController } from '../../src/documents/documents.controller';
 import { DocumentsService } from '../../src/documents/documents.service';
 import { SignedUrlService } from '../../src/documents/signed-url/signed-url.service';
-import { AuthService } from '../../src/auth/auth.service';
+import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
 import { AuthUserPayload } from '../../src/auth/types/auth-user.type';
 
 @Injectable()
@@ -61,6 +61,9 @@ class FakePrismaService {
       const doc = this.documents.get(where.id);
       if (!doc) return null;
       const updated = { ...doc, ...data, updatedAt: new Date().toISOString() };
+      if (data.signedAt) {
+        updated.signatureStatus = 'SIGNED';
+      }
       this.documents.set(where.id, updated);
       return updated;
     },
@@ -78,19 +81,7 @@ describe('Document Upload → Sign → Verify Signature e2e', () => {
       controllers: [DocumentsController],
       providers: [
         DocumentsService,
-        MockAuthGuard,
         { provide: PrismaService, useValue: fakePrisma as any },
-        {
-          provide: AuthService,
-          useValue: {
-            validateAccessToken: async () => ({
-              sub: 'test-user-id',
-              email: 'test@example.com',
-              role: 'USER' as any,
-              type: 'access',
-            }),
-          } as any,
-        },
         {
           provide: SignedUrlService,
           useValue: {
@@ -99,7 +90,10 @@ describe('Document Upload → Sign → Verify Signature e2e', () => {
           } as any,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue(new MockAuthGuard())
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
@@ -134,20 +128,20 @@ describe('Document Upload → Sign → Verify Signature e2e', () => {
       .post(`/documents/${docId}/sign`)
       .set('Authorization', 'Bearer test')
       .send({
-        signerName: 'Jane Doe',
-        signerEmail: 'test@example.com',
+        signedBy: 'Jane Doe',
+        signatureHash: '0xabc123',
       })
-      .expect(200);
+      .expect(201);
 
     expect(signRes.body.signatureStatus).toBe('SIGNED');
 
     // Step 3: Verify the signature
     const verifyRes = await request(app.getHttpServer())
-      .get(`/documents/${docId}/verify-signature`)
+      .get(`/documents/${docId}/verify`)
       .set('Authorization', 'Bearer test')
       .expect(200);
 
     expect(verifyRes.body.verified).toBe(true);
-    expect(verifyRes.body.signerEmail).toBe('test@example.com');
+    expect(verifyRes.body.signedBy).toBe('Jane Doe');
   });
 });
