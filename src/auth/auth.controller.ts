@@ -2,6 +2,7 @@
 
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 import {
   ChangePasswordDto,
   CreateApiKeyDto,
@@ -29,7 +30,10 @@ import { VerifyEmailDto } from '../users/dto/email-change.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly apiKeyAnalyticsService: ApiKeyAnalyticsService,
+  ) {}
 
   @Post('register')
   register(@Body() registerDto: RegisterDto, @Req() request: Request) {
@@ -166,7 +170,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('api-keys/:id/usage')
   getApiKeyUsage(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
-    return this.authService.getApiKeyUsage(user, id);
+    return this.apiKeyAnalyticsService.getUsageAnalytics(id, user.sub);
   }
 
   @Post('password-reset/request')
