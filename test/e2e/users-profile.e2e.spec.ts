@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaService } from '../../src/database/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { UsersController } from '../../src/users/users.controller';
 import { UsersService } from '../../src/users/users.service';
 import { ActivityLogService } from '../../src/users/activity-log.service';
@@ -118,6 +119,12 @@ describe('User profile e2e', () => {
         ActivityLogService,
         SessionsService,
         { provide: PrismaService, useValue: fakePrisma as any },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string, defaultValue?: any) => defaultValue,
+          },
+        },
         {
           provide: AuthService,
           useValue: {

@@ -39,6 +39,7 @@ import { MortgageCalculatorModule } from './mortgage-calculator/mortgage-calcula
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { AuditModule } from './audit/audit.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { PropertyTaxModule } from './properties/tax/property-tax.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { MetricsModule } from './metrics/metrics.module';
     SupportTicketsModule,
     AuditModule,
     MetricsModule,
+    PropertyTaxModule,
   ],
 
   controllers: [AppController],

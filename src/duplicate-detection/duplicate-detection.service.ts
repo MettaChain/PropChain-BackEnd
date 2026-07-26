@@ -294,6 +294,202 @@ export class DuplicateDetectionService {
     });
   }
 
+  // ---------- Issue #936: Enhanced Duplicate Detection ----------
+
+  async detectTextSimilarity(
+    propertyA: { description?: string | null; features?: string[] | null },
+    propertyB: { description?: string | null; features?: string[] | null },
+  ): Promise<{ score: number; matchedTerms: string[] }> {
+    const tokenize = (text: string | null | undefined): Set<string> => {
+      if (!text) return new Set();
+      return new Set(
+        text
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter((t) => t.length > 2),
+      );
+    };
+
+    const tokensA = tokenize(propertyA.description);
+    const tokensB = tokenize(propertyB.description);
+
+    const featuresA = new Set((propertyA.features || []).map((f) => f.toLowerCase()));
+    const featuresB = new Set((propertyB.features || []).map((f) => f.toLowerCase()));
+
+    const allTermsA = new Set([...tokensA, ...featuresA]);
+    const allTermsB = new Set([...tokensB, ...featuresB]);
+
+    const intersection = new Set([...allTermsA].filter((t) => allTermsB.has(t)));
+    const union = new Set([...allTermsA, ...allTermsB]);
+
+    const score = union.size === 0 ? 0 : Math.round((intersection.size / union.size) * 100);
+
+    return {
+      score,
+      matchedTerms: Array.from(intersection),
+    };
+  }
+
+  async findNearbyDuplicates(
+    propertyId: string,
+    radiusMeters: number = 500,
+  ): Promise<any[]> {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { latitude: true, longitude: true },
+    });
+
+    if (!property?.latitude || !property?.longitude) {
+      return [];
+    }
+
+    const latDelta = radiusMeters / 111000;
+    const lngDelta = radiusMeters / (111000 * Math.cos((property.latitude * Math.PI) / 180));
+
+    const nearby = await this.prisma.property.findMany({
+      where: {
+        id: { not: propertyId },
+        latitude: {
+          gte: property.latitude - latDelta,
+          lte: property.latitude + latDelta,
+        },
+        longitude: {
+          gte: property.longitude - lngDelta,
+          lte: property.longitude + lngDelta,
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        price: true,
+        latitude: true,
+        longitude: true,
+      },
+      take: 20,
+    });
+
+    return nearby;
+  }
+
+  calculateConfidence(signals: {
+    addressMatch?: boolean;
+    imageSimilarity?: number;
+    textSimilarity?: number;
+    weights?: { address?: number; image?: number; text?: number };
+  }): number {
+    const w = {
+      address: signals.weights?.address ?? 0.4,
+      image: signals.weights?.image ?? 0.35,
+      text: signals.weights?.text ?? 0.25,
+    };
+
+    let score = 0;
+    if (signals.addressMatch) score += 100 * w.address;
+    if (signals.imageSimilarity != null) score += signals.imageSimilarity * w.image;
+    if (signals.textSimilarity != null) score += signals.textSimilarity * w.text;
+
+    return Math.round(Math.min(100, score));
+  }
+
+  async detectBatchDuplicates(
+    propertyIds: string[],
+  ): Promise<Map<string, { matches: any[]; confidence: number }>> {
+    const results = new Map<string, { matches: any[]; confidence: number }>();
+
+    for (const propId of propertyIds) {
+      const property = await this.prisma.property.findUnique({
+        where: { id: propId },
+        include: {
+          owner: { select: { id: true, firstName: true, lastName: true } },
+          images: { select: { id: true, url: true }, take: 5 },
+        },
+      });
+
+      if (!property) continue;
+
+      const matches: any[] = [];
+
+      // Address match
+      const addressMatches = await this.prisma.property.findMany({
+        where: {
+          id: { not: propId },
+          address: { equals: property.address, mode: 'insensitive' },
+          city: { equals: property.city, mode: 'insensitive' },
+          state: { equals: property.state, mode: 'insensitive' },
+          zipCode: property.zipCode,
+        },
+        take: 5,
+      });
+
+      for (const m of addressMatches) {
+        matches.push({ id: m.id, type: 'ADDRESS', address: m.address });
+      }
+
+      // Nearby duplicates
+      const nearby = await this.findNearbyDuplicates(propId, 500);
+      for (const n of nearby) {
+        if (!matches.find((m: any) => m.id === n.id)) {
+          matches.push({ id: n.id, type: 'NEARBY', address: n.address });
+        }
+      }
+
+      const confidence = matches.length > 0
+        ? this.calculateConfidence({ addressMatch: matches.some((m: any) => m.type === 'ADDRESS') })
+        : 0;
+
+      results.set(propId, { matches, confidence });
+    }
+
+    return results;
+  }
+
+  async getDuplicateStats(): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    byType: Record<string, number>;
+  }> {
+    const total = await this.prisma.propertyDuplicate.count();
+
+    const records = await this.prisma.propertyDuplicate.findMany({
+      select: {
+        isMerged: true,
+        isResolved: true,
+        flaggedForReview: true,
+        duplicateType: true,
+      },
+    });
+
+    const byStatus: Record<string, number> = {
+      PENDING: 0,
+      REVIEWED: 0,
+      MERGED: 0,
+      DISMISSED: 0,
+    };
+
+    const byType: Record<string, number> = {};
+
+    for (const r of records) {
+      if (r.isMerged) {
+        byStatus.MERGED++;
+      } else if (r.isResolved) {
+        byStatus.DISMISSED++;
+      } else if (r.flaggedForReview) {
+        byStatus.PENDING++;
+      } else {
+        byStatus.REVIEWED++;
+      }
+
+      byType[r.duplicateType] = (byType[r.duplicateType] || 0) + 1;
+    }
+
+    return { total, byStatus, byType };
+  }
+
   private async findSimilarImages(
     hashes: string[],
     excludeOwnerId: string,

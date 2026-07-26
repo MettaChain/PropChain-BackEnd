@@ -5,14 +5,10 @@ import { PrismaService } from '../database/prisma.service';
 import { UserData } from './types/user-data.interface';
 
 export interface TrustScoreBreakdown {
-  accountAge: { score: number; maxScore: number; percentage: number };
-  emailVerification: { score: number; maxScore: number; percentage: number };
-  twoFactorAuth: { score: number; maxScore: number; percentage: number };
-  profileCompleteness: { score: number; maxScore: number; percentage: number };
-  transactionHistory: { score: number; maxScore: number; percentage: number };
-  propertyListings: { score: number; maxScore: number; percentage: number };
-  apiKeyUsage: { score: number; maxScore: number; percentage: number };
-  passwordSecurity: { score: number; maxScore: number; percentage: number };
+  emailVerified: { score: number; maxScore: number; percentage: number };
+  idVerified: { score: number; maxScore: number; percentage: number };
+  completedTransactions: { score: number; maxScore: number; percentage: number };
+  activityDecay: { score: number; maxScore: number; percentage: number };
   totalScore: number;
   totalMaxScore: number;
 }
@@ -28,7 +24,8 @@ export interface TrustScoreResult {
 @Injectable()
 export class TrustScoreService {
   private readonly logger = new Logger(TrustScoreService.name);
-  private readonly updateIntervalHours = 24; // Recalculate daily
+  private readonly updateIntervalHours = 24;
+  private readonly DECAY_RATE_PER_MONTH = 0.10;
 
   constructor(private prisma: PrismaService) {}
 
@@ -39,11 +36,8 @@ export class TrustScoreService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        properties: true,
         buyerTransactions: true,
         sellerTransactions: true,
-        apiKeys: true,
-        passwordHistory: true,
       },
     });
 
@@ -54,7 +48,6 @@ export class TrustScoreService {
     const breakdown = await this.calculateBreakdown(user);
     const totalScore = this.calculateTotalScore(breakdown);
 
-    // Update user's trust score in database
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -87,7 +80,6 @@ export class TrustScoreService {
       throw new Error('User not found');
     }
 
-    // Check if score needs refresh
     const shouldRefresh =
       forceRefresh || !user.lastTrustScoreUpdate || this.isUpdateNeeded(user.lastTrustScoreUpdate);
 
@@ -95,7 +87,6 @@ export class TrustScoreService {
       return this.calculateTrustScore(userId);
     }
 
-    // Return cached score with breakdown
     const breakdown = await this.getScoreBreakdown(userId);
     const nextUpdateTime = new Date(user.lastTrustScoreUpdate || new Date());
     nextUpdateTime.setHours(nextUpdateTime.getHours() + this.updateIntervalHours);
@@ -116,11 +107,8 @@ export class TrustScoreService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        properties: true,
         buyerTransactions: true,
         sellerTransactions: true,
-        apiKeys: true,
-        passwordHistory: true,
       },
     });
 
@@ -132,191 +120,92 @@ export class TrustScoreService {
   }
 
   /**
-   * Calculate individual score components
+   * Recalculate trust score after relevant events (transaction completion, verification)
    */
-  private async calculateBreakdown(user: UserData): Promise<TrustScoreBreakdown> {
-    const accountAgeScore = this.calculateAccountAge(user.createdAt);
-    const emailVerificationScore = user.isVerified ? 5 : 0;
-    const twoFactorScore = user.twoFactorEnabled ? 5 : 0;
-    const profileCompletenessScore = this.calculateProfileCompleteness(user);
-    const transactionHistoryScore = await this.calculateTransactionHistory(user);
-    const propertyListingsScore = this.calculatePropertyListings(user);
-    const apiKeyUsageScore = this.calculateApiKeyUsage(user.apiKeys);
-    const passwordSecurityScore = this.calculatePasswordSecurity(user.passwordHistory);
+  async recalculateOnEvent(userId: string, eventType: string): Promise<TrustScoreResult> {
+    this.logger.log(`Recalculating trust score for user ${userId} due to event: ${eventType}`);
+    return this.calculateTrustScore(userId);
+  }
+
+  /**
+   * Calculate individual score components
+   * Factors:
+   *  - email_verified: 10 pts
+   *  - id_verified: 20 pts
+   *  - completed_transactions: 15 pts each (max 3 = 45 pts)
+   *  - activity_decay: -10% per month of inactivity
+   */
+  private async calculateBreakdown(user: any): Promise<TrustScoreBreakdown> {
+    const emailVerifiedScore = user.isVerified ? 10 : 0;
+
+    const idVerified = await this.prisma.verificationDocument.findFirst({
+      where: {
+        userId: user.id,
+        status: 'APPROVED',
+      },
+    });
+    const idVerifiedScore = idVerified ? 20 : 0;
+
+    const completedBuyer = user.buyerTransactions?.filter((t: any) => t.status === 'COMPLETED') || [];
+    const completedSeller = user.sellerTransactions?.filter((t: any) => t.status === 'COMPLETED') || [];
+    const totalCompleted = completedBuyer.length + completedSeller.length;
+    const cappedCompleted = Math.min(totalCompleted, 3);
+    const completedTransactionsScore = cappedCompleted * 15;
+
+    const baseScore = emailVerifiedScore + idVerifiedScore + completedTransactionsScore;
+
+    const decayPenalty = this.calculateDecayPenalty(user.lastActivityAt || user.updatedAt);
+
+    const finalScore = Math.max(0, Math.round(baseScore * (1 - decayPenalty)));
 
     return {
-      accountAge: {
-        score: accountAgeScore,
+      emailVerified: {
+        score: emailVerifiedScore,
         maxScore: 10,
-        percentage: (accountAgeScore / 10) * 100,
+        percentage: (emailVerifiedScore / 10) * 100,
       },
-      emailVerification: {
-        score: emailVerificationScore,
-        maxScore: 5,
-        percentage: (emailVerificationScore / 5) * 100,
+      idVerified: {
+        score: idVerifiedScore,
+        maxScore: 20,
+        percentage: (idVerifiedScore / 20) * 100,
       },
-      twoFactorAuth: {
-        score: twoFactorScore,
-        maxScore: 5,
-        percentage: (twoFactorScore / 5) * 100,
+      completedTransactions: {
+        score: completedTransactionsScore,
+        maxScore: 45,
+        percentage: (completedTransactionsScore / 45) * 100,
       },
-      profileCompleteness: {
-        score: profileCompletenessScore,
-        maxScore: 15,
-        percentage: (profileCompletenessScore / 15) * 100,
+      activityDecay: {
+        score: finalScore,
+        maxScore: baseScore,
+        percentage: baseScore > 0 ? (finalScore / baseScore) * 100 : 100,
       },
-      transactionHistory: {
-        score: transactionHistoryScore,
-        maxScore: 25,
-        percentage: (transactionHistoryScore / 25) * 100,
-      },
-      propertyListings: {
-        score: propertyListingsScore,
-        maxScore: 15,
-        percentage: (propertyListingsScore / 15) * 100,
-      },
-      apiKeyUsage: {
-        score: apiKeyUsageScore,
-        maxScore: 10,
-        percentage: (apiKeyUsageScore / 10) * 100,
-      },
-      passwordSecurity: {
-        score: passwordSecurityScore,
-        maxScore: 10,
-        percentage: (passwordSecurityScore / 10) * 100,
-      },
-      totalScore: 0,
-      totalMaxScore: 95,
+      totalScore: finalScore,
+      totalMaxScore: 75,
     };
   }
 
   /**
-   * Calculate account age score
-   * Newer accounts get lower score
+   * Calculate decay penalty based on months of inactivity.
+   * Decay rate: 10% per month of inactivity (capped at 90%).
    */
-  private calculateAccountAge(createdAt: Date): number {
-    const ageInDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+  private calculateDecayPenalty(lastActivityAt: Date | null): number {
+    if (!lastActivityAt) return 0;
 
-    // Scale: 0 days = 0 points, 365+ days = 10 points
-    if (ageInDays >= 365) return 10;
-    if (ageInDays >= 180) return 8;
-    if (ageInDays >= 90) return 6;
-    if (ageInDays >= 30) return 4;
-    if (ageInDays >= 7) return 2;
-    return 0;
-  }
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(lastActivityAt).getTime();
+    const monthsInactive = diffMs / (1000 * 60 * 60 * 24 * 30.44);
 
-  /**
-   * Calculate profile completeness score
-   */
-  private calculateProfileCompleteness(user: UserData): number {
-    let score = 0;
+    if (monthsInactive < 1) return 0;
 
-    if (user.firstName) score += 3;
-    if (user.lastName) score += 3;
-    if (user.phone) score += 3;
-    if (user.avatar) score += 3;
-    if (user.email) score += 3;
-
-    return Math.min(score, 15);
-  }
-
-  /**
-   * Calculate transaction history score
-   */
-  private async calculateTransactionHistory(user: UserData): Promise<number> {
-    const completedTransactions = [
-      ...user.buyerTransactions.filter((t) => t.status === 'COMPLETED'),
-      ...user.sellerTransactions.filter((t) => t.status === 'COMPLETED'),
-    ];
-
-    if (completedTransactions.length === 0) return 0;
-
-    // Score based on transaction count and consistency
-    let score = 0;
-    if (completedTransactions.length >= 50) score = 25;
-    else if (completedTransactions.length >= 25) score = 20;
-    else if (completedTransactions.length >= 10) score = 15;
-    else if (completedTransactions.length >= 5) score = 10;
-    else if (completedTransactions.length >= 1) score = 5;
-
-    return score;
-  }
-
-  /**
-   * Calculate property listings score
-   */
-  private calculatePropertyListings(user: UserData): number {
-    if (!user.properties || user.properties.length === 0) return 0;
-
-    const activeListings = user.properties.filter((p) => p.status === 'ACTIVE').length;
-
-    let score = 0;
-    if (activeListings >= 20) score = 15;
-    else if (activeListings >= 10) score = 12;
-    else if (activeListings >= 5) score = 10;
-    else if (activeListings >= 2) score = 7;
-    else if (activeListings >= 1) score = 4;
-
-    return score;
-  }
-
-  /**
-   * Calculate API key usage score
-   */
-  private calculateApiKeyUsage(apiKeys: UserData['apiKeys']): number {
-    if (!apiKeys || apiKeys.length === 0) return 0;
-
-    // Score based on active, non-revoked API keys with recent usage
-    const activeKeys = apiKeys.filter(
-      (k) => !k.revokedAt && (!k.expiresAt || k.expiresAt > new Date()),
-    );
-
-    const recentlyUsedKeys = activeKeys.filter(
-      (k) => k.lastUsedAt && Date.now() - k.lastUsedAt.getTime() < 30 * 24 * 60 * 60 * 1000, // Last 30 days
-    );
-
-    if (recentlyUsedKeys.length >= 3) return 10;
-    if (recentlyUsedKeys.length === 2) return 7;
-    if (recentlyUsedKeys.length === 1) return 5;
-    return 0;
-  }
-
-  /**
-   * Calculate password security score
-   */
-  private calculatePasswordSecurity(passwordHistory: UserData['passwordHistory']): number {
-    if (!passwordHistory || passwordHistory.length === 0) return 0;
-
-    // Recent password change is good
-    const latestPasswordChange = passwordHistory[0];
-    const daysSinceChange =
-      (Date.now() - latestPasswordChange.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-
-    // Score based on password update frequency
-    if (daysSinceChange <= 90) return 10;
-    if (daysSinceChange <= 180) return 8;
-    if (daysSinceChange <= 365) return 6;
-    if (daysSinceChange <= 730) return 4;
-    return 2;
+    const penalty = Math.min(monthsInactive * this.DECAY_RATE_PER_MONTH, 0.90);
+    return penalty;
   }
 
   /**
    * Calculate total trust score
    */
   private calculateTotalScore(breakdown: TrustScoreBreakdown): number {
-    const total =
-      breakdown.accountAge.score +
-      breakdown.emailVerification.score +
-      breakdown.twoFactorAuth.score +
-      breakdown.profileCompleteness.score +
-      breakdown.transactionHistory.score +
-      breakdown.propertyListings.score +
-      breakdown.apiKeyUsage.score +
-      breakdown.passwordSecurity.score;
-
-    // Convert to 0-100 scale
-    return Math.round((total / breakdown.totalMaxScore) * 100);
+    return breakdown.totalScore;
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { TransactionStatus } from '../types/prisma.types';
@@ -18,6 +19,12 @@ import {
   BlockchainNetwork,
   GetBlockchainStatsDto,
 } from './dto/blockchain.dto';
+import {
+  RpcHealthCheckResult,
+  RpcProviderStatus,
+  GasPriceResult,
+  RpcHealthSummaryDto,
+} from './dto/rpc-health.dto';
 import { BlockchainErrorClassifier, BlockchainErrorType } from './errors/blockchain-error';
 
 interface BlockchainConfig {
@@ -40,6 +47,17 @@ interface BlockchainTransaction {
   createdAt: Date;
 }
 
+interface RpcProviderState {
+  url: string;
+  isActive: boolean;
+  isHealthy: boolean;
+  lastCheckAt: Date | null;
+  latencyMs: number | null;
+  consecutiveFailures: number;
+  lastBlockNumber: number | null;
+  lastGasPrice: string | null;
+}
+
 @Injectable()
 export class BlockchainService {
   private readonly logger = new Logger(BlockchainService.name);
@@ -47,6 +65,14 @@ export class BlockchainService {
   private web3: any;
   private contract: any;
   private transactionCache = new Map<string, BlockchainTransaction>();
+
+  // ─── RPC Health Monitoring & Provider Failover ────────────────────────────
+  private rpcProviders: RpcProviderState[] = [];
+  private activeRpcIndex = 0;
+  private lastHealthCheck: Date | null = null;
+  private readonly HEALTH_CHECK_INTERVAL_MS = 30_000;
+  private readonly MAX_CONSECUTIVE_FAILURES = 3;
+  private readonly RPC_TIMEOUT_MS = 10_000;
 
   // Only COMPLETED transactions are allowed to be recorded on the blockchain
   private static readonly ALLOWED_TRANSACTION_STATUSES: TransactionStatus[] = [
@@ -67,6 +93,202 @@ export class BlockchainService {
     private prisma: PrismaService,
   ) {
     this.initializeConfig();
+    this.initializeRpcProviders();
+  }
+
+  // ─── RPC Health Monitoring & Failover Methods ────────────────────────────
+
+  private initializeRpcProviders() {
+    const primaryRpc = this.config?.rpcUrl;
+    const additionalRpc = this.configService.get('BLOCKCHAIN_RPC_URLS', '')
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+    const urls = [primaryRpc, ...additionalRpc].filter(Boolean);
+    this.rpcProviders = urls.map((url) => ({
+      url,
+      isActive: true,
+      isHealthy: true,
+      lastCheckAt: null,
+      latencyMs: null,
+      consecutiveFailures: 0,
+      lastBlockNumber: null,
+      lastGasPrice: null,
+    }));
+
+    if (this.rpcProviders.length === 0) {
+      this.logger.warn('No RPC providers configured');
+    } else {
+      this.logger.log(`Initialized ${this.rpcProviders.length} RPC provider(s)`);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_30_SECONDS)
+  async checkRpcHealth() {
+    if (!this.config?.enabled || this.rpcProviders.length === 0) return;
+
+    const checks = this.rpcProviders.map((provider) => this.checkSingleRpcHealth(provider));
+    await Promise.allSettled(checks);
+
+    this.lastHealthCheck = new Date();
+
+    // Failover: if active provider is unhealthy, switch to next healthy one
+    const activeProvider = this.rpcProviders[this.activeRpcIndex];
+    if (!activeProvider?.isHealthy) {
+      const nextHealthy = this.rpcProviders.findIndex(
+        (p, i) => i !== this.activeRpcIndex && p.isHealthy && p.isActive,
+      );
+      if (nextHealthy !== -1) {
+        this.logger.warn(
+          `Failing over RPC from ${activeProvider?.url} to ${this.rpcProviders[nextHealthy].url}`,
+        );
+        this.activeRpcIndex = nextHealthy;
+      } else {
+        this.logger.error('All RPC providers are unhealthy - service degraded');
+      }
+    }
+  }
+
+  private async checkSingleRpcHealth(provider: RpcProviderState): Promise<void> {
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.RPC_TIMEOUT_MS);
+
+      const response = await fetch(provider.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_blockNumber',
+          params: [],
+          id: 1,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      const latencyMs = Date.now() - start;
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const blockNumber = data.result ? parseInt(data.result, 16) : null;
+
+      // Get gas price
+      let gasPrice: string | null = null;
+      try {
+        const gpController = new AbortController();
+        const gpTimeout = setTimeout(() => gpController.abort(), this.RPC_TIMEOUT_MS);
+        const gpResponse = await fetch(provider.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_gasPrice',
+            params: [],
+            id: 2,
+          }),
+          signal: gpController.signal,
+        });
+        clearTimeout(gpTimeout);
+        if (gpResponse.ok) {
+          const gpData = await gpResponse.json();
+          if (gpData.result) {
+            gasPrice = (parseInt(gpData.result, 16) / 1e9).toFixed(2) + ' gwei';
+          }
+        }
+      } catch {
+        // Gas price fetch is non-critical
+      }
+
+      provider.isHealthy = true;
+      provider.lastCheckAt = new Date();
+      provider.latencyMs = latencyMs;
+      provider.consecutiveFailures = 0;
+      provider.lastBlockNumber = blockNumber;
+      provider.lastGasPrice = gasPrice;
+    } catch (error) {
+      provider.consecutiveFailures++;
+      provider.isHealthy = provider.consecutiveFailures < this.MAX_CONSECUTIVE_FAILURES;
+      provider.lastCheckAt = new Date();
+      provider.latencyMs = null;
+      this.logger.warn(
+        `RPC health check failed for ${provider.url}: ${error.message} (failures: ${provider.consecutiveFailures})`,
+      );
+    }
+  }
+
+  async getRpcHealthSummary(): Promise<RpcHealthSummaryDto> {
+    return {
+      providers: this.rpcProviders.map((p) => ({
+        url: p.url,
+        isActive: p.isActive,
+        isHealthy: p.isHealthy,
+        lastCheckAt: p.lastCheckAt,
+        latencyMs: p.latencyMs,
+        consecutiveFailures: p.consecutiveFailures,
+      })),
+      activeProvider: this.rpcProviders[this.activeRpcIndex]?.url || '',
+      lastCheckAt: this.lastHealthCheck,
+      network: this.config?.network || BlockchainNetwork.SEPOLIA,
+    };
+  }
+
+  async getGasPrice(): Promise<GasPriceResult> {
+    const provider = this.rpcProviders[this.activeRpcIndex];
+    if (!provider?.isHealthy) {
+      // Return graceful fallback
+      return {
+        low: 'N/A',
+        medium: 'N/A',
+        high: 'N/A',
+        timestamp: new Date(),
+      };
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.RPC_TIMEOUT_MS);
+      const response = await fetch(provider.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_gasPrice',
+          params: [],
+          id: 1,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const basePrice = data.result ? parseInt(data.result, 16) / 1e9 : 0;
+
+      return {
+        low: (basePrice * 0.8).toFixed(2) + ' gwei',
+        medium: basePrice.toFixed(2) + ' gwei',
+        high: (basePrice * 1.5).toFixed(2) + ' gwei',
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      this.logger.warn(`Gas price fetch failed: ${error.message}`);
+      return { low: 'N/A', medium: 'N/A', high: 'N/A', timestamp: new Date() };
+    }
+  }
+
+  private getActiveRpcUrl(): string {
+    const provider = this.rpcProviders[this.activeRpcIndex];
+    if (!provider?.isHealthy) {
+      // Graceful degradation: use config URL as last resort
+      return this.config?.rpcUrl || '';
+    }
+    return provider.url;
   }
 
   /**

@@ -5,9 +5,10 @@ import { OpenHouseController } from './open-house.controller';
 import { OpenHouseService } from './open-house.service';
 import { PrismaModule } from '../database/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule],
+  imports: [PrismaModule, NotificationsModule, ScheduleModule.forRoot()],
   controllers: [OpenHouseController],
   providers: [OpenHouseService],
   exports: [OpenHouseService],

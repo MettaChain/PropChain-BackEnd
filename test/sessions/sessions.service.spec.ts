@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SessionsService } from '../../src/sessions/sessions.service';
 import { PrismaService } from '../../src/database/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('SessionsService', () => {
   let service: SessionsService;
@@ -19,7 +20,7 @@ describe('SessionsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SessionsService, { provide: PrismaService, useValue: mockPrismaService }],
+      providers: [SessionsService, { provide: PrismaService, useValue: mockPrismaService }, { provide: ConfigService, useValue: { get: (key: string, defaultValue?: any) => defaultValue } }],
     }).compile();
 
     service = module.get<SessionsService>(SessionsService);

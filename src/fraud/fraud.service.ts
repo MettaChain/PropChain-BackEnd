@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SmsService } from '../notifications/sms.service';
 import {
   AddFraudInvestigationNoteDto,
   BlockFraudUserDto,
@@ -47,6 +48,7 @@ export class FraudService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
     private readonly configService: ConfigService,
   ) {
     this.fraudAlertRecipients = (this.configService.get<string>('FRAUD_ALERT_RECIPIENTS') ?? '')
@@ -686,10 +688,8 @@ export class FraudService {
         },
       });
 
-      // Send notification only if severity increased or occurrence count is a multiple of 5
-      // This prevents spamming admins with repeated low-severity alerts
       if (severityIncreased || updated.occurrenceCount % 5 === 0) {
-        await this.notifySecurityTeam(updated, true);
+        await this.deliverMultiChannelNotifications(updated, payload);
       }
 
       if (
@@ -753,7 +753,7 @@ export class FraudService {
       });
     }
 
-    await this.notifySecurityTeam(created, false);
+    await this.deliverMultiChannelNotifications(created, payload);
 
     if (payload.autoBlockUser && payload.userId) {
       await this.blockUserForFraud(
@@ -765,6 +765,88 @@ export class FraudService {
     }
 
     return created;
+  }
+
+  /**
+   * Multi-channel notification delivery based on alert severity:
+   *  - ALL severities: in-app + email to security team
+   *  - HIGH + CRITICAL: email to user
+   *  - CRITICAL: SMS to user (if available)
+   */
+  private async deliverMultiChannelNotifications(alert: any, payload: AlertPayload) {
+    try {
+      await this.notifySecurityTeam(alert, false);
+    } catch (error) {
+      this.logger.error(`Failed to send security team notification: ${error.message}`);
+    }
+
+    if (
+      (payload.severity === FraudSeverity.HIGH || payload.severity === FraudSeverity.CRITICAL) &&
+      alert.user?.email
+    ) {
+      try {
+        await this.emailService.sendEmail({
+          to: alert.user.email,
+          subject: `[Security Alert][${payload.severity}] ${payload.title}`,
+          html: `
+            <h2>Fraud Alert - ${payload.severity}</h2>
+            <p>${payload.description}</p>
+            <p>If you did not perform this action, please secure your account immediately and contact support.</p>
+          `,
+          userId: payload.userId,
+          emailType: 'FRAUD_ALERT',
+        });
+      } catch (error) {
+        this.logger.error(`Failed to send fraud alert email to user: ${error.message}`);
+      }
+    }
+
+    if (payload.severity === FraudSeverity.CRITICAL && alert.user?.email) {
+      try {
+        const phone = await this.getUserPhone(payload.userId);
+        if (phone) {
+          await this.smsService.sendSms(
+            phone,
+            `[CRITICAL Security Alert] ${payload.title}. ${payload.description} Please secure your account immediately.`,
+          );
+        } else {
+          this.logger.warn(`No phone number for user ${payload.userId}, skipping SMS notification`);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to send fraud alert SMS: ${error.message}`);
+      }
+    }
+
+    if (payload.userId) {
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: payload.userId,
+            title: `Security Alert: ${payload.title}`,
+            message: payload.description,
+            type: 'FRAUD_ALERT',
+            status: 'PENDING',
+            metadata: {
+              severity: payload.severity,
+              pattern: payload.pattern,
+              score: payload.score,
+              alertId: alert.id,
+            },
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to create in-app notification: ${error.message}`);
+      }
+    }
+  }
+
+  private async getUserPhone(userId?: string): Promise<string | null> {
+    if (!userId) return null;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    });
+    return user?.phone ?? null;
   }
 
   private async findOpenAlert(payload: AlertPayload) {
