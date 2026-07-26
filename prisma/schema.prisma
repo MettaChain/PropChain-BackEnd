@@ -551,6 +551,7 @@ model PropertyView {
   user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([propertyId, viewedAt])
+  @@index([propertyId, userId, viewedAt])
   @@index([userId])
   @@index([ipAddress])
   @@map("property_views")
@@ -661,6 +662,7 @@ model Transaction {
   @@index([propertyId])
   @@index([buyerId])
   @@index([sellerId])
+  @@index([buyerId, sellerId])
   @@index([status])
   @@index([blockchainHash])
   @@map("transactions")
@@ -1055,6 +1057,7 @@ model Dispute {
   @@index([transactionId])
   @@index([initiatorId])
   @@index([status])
+  @@index([status, transactionId])
   @@map("disputes")
 }
 
