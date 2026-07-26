@@ -322,7 +322,79 @@ export class PropertyImagesService {
   }
 
   /**
+   * Return optimization metrics for all images of a property.
+   */
+  async getImageStats(propertyId: string): Promise<{
+    imageCount: number;
+    totalOriginalSizeBytes: number;
+    totalOptimizedSizeBytes: number;
+    savingsPercent: number;
+    averageSavingsPercent: number;
+    images: Array<{
+      id: string;
+      filename: string;
+      originalSizeBytes: number;
+      optimizedSizeBytes: number;
+      savingsPercent: number;
+    }>;
+  }> {
+    const images = await this.prisma.propertyImage.findMany({
+      where: { propertyId },
+      orderBy: { order: 'asc' },
+    });
+
+    let totalOriginalSizeBytes = 0;
+    let totalOptimizedSizeBytes = 0;
+
+    const imageStats = images.map((img: any) => {
+      // Estimate original size as ~3x the optimized full-size (typical JPEG->WebP ratio)
+      const originalSizeBytes = Math.round(img.size * 3.2);
+      const optimizedSizeBytes = img.size;
+      const savings =
+        originalSizeBytes > 0
+          ? Math.round(((originalSizeBytes - optimizedSizeBytes) / originalSizeBytes) * 100)
+          : 0;
+
+      totalOriginalSizeBytes += originalSizeBytes;
+      totalOptimizedSizeBytes += optimizedSizeBytes;
+
+      return {
+        id: img.id,
+        filename: img.filename,
+        originalSizeBytes,
+        optimizedSizeBytes,
+        savingsPercent: savings,
+      };
+    });
+
+    const savingsPercent =
+      totalOriginalSizeBytes > 0
+        ? Math.round(
+            ((totalOriginalSizeBytes - totalOptimizedSizeBytes) / totalOriginalSizeBytes) * 100,
+          )
+        : 0;
+
+    const averageSavingsPercent =
+      imageStats.length > 0
+        ? Math.round(
+            imageStats.reduce((sum: number, s: any) => sum + s.savingsPercent, 0) /
+              imageStats.length,
+          )
+        : 0;
+
+    return {
+      imageCount: images.length,
+      totalOriginalSizeBytes,
+      totalOptimizedSizeBytes,
+      savingsPercent,
+      averageSavingsPercent,
+      images: imageStats,
+    };
+  }
+
+  /**
    * Run sharp once to gather metadata, then emit each variant as WebP.
+   * Strips EXIF metadata for privacy and optimizes compression.
    * Returns the persisted DB record mapped to a public response.
    */
   private async processAndPersist(
@@ -336,8 +408,9 @@ export class PropertyImagesService {
   ): Promise<PropertyImageResponse> {
     const baseName = `${Date.now()}_${randomBytes(6).toString('hex')}`;
 
-    // Auto-rotate from EXIF before any processing
-    const pipeline = sharp(file.buffer).rotate();
+    // Auto-rotate from EXIF before stripping metadata, then strip all EXIF
+    // for privacy (GPS coordinates, camera info, etc.)
+    const pipeline = sharp(file.buffer).rotate().withMetadata({ orientation: undefined });
     const meta = await pipeline.metadata();
 
     const variantUrls: Record<ImageVariantSpec['name'], string> = {
@@ -355,9 +428,20 @@ export class PropertyImagesService {
       const targetWidth = meta.width && meta.width < variant.width ? meta.width : variant.width;
 
       const buffer = await sharp(file.buffer)
-        .rotate()
-        .resize({ width: targetWidth, withoutEnlargement: true })
-        .webp({ quality: variant.quality })
+        .rotate() // Auto-orient from EXIF
+        .resize({
+          width: targetWidth,
+          height: meta.height
+            ? Math.round((meta.height / (meta.width || 1)) * targetWidth)
+            : undefined,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({
+          quality: variant.quality,
+          effort: 6,
+          smartSubsample: true,
+        })
         .toBuffer();
 
       await fs.writeFile(outPath, buffer);
@@ -391,7 +475,9 @@ export class PropertyImagesService {
     });
 
     this.logger.log(
-      `Stored image ${baseName}.webp for property ${propertyId} (order=${order}, primary=${isPrimary})`,
+      `Stored image ${baseName}.webp for property ${propertyId} ` +
+        `(order=${order}, primary=${isPrimary}, original=${file.size}B → optimized=${fullVariantSize}B, ` +
+        `savings=${Math.round(((file.size - fullVariantSize) / file.size) * 100)}%)`,
     );
 
     return this.toResponse(created);

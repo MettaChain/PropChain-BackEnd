@@ -85,7 +85,31 @@ A good PR should be:
 - Address feedback promptly by updating the branch.
 - Rebase or merge `main` if needed to resolve conflicts.
 
-## 7. Code Style and Standards
+## 7. Pre-commit Hooks
+
+This repository uses **Husky** and **lint-staged** to enforce code quality on every commit.
+
+When you run `git commit`, the following checks execute automatically:
+
+1. **ESLint** runs with `--fix` on all staged `.ts` files
+2. **Prettier** formats all staged `.ts`, `.json`, and `.md` files
+
+If any check fails, the commit is blocked. Fix the issues before committing:
+
+```bash
+# Check for lint errors manually
+npm run lint
+
+# Fix formatting manually
+npm run format
+```
+
+### Configuration Files
+
+- `.husky/pre-commit` - Runs `lint-staged` on commit
+- `.lintstagedrc.json` - Defines which tools run on which files
+
+## 8. Code Style and Standards
 
 This repository uses ESLint and Prettier.
 
@@ -94,7 +118,7 @@ This repository uses ESLint and Prettier.
 - Prefer small, testable changes.
 - Avoid commented-out code in production commits.
 
-## 8. Additional Notes
+## 9. Additional Notes
 
 - If your change involves database migrations, include migration details in the PR.
 - If you add or update docs, link them from the PR description.
