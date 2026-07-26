@@ -113,19 +113,13 @@ The application uses environment variables for configuration. Copy `.env.example
 | `JWT_REFRESH_EXPIRES_IN` | Refresh token expiration | 7d |
 | `BCRYPT_ROUNDS` | Password hashing rounds | 12 |
 | `PASSWORD_HISTORY_LIMIT` | Password history limit | 5 |
-<<<<<<< ours
-| `RECAPTCHA_SECRET` | Private API secret key for Google reCAPTCHA validation | Required |
-| `CAPTCHA_THRESHOLD` | Minimum score required to pass reCAPTCHA v3 verification | 0.5 |
-| `BASE_URL` | The root domain URL of this running API server instance | http://localhost:3000 |
-| `AVATAR_UPLOAD_DIR` | Local disk directory path for saving user profile avatars | ./uploads/avatars |
-| `CORS_ORIGINS` | Comma-separated list of allowed cross-origin request sources | http://localhost:3000 |
-=======
 | `PASSWORD_MIN_LENGTH` | Minimum password length | 8 |
 | `PASSWORD_REQUIRE_UPPERCASE` | Require uppercase in password | true |
 | `PASSWORD_REQUIRE_LOWERCASE` | Require lowercase in password | true |
 | `PASSWORD_REQUIRE_DIGIT` | Require digit in password | true |
 | `PASSWORD_REQUIRE_SPECIAL` | Require special char in password | true |
 | `PASSWORD_SPECIAL_CHARS` | Allowed special characters | !@#$%^&*()_+-=... |
+| `FRONTEND_URL` | Frontend application URL for email links | http://localhost:3000 |
 | `RECAPTCHA_SECRET` | Google reCAPTCHA v3 private key | Required |
 | `CAPTCHA_THRESHOLD` | Minimum reCAPTCHA score to pass | 0.5 |
 | `BASE_URL` | Root URL of this API server | http://localhost:3000 |
@@ -158,7 +152,6 @@ The application uses environment variables for configuration. Copy `.env.example
 | `CACHE_WARMING_ENABLED` | Enable cache warming on startup | false |
 | `CACHE_WARMING_INTERVAL` | Cache warming interval (ms) | — |
 | `TEST_DATABASE_URL` | PostgreSQL URL for integration tests | — |
->>>>>>> theirs
 
 ## 🗄️ Database Setup
 
