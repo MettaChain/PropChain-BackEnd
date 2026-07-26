@@ -1,5 +1,7 @@
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TransactionCancellationService } from './transaction-cancellation.service';
+import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const mockTx = {
   id: 'tx-1',
@@ -29,7 +31,10 @@ describe('TransactionCancellationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new TransactionCancellationService(mockPrisma as any, mockNotifications as any);
+    service = new TransactionCancellationService(
+      mockPrisma as unknown as PrismaService,
+      mockNotifications as unknown as NotificationsService,
+    );
   });
 
   describe('cancel', () => {

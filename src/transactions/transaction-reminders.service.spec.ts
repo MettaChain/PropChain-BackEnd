@@ -1,4 +1,7 @@
 import { TransactionRemindersService } from './transaction-reminders.service';
+import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { CacheService } from '../cache/cache.service';
 
 const mockMilestone = {
   id: 'ms-1',
@@ -28,9 +31,9 @@ const mockCache = {
 
 function makeService(): TransactionRemindersService {
   return new TransactionRemindersService(
-    mockPrisma as any,
-    mockNotifications as any,
-    mockCache as any,
+    mockPrisma as unknown as PrismaService,
+    mockNotifications as unknown as NotificationsService,
+    mockCache as unknown as CacheService,
   );
 }
 
@@ -142,8 +145,9 @@ describe('TransactionRemindersService', () => {
     it('respects buyer opt-out preference', async () => {
       mockCache.setNx.mockResolvedValue(true);
       mockPrisma.transactionMilestone.findMany.mockResolvedValue([mockMilestone]);
-      mockPrisma.userPreferences.findUnique.mockImplementation(({ where }: any) =>
-        where.userId === 'buyer-1' ? { optOutReminders: true } : null,
+      mockPrisma.userPreferences.findUnique.mockImplementation(
+        ({ where }: { where: { userId: string } }) =>
+          where.userId === 'buyer-1' ? { optOutReminders: true } : null,
       );
 
       const result = await makeService().sendDeadlineReminders();

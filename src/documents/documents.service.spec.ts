@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PassThrough } from 'stream';
+import { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../database/prisma.service';
+import { CreateDocumentDto, UpdateDocumentDto, SignDocumentDto } from './dto/document.dto';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -125,16 +127,22 @@ describe('DocumentsService', () => {
 
   describe('bulkDownload', () => {
     /** Create a mock writable stream that acts like an Express Response */
-    function mockStreamRes() {
-      const stream = new PassThrough();
-      (stream as any).setHeader = jest.fn();
-      (stream as any).setHeaders = jest.fn();
+    function mockStreamRes(): Response {
+      const stream = new PassThrough() as PassThrough & {
+        setHeader: jest.Mock;
+        setHeaders: jest.Mock;
+      };
+      stream.setHeader = jest.fn();
+      stream.setHeaders = jest.fn();
       // Suppress the 'data' events to avoid jest hanging
-      jest.spyOn(stream, 'pipe').mockImplementation(function (this: any, dest: any) {
+      jest.spyOn(stream, 'pipe').mockImplementation(function (
+        this: PassThrough,
+        dest: NodeJS.WritableStream & { end: (chunk: string) => void },
+      ) {
         dest.end('fake-zip-data');
-        return dest;
+        return dest as unknown as ReturnType<PassThrough['pipe']>;
       });
-      return stream as any;
+      return stream as unknown as Response;
     }
 
     it('should throw NotFoundException when no documents found', async () => {
@@ -219,7 +227,7 @@ describe('DocumentsService', () => {
     it('create', async () => {
       mockPrismaService.document.create.mockResolvedValue({ id: 'doc-1' });
       const result = await service.create(
-        { documentType: 'TITLE_DEED', propertyId: 'prop-1' } as any,
+        { documentType: 'TITLE_DEED', propertyId: 'prop-1' } as CreateDocumentDto,
         'user-1',
       );
       expect(result.id).toBe('doc-1');
@@ -249,7 +257,7 @@ describe('DocumentsService', () => {
     it('update', async () => {
       mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
       mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', status: 'VERIFIED' });
-      expect(await service.update('doc-1', { status: 'VERIFIED' } as any)).toHaveProperty('status', 'VERIFIED');
+      expect(await service.update('doc-1', { status: 'VERIFIED' } as UpdateDocumentDto)).toHaveProperty('status', 'VERIFIED');
     });
 
     it('remove', async () => {
@@ -261,8 +269,8 @@ describe('DocumentsService', () => {
 
   describe('Extended Coverage Operations - Branches', () => {
     it('should execute methods with alternate parameters to trigger secondary branches', async () => {
-      const safeExec = async (promise: any) => {
-        try { await promise; } catch (e) {}
+      const safeExec = async (promise: Promise<unknown>) => {
+        try { await promise; } catch (e) { /* expected in some branches */ }
       };
       
       // Execute standard paths
@@ -273,17 +281,17 @@ describe('DocumentsService', () => {
       await safeExec(service.deleteExpired());
       await safeExec(service.flagExpiryNotified('doc-1'));
       // Fixed: Removed the 3rd argument
-      await safeExec(service.signDocument('doc-1', { signature: 'test' } as any));
+      await safeExec(service.signDocument('doc-1', { signature: 'test' } as unknown as SignDocumentDto));
       // Fixed: Removed the 2nd argument
       await safeExec(service.verifySignature('doc-1'));
 
       // Execute alternate paths (missing users, admin roles, null parameters)
-      await safeExec(service.getVersions('doc-1', null as any, 'ADMIN'));
-      await safeExec(service.getVersion('doc-1', 'v1', null as any, 'ADMIN'));
-      await safeExec(service.findAuthorizedById('doc-1', null as any, null as any));
-      await safeExec(service.findAll(null as any, { category: 'legal' } as any, 'ADMIN'));
+      await safeExec(service.getVersions('doc-1', null as unknown as string, 'ADMIN'));
+      await safeExec(service.getVersion('doc-1', 'v1', null as unknown as string, 'ADMIN'));
+      await safeExec(service.findAuthorizedById('doc-1', null as unknown as string, null as unknown as string));
+      await safeExec(service.findAll(null as unknown as string, { category: 'legal' }, 'ADMIN'));
       // Fixed: Removed the 3rd argument
-      await safeExec(service.signDocument('doc-1', {} as any));
+      await safeExec(service.signDocument('doc-1', {} as unknown as SignDocumentDto));
     });
   });
   

@@ -3,7 +3,7 @@ import { RateLimitService } from './rate-limit.service';
 import { ExecutionContext, HttpException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-function makeContext(overrides: Partial<any> = {}): ExecutionContext {
+function makeContext(overrides: Record<string, unknown> = {}): ExecutionContext {
   const request = {
     method: 'POST',
     url: '/auth/login',
@@ -40,7 +40,7 @@ describe('RateLimitGuard - auth/signup endpoints', () => {
       checkUserRateLimit: jest.fn().mockResolvedValue(notExceeded),
       checkEndpointRateLimit: jest.fn().mockResolvedValue({ ...notExceeded, limit: 0 }),
       getHeaders: jest.fn().mockReturnValue({}),
-    } as any;
+    } as unknown as jest.Mocked<RateLimitService>;
 
     guard = new RateLimitGuard(reflector, rateLimitService);
   });
@@ -68,10 +68,11 @@ describe('RateLimitGuard - auth/signup endpoints', () => {
     try {
       await guard.canActivate(ctx);
       fail('should have thrown');
-    } catch (e: any) {
+    } catch (e: unknown) {
       expect(e).toBeInstanceOf(HttpException);
-      expect(e.getStatus()).toBe(429);
-      const body = e.getResponse();
+      const httpException = e as HttpException;
+      expect(httpException.getStatus()).toBe(429);
+      const body = httpException.getResponse();
       expect(body).toMatchObject({ retryAfter: 60 });
     }
   });

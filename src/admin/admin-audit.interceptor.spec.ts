@@ -1,10 +1,17 @@
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { of } from 'rxjs';
+import { PrismaService } from '../database/prisma.service';
+
+interface MockPrisma {
+  activityLog: {
+    create: jest.Mock;
+  };
+}
 
 describe('AdminAuditInterceptor', () => {
   let interceptor: AdminAuditInterceptor;
-  let mockPrisma: any;
+  let mockPrisma: MockPrisma;
 
   beforeEach(() => {
     mockPrisma = {
@@ -12,10 +19,10 @@ describe('AdminAuditInterceptor', () => {
         create: jest.fn().mockResolvedValue({}),
       },
     };
-    interceptor = new AdminAuditInterceptor(mockPrisma);
+    interceptor = new AdminAuditInterceptor(mockPrisma as unknown as PrismaService);
   });
 
-  function makeContext(overrides: Partial<any> = {}): ExecutionContext {
+  function makeContext(overrides: Record<string, unknown> = {}): ExecutionContext {
     const request = {
       authUser: { sub: 'admin-1' },
       headers: { 'user-agent': 'test-agent' },

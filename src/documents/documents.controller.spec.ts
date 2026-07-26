@@ -6,6 +6,7 @@ import { UserRole } from '../types/prisma.types';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CreateDocumentDto, UpdateDocumentDto, SignDocumentDto } from './dto/document.dto';
 
 describe('DocumentsController', () => {
   let controller: DocumentsController;
@@ -51,7 +52,7 @@ describe('DocumentsController', () => {
 
   it('create', async () => {
     mockDocumentsService.create.mockResolvedValue('created');
-    expect(await controller.create({} as any, mockUser)).toBe('created');
+    expect(await controller.create({} as CreateDocumentDto, mockUser)).toBe('created');
   });
 
   it('findAll', async () => {
@@ -67,7 +68,7 @@ describe('DocumentsController', () => {
   it('update', async () => {
     mockDocumentsService.findAuthorizedById.mockResolvedValue('doc');
     mockDocumentsService.update.mockResolvedValue('updated');
-    expect(await controller.update('id', {} as any, mockUser)).toBe('updated');
+    expect(await controller.update('id', {} as UpdateDocumentDto, mockUser)).toBe('updated');
   });
 
   it('remove', async () => {
@@ -89,7 +90,7 @@ describe('DocumentsController', () => {
   it('sign', async () => {
     mockDocumentsService.findAuthorizedById.mockResolvedValue('doc');
     mockDocumentsService.signDocument.mockResolvedValue('signed');
-    expect(await controller.sign('id', {} as any, mockUser)).toBe('signed');
+    expect(await controller.sign('id', {} as SignDocumentDto, mockUser)).toBe('signed');
   });
 
   it('bulkDownload', async () => {

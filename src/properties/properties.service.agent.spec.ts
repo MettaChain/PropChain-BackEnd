@@ -9,7 +9,6 @@ import { CacheService } from '../cache/cache.service';
 
 describe('PropertiesService - Agent Assignment', () => {
   let service: PropertiesService;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     property: {
@@ -52,7 +51,6 @@ describe('PropertiesService - Agent Assignment', () => {
     }).compile();
 
     service = module.get<PropertiesService>(PropertiesService);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -72,7 +70,7 @@ describe('PropertiesService - Agent Assignment', () => {
         { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
       );
 
-      expect((prisma as any).propertyAgent.create).toHaveBeenCalledWith({
+      expect(mockPrismaService.propertyAgent.create).toHaveBeenCalledWith({
         data: {
           propertyId: 'prop-1',
           agentId: 'agent-1',
@@ -127,7 +125,7 @@ describe('PropertiesService - Agent Assignment', () => {
         { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
       );
 
-      expect((prisma as any).propertyAgent.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.propertyAgent.update).toHaveBeenCalledWith({
         where: {
           propertyId_agentId: {
             propertyId: 'prop-1',

@@ -6,7 +6,6 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 describe('CommissionsService', () => {
   let service: CommissionsService;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     transaction: {
@@ -28,7 +27,6 @@ describe('CommissionsService', () => {
     }).compile();
 
     service = module.get<CommissionsService>(CommissionsService);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -53,8 +51,8 @@ describe('CommissionsService', () => {
 
       await service.createCommissionsForTransaction('tx-1');
 
-      expect((prisma as any).commission.create).toHaveBeenCalledTimes(2);
-      expect((prisma as any).commission.create).toHaveBeenNthCalledWith(
+      expect(mockPrismaService.commission.create).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.commission.create).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
           data: {
@@ -67,7 +65,7 @@ describe('CommissionsService', () => {
           },
         }),
       );
-      expect((prisma as any).commission.create).toHaveBeenNthCalledWith(
+      expect(mockPrismaService.commission.create).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           data: {
@@ -89,7 +87,7 @@ describe('CommissionsService', () => {
 
       await service.updateCommissionsStatus('tx-1', 'COMPLETED');
 
-      expect((prisma as any).commission.updateMany).toHaveBeenCalledWith({
+      expect(mockPrismaService.commission.updateMany).toHaveBeenCalledWith({
         where: { transactionId: 'tx-1' },
         data: { status: 'COMPLETED' },
       });
@@ -106,7 +104,7 @@ describe('CommissionsService', () => {
         { sub: 'agent-1', email: 'agent@test.com', role: 'AGENT', type: 'access' },
       );
 
-      expect((prisma as any).commission.findMany).toHaveBeenCalledWith(
+      expect(mockPrismaService.commission.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ agentId: 'agent-1' }),
         }),

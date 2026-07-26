@@ -15,8 +15,8 @@ describe('BlockchainService', () => {
   let prismaService: PrismaService;
 
   const mockConfigService = {
-    get: jest.fn((key: string, defaultValue?: any) => {
-      const config: Record<string, any> = {
+    get: jest.fn((key: string, defaultValue?: unknown) => {
+      const config: Record<string, unknown> = {
         BLOCKCHAIN_ENABLED: 'true',
         BLOCKCHAIN_NETWORK: BlockchainNetwork.SEPOLIA,
         BLOCKCHAIN_RPC_URL: 'https://sepolia.infura.io/v3/test',
@@ -248,8 +248,8 @@ describe('BlockchainService', () => {
     it('should handle disabled blockchain by recording locally', async () => {
       // Override config to disable blockchain
       const disabledConfig = {
-        get: jest.fn((key: string, defaultValue?: any) => {
-          const config: Record<string, any> = {
+        get: jest.fn((key: string, defaultValue?: unknown) => {
+          const config: Record<string, unknown> = {
             BLOCKCHAIN_ENABLED: 'false',
             BLOCKCHAIN_NETWORK: BlockchainNetwork.SEPOLIA,
           };

@@ -1,8 +1,18 @@
 import { LoginRateLimitService } from './login-rate-limit.service';
+import { PrismaService } from '../database/prisma.service';
+
+interface MockPrisma {
+  loginAttempt: {
+    findFirst: jest.Mock;
+    count: jest.Mock;
+    create: jest.Mock;
+    updateMany: jest.Mock;
+  };
+}
 
 describe('LoginRateLimitService', () => {
   let service: LoginRateLimitService;
-  let mockPrisma: any;
+  let mockPrisma: MockPrisma;
 
   const email = 'test@example.com';
   const ip = '1.2.3.4';
@@ -16,7 +26,7 @@ describe('LoginRateLimitService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    service = new LoginRateLimitService(mockPrisma);
+    service = new LoginRateLimitService(mockPrisma as unknown as PrismaService);
   });
 
   describe('isAccountLocked', () => {

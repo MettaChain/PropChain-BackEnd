@@ -1,0 +1,838 @@
+diff --git a/src/admin/admin-audit.interceptor.spec.ts b/src/admin/admin-audit.interceptor.spec.ts
+index a412ada..ccf2d3f 100644
+--- a/src/admin/admin-audit.interceptor.spec.ts
++++ b/src/admin/admin-audit.interceptor.spec.ts
+@@ -1,10 +1,17 @@
+ import { AdminAuditInterceptor } from './admin-audit.interceptor';
+ import { ExecutionContext, CallHandler } from '@nestjs/common';
+ import { of } from 'rxjs';
++import { PrismaService } from '../database/prisma.service';
++
++interface MockPrisma {
++  activityLog: {
++    create: jest.Mock;
++  };
++}
+ 
+ describe('AdminAuditInterceptor', () => {
+   let interceptor: AdminAuditInterceptor;
+-  let mockPrisma: any;
++  let mockPrisma: MockPrisma;
+ 
+   beforeEach(() => {
+     mockPrisma = {
+@@ -12,10 +19,10 @@ describe('AdminAuditInterceptor', () => {
+         create: jest.fn().mockResolvedValue({}),
+       },
+     };
+-    interceptor = new AdminAuditInterceptor(mockPrisma);
++    interceptor = new AdminAuditInterceptor(mockPrisma as unknown as PrismaService);
+   });
+ 
+-  function makeContext(overrides: Partial<any> = {}): ExecutionContext {
++  function makeContext(overrides: Record<string, unknown> = {}): ExecutionContext {
+     const request = {
+       authUser: { sub: 'admin-1' },
+       headers: { 'user-agent': 'test-agent' },
+diff --git a/src/auth/login-rate-limit.service.spec.ts b/src/auth/login-rate-limit.service.spec.ts
+index 7965bc1..a708f97 100644
+--- a/src/auth/login-rate-limit.service.spec.ts
++++ b/src/auth/login-rate-limit.service.spec.ts
+@@ -1,8 +1,18 @@
+ import { LoginRateLimitService } from './login-rate-limit.service';
++import { PrismaService } from '../database/prisma.service';
++
++interface MockPrisma {
++  loginAttempt: {
++    findFirst: jest.Mock;
++    count: jest.Mock;
++    create: jest.Mock;
++    updateMany: jest.Mock;
++  };
++}
+ 
+ describe('LoginRateLimitService', () => {
+   let service: LoginRateLimitService;
+-  let mockPrisma: any;
++  let mockPrisma: MockPrisma;
+ 
+   const email = 'test@example.com';
+   const ip = '1.2.3.4';
+@@ -16,7 +26,7 @@ describe('LoginRateLimitService', () => {
+         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+       },
+     };
+-    service = new LoginRateLimitService(mockPrisma);
++    service = new LoginRateLimitService(mockPrisma as unknown as PrismaService);
+   });
+ 
+   describe('isAccountLocked', () => {
+diff --git a/src/auth/rate-limit.guard.spec.ts b/src/auth/rate-limit.guard.spec.ts
+index 1eb827d..e51b812 100644
+--- a/src/auth/rate-limit.guard.spec.ts
++++ b/src/auth/rate-limit.guard.spec.ts
+@@ -3,7 +3,7 @@ import { RateLimitService } from './rate-limit.service';
+ import { ExecutionContext, HttpException } from '@nestjs/common';
+ import { Reflector } from '@nestjs/core';
+ 
+-function makeContext(overrides: Partial<any> = {}): ExecutionContext {
++function makeContext(overrides: Record<string, unknown> = {}): ExecutionContext {
+   const request = {
+     method: 'POST',
+     url: '/auth/login',
+@@ -40,7 +40,7 @@ describe('RateLimitGuard - auth/signup endpoints', () => {
+       checkUserRateLimit: jest.fn().mockResolvedValue(notExceeded),
+       checkEndpointRateLimit: jest.fn().mockResolvedValue({ ...notExceeded, limit: 0 }),
+       getHeaders: jest.fn().mockReturnValue({}),
+-    } as any;
++    } as unknown as jest.Mocked<RateLimitService>;
+ 
+     guard = new RateLimitGuard(reflector, rateLimitService);
+   });
+@@ -68,10 +68,11 @@ describe('RateLimitGuard - auth/signup endpoints', () => {
+     try {
+       await guard.canActivate(ctx);
+       fail('should have thrown');
+-    } catch (e: any) {
++    } catch (e: unknown) {
+       expect(e).toBeInstanceOf(HttpException);
+-      expect(e.getStatus()).toBe(429);
+-      const body = e.getResponse();
++      const httpException = e as HttpException;
++      expect(httpException.getStatus()).toBe(429);
++      const body = httpException.getResponse();
+       expect(body).toMatchObject({ retryAfter: 60 });
+     }
+   });
+diff --git a/src/auth/rbac.spec.ts b/src/auth/rbac.spec.ts
+index 37451be..accc20d 100644
+--- a/src/auth/rbac.spec.ts
++++ b/src/auth/rbac.spec.ts
+@@ -3,13 +3,14 @@
+  * Tests that USER, AGENT, and ADMIN roles are correctly enforced.
+  */
+ import { Test, TestingModule } from '@nestjs/testing';
+-import { ForbiddenException } from '@nestjs/common';
++import { ForbiddenException, ExecutionContext } from '@nestjs/common';
+ import { Reflector } from '@nestjs/core';
+ import { RolesGuard } from '../auth/guards/roles.guard';
+ import { AuthUserPayload } from '../auth/types/auth-user.type';
+ import { UserRole } from '../types/prisma.types';
++import { CreatePropertyDto } from '../properties/dto/property.dto';
+ 
+-function makeContext(role: UserRole, requiredRoles: UserRole[] | null) {
++function makeContext(role: UserRole, requiredRoles: UserRole[] | null): ExecutionContext {
+   const user: AuthUserPayload = { sub: 'u1', email: 'u@test.com', role, type: 'access' };
+   const request = { authUser: user };
+   return {
+@@ -17,7 +18,7 @@ function makeContext(role: UserRole, requiredRoles: UserRole[] | null) {
+     getHandler: () => ({}),
+     getClass: () => ({}),
+     _requiredRoles: requiredRoles,
+-  };
++  } as unknown as ExecutionContext;
+ }
+ 
+ describe('RolesGuard - RBAC enforcement', () => {
+@@ -41,19 +42,19 @@ describe('RolesGuard - RBAC enforcement', () => {
+     it('allows ADMIN to access admin routes', () => {
+       setupRoles([UserRole.ADMIN]);
+       const ctx = makeContext(UserRole.ADMIN, [UserRole.ADMIN]);
+-      expect(guard.canActivate(ctx as any)).toBe(true);
++      expect(guard.canActivate(ctx)).toBe(true);
+     });
+ 
+     it('rejects USER from admin routes', () => {
+       setupRoles([UserRole.ADMIN]);
+       const ctx = makeContext(UserRole.USER, [UserRole.ADMIN]);
+-      expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+     });
+ 
+     it('rejects AGENT from admin routes', () => {
+       setupRoles([UserRole.ADMIN]);
+       const ctx = makeContext(UserRole.AGENT, [UserRole.ADMIN]);
+-      expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+     });
+   });
+ 
+@@ -61,19 +62,19 @@ describe('RolesGuard - RBAC enforcement', () => {
+     it('allows AGENT to access agent+admin routes', () => {
+       setupRoles([UserRole.AGENT, UserRole.ADMIN]);
+       const ctx = makeContext(UserRole.AGENT, [UserRole.AGENT, UserRole.ADMIN]);
+-      expect(guard.canActivate(ctx as any)).toBe(true);
++      expect(guard.canActivate(ctx)).toBe(true);
+     });
+ 
+     it('allows ADMIN to access agent+admin routes', () => {
+       setupRoles([UserRole.AGENT, UserRole.ADMIN]);
+       const ctx = makeContext(UserRole.ADMIN, [UserRole.AGENT, UserRole.ADMIN]);
+-      expect(guard.canActivate(ctx as any)).toBe(true);
++      expect(guard.canActivate(ctx)).toBe(true);
+     });
+ 
+     it('rejects USER from agent+admin routes', () => {
+       setupRoles([UserRole.AGENT, UserRole.ADMIN]);
+       const ctx = makeContext(UserRole.USER, [UserRole.AGENT, UserRole.ADMIN]);
+-      expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+     });
+   });
+ 
+@@ -81,7 +82,7 @@ describe('RolesGuard - RBAC enforcement', () => {
+     it('allows any authenticated user when no roles are required', () => {
+       setupRoles(null);
+       const ctx = makeContext(UserRole.USER, null);
+-      expect(guard.canActivate(ctx as any)).toBe(true);
++      expect(guard.canActivate(ctx)).toBe(true);
+     });
+   });
+ 
+@@ -93,8 +94,8 @@ describe('RolesGuard - RBAC enforcement', () => {
+         switchToHttp: () => ({ getRequest: () => request }),
+         getHandler: () => ({}),
+         getClass: () => ({}),
+-      };
+-      expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++      } as unknown as ExecutionContext;
++      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+     });
+ 
+     it('throws ForbiddenException when no user in request', () => {
+@@ -103,8 +104,8 @@ describe('RolesGuard - RBAC enforcement', () => {
+         switchToHttp: () => ({ getRequest: () => ({}) }),
+         getHandler: () => ({}),
+         getClass: () => ({}),
+-      };
+-      expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++      } as unknown as ExecutionContext;
++      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+     });
+   });
+ });
+@@ -163,7 +164,7 @@ describe('PropertiesController - RBAC', () => {
+       zipCode: '10001',
+       price: 100000,
+       propertyType: 'House',
+-    } as any;
++    } as CreatePropertyDto;
+     const result = await controller.create(dto, regularUser);
+     expect(result).toEqual({ id: 'p1' });
+     expect(service.create).toHaveBeenCalledWith(dto, regularUser.sub);
+@@ -178,7 +179,7 @@ describe('PropertiesController - RBAC', () => {
+       zipCode: '10001',
+       price: 200000,
+       propertyType: 'Condo',
+-    } as any;
++    } as CreatePropertyDto;
+     await controller.create(dto, adminUser);
+     expect(service.create).toHaveBeenCalledWith(dto, adminUser.sub);
+   });
+@@ -201,19 +202,19 @@ describe('AdminController - RBAC (guard integration)', () => {
+   it('ADMIN can access admin dashboard', () => {
+     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([UserRole.ADMIN]);
+     const ctx = makeContext(UserRole.ADMIN, [UserRole.ADMIN]);
+-    expect(guard.canActivate(ctx as any)).toBe(true);
++    expect(guard.canActivate(ctx)).toBe(true);
+   });
+ 
+   it('USER cannot access admin dashboard', () => {
+     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([UserRole.ADMIN]);
+     const ctx = makeContext(UserRole.USER, [UserRole.ADMIN]);
+-    expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+   });
+ 
+   it('AGENT cannot access admin dashboard', () => {
+     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([UserRole.ADMIN]);
+     const ctx = makeContext(UserRole.AGENT, [UserRole.ADMIN]);
+-    expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+   });
+ });
+ 
+@@ -233,18 +234,18 @@ describe('TransactionsController - RBAC (guard integration)', () => {
+   it('AGENT can create transactions', () => {
+     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([UserRole.AGENT, UserRole.ADMIN]);
+     const ctx = makeContext(UserRole.AGENT, [UserRole.AGENT, UserRole.ADMIN]);
+-    expect(guard.canActivate(ctx as any)).toBe(true);
++    expect(guard.canActivate(ctx)).toBe(true);
+   });
+ 
+   it('ADMIN can create transactions', () => {
+     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([UserRole.AGENT, UserRole.ADMIN]);
+     const ctx = makeContext(UserRole.ADMIN, [UserRole.AGENT, UserRole.ADMIN]);
+-    expect(guard.canActivate(ctx as any)).toBe(true);
++    expect(guard.canActivate(ctx)).toBe(true);
+   });
+ 
+   it('USER cannot create transactions', () => {
+     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([UserRole.AGENT, UserRole.ADMIN]);
+     const ctx = makeContext(UserRole.USER, [UserRole.AGENT, UserRole.ADMIN]);
+-    expect(() => guard.canActivate(ctx as any)).toThrow(ForbiddenException);
++    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+   });
+ });
+diff --git a/src/blockchain/blockchain.service.spec.ts b/src/blockchain/blockchain.service.spec.ts
+index 751ec9c..20940a8 100644
+--- a/src/blockchain/blockchain.service.spec.ts
++++ b/src/blockchain/blockchain.service.spec.ts
+@@ -15,8 +15,8 @@ describe('BlockchainService', () => {
+   let prismaService: PrismaService;
+ 
+   const mockConfigService = {
+-    get: jest.fn((key: string, defaultValue?: any) => {
+-      const config: Record<string, any> = {
++    get: jest.fn((key: string, defaultValue?: unknown) => {
++      const config: Record<string, unknown> = {
+         BLOCKCHAIN_ENABLED: 'true',
+         BLOCKCHAIN_NETWORK: BlockchainNetwork.SEPOLIA,
+         BLOCKCHAIN_RPC_URL: 'https://sepolia.infura.io/v3/test',
+@@ -248,8 +248,8 @@ describe('BlockchainService', () => {
+     it('should handle disabled blockchain by recording locally', async () => {
+       // Override config to disable blockchain
+       const disabledConfig = {
+-        get: jest.fn((key: string, defaultValue?: any) => {
+-          const config: Record<string, any> = {
++        get: jest.fn((key: string, defaultValue?: unknown) => {
++          const config: Record<string, unknown> = {
+             BLOCKCHAIN_ENABLED: 'false',
+             BLOCKCHAIN_NETWORK: BlockchainNetwork.SEPOLIA,
+           };
+diff --git a/src/commissions/commissions.service.spec.ts b/src/commissions/commissions.service.spec.ts
+index 76c89bb..0c0014a 100644
+--- a/src/commissions/commissions.service.spec.ts
++++ b/src/commissions/commissions.service.spec.ts
+@@ -6,7 +6,6 @@ import { Decimal } from '@prisma/client/runtime/library';
+ 
+ describe('CommissionsService', () => {
+   let service: CommissionsService;
+-  let prisma: PrismaService;
+ 
+   const mockPrismaService = {
+     transaction: {
+@@ -28,7 +27,6 @@ describe('CommissionsService', () => {
+     }).compile();
+ 
+     service = module.get<CommissionsService>(CommissionsService);
+-    prisma = module.get<PrismaService>(PrismaService);
+   });
+ 
+   afterEach(() => {
+@@ -53,8 +51,8 @@ describe('CommissionsService', () => {
+ 
+       await service.createCommissionsForTransaction('tx-1');
+ 
+-      expect((prisma as any).commission.create).toHaveBeenCalledTimes(2);
+-      expect((prisma as any).commission.create).toHaveBeenNthCalledWith(
++      expect(mockPrismaService.commission.create).toHaveBeenCalledTimes(2);
++      expect(mockPrismaService.commission.create).toHaveBeenNthCalledWith(
+         1,
+         expect.objectContaining({
+           data: {
+@@ -67,7 +65,7 @@ describe('CommissionsService', () => {
+           },
+         }),
+       );
+-      expect((prisma as any).commission.create).toHaveBeenNthCalledWith(
++      expect(mockPrismaService.commission.create).toHaveBeenNthCalledWith(
+         2,
+         expect.objectContaining({
+           data: {
+@@ -89,7 +87,7 @@ describe('CommissionsService', () => {
+ 
+       await service.updateCommissionsStatus('tx-1', 'COMPLETED');
+ 
+-      expect((prisma as any).commission.updateMany).toHaveBeenCalledWith({
++      expect(mockPrismaService.commission.updateMany).toHaveBeenCalledWith({
+         where: { transactionId: 'tx-1' },
+         data: { status: 'COMPLETED' },
+       });
+@@ -106,7 +104,7 @@ describe('CommissionsService', () => {
+         { sub: 'agent-1', email: 'agent@test.com', role: 'AGENT', type: 'access' },
+       );
+ 
+-      expect((prisma as any).commission.findMany).toHaveBeenCalledWith(
++      expect(mockPrismaService.commission.findMany).toHaveBeenCalledWith(
+         expect.objectContaining({
+           where: expect.objectContaining({ agentId: 'agent-1' }),
+         }),
+diff --git a/src/documents/documents-download.controller.spec.ts b/src/documents/documents-download.controller.spec.ts
+index 729c60e..d5da61e 100644
+--- a/src/documents/documents-download.controller.spec.ts
++++ b/src/documents/documents-download.controller.spec.ts
+@@ -7,6 +7,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
+ import { AuthUserPayload } from '../auth/types/auth-user.type';
+ import { UserRole } from '../types/prisma.types';
+ import { Response } from 'express';
++import { RequestSignedUploadDto } from './dto/document-access.dto';
+ 
+ describe('DocumentsDownloadController', () => {
+   let controller: DocumentsDownloadController;
+@@ -109,7 +110,7 @@ describe('DocumentsDownloadController', () => {
+       fileName: 'test.pdf', 
+       mimeType: 'application/pdf', 
+       fileSizeBytes: 1024 
+-    } as any;
++    } as RequestSignedUploadDto;
+ 
+     const mockSignedUrlResponse = {
+       url: 'http://signed.url/upload',
+diff --git a/src/documents/documents.controller.spec.ts b/src/documents/documents.controller.spec.ts
+index 65d7323..7270ba3 100644
+--- a/src/documents/documents.controller.spec.ts
++++ b/src/documents/documents.controller.spec.ts
+@@ -6,6 +6,7 @@ import { UserRole } from '../types/prisma.types';
+ import { Response } from 'express';
+ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+ import { RolesGuard } from '../auth/guards/roles.guard';
++import { CreateDocumentDto, UpdateDocumentDto, SignDocumentDto } from './dto/document.dto';
+ 
+ describe('DocumentsController', () => {
+   let controller: DocumentsController;
+@@ -51,7 +52,7 @@ describe('DocumentsController', () => {
+ 
+   it('create', async () => {
+     mockDocumentsService.create.mockResolvedValue('created');
+-    expect(await controller.create({} as any, mockUser)).toBe('created');
++    expect(await controller.create({} as CreateDocumentDto, mockUser)).toBe('created');
+   });
+ 
+   it('findAll', async () => {
+@@ -67,7 +68,7 @@ describe('DocumentsController', () => {
+   it('update', async () => {
+     mockDocumentsService.findAuthorizedById.mockResolvedValue('doc');
+     mockDocumentsService.update.mockResolvedValue('updated');
+-    expect(await controller.update('id', {} as any, mockUser)).toBe('updated');
++    expect(await controller.update('id', {} as UpdateDocumentDto, mockUser)).toBe('updated');
+   });
+ 
+   it('remove', async () => {
+@@ -89,7 +90,7 @@ describe('DocumentsController', () => {
+   it('sign', async () => {
+     mockDocumentsService.findAuthorizedById.mockResolvedValue('doc');
+     mockDocumentsService.signDocument.mockResolvedValue('signed');
+-    expect(await controller.sign('id', {} as any, mockUser)).toBe('signed');
++    expect(await controller.sign('id', {} as SignDocumentDto, mockUser)).toBe('signed');
+   });
+ 
+   it('bulkDownload', async () => {
+diff --git a/src/documents/documents.service.spec.ts b/src/documents/documents.service.spec.ts
+index dd59e6f..7de6201 100644
+--- a/src/documents/documents.service.spec.ts
++++ b/src/documents/documents.service.spec.ts
+@@ -1,8 +1,10 @@
+ import { Test, TestingModule } from '@nestjs/testing';
+ import { ForbiddenException, NotFoundException } from '@nestjs/common';
+ import { PassThrough } from 'stream';
++import { Response } from 'express';
+ import { DocumentsService } from './documents.service';
+ import { PrismaService } from '../database/prisma.service';
++import { CreateDocumentDto, UpdateDocumentDto, SignDocumentDto } from './dto/document.dto';
+ 
+ describe('DocumentsService', () => {
+   let service: DocumentsService;
+@@ -125,16 +127,22 @@ describe('DocumentsService', () => {
+ 
+   describe('bulkDownload', () => {
+     /** Create a mock writable stream that acts like an Express Response */
+-    function mockStreamRes() {
+-      const stream = new PassThrough();
+-      (stream as any).setHeader = jest.fn();
+-      (stream as any).setHeaders = jest.fn();
++    function mockStreamRes(): Response {
++      const stream = new PassThrough() as PassThrough & {
++        setHeader: jest.Mock;
++        setHeaders: jest.Mock;
++      };
++      stream.setHeader = jest.fn();
++      stream.setHeaders = jest.fn();
+       // Suppress the 'data' events to avoid jest hanging
+-      jest.spyOn(stream, 'pipe').mockImplementation(function (this: any, dest: any) {
++      jest.spyOn(stream, 'pipe').mockImplementation(function (
++        this: PassThrough,
++        dest: NodeJS.WritableStream & { end: (chunk: string) => void },
++      ) {
+         dest.end('fake-zip-data');
+-        return dest;
++        return dest as unknown as ReturnType<PassThrough['pipe']>;
+       });
+-      return stream as any;
++      return stream as unknown as Response;
+     }
+ 
+     it('should throw NotFoundException when no documents found', async () => {
+@@ -219,7 +227,7 @@ describe('DocumentsService', () => {
+     it('create', async () => {
+       mockPrismaService.document.create.mockResolvedValue({ id: 'doc-1' });
+       const result = await service.create(
+-        { documentType: 'TITLE_DEED', propertyId: 'prop-1' } as any,
++        { documentType: 'TITLE_DEED', propertyId: 'prop-1' } as CreateDocumentDto,
+         'user-1',
+       );
+       expect(result.id).toBe('doc-1');
+@@ -249,7 +257,7 @@ describe('DocumentsService', () => {
+     it('update', async () => {
+       mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
+       mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', status: 'VERIFIED' });
+-      expect(await service.update('doc-1', { status: 'VERIFIED' } as any)).toHaveProperty('status', 'VERIFIED');
++      expect(await service.update('doc-1', { status: 'VERIFIED' } as UpdateDocumentDto)).toHaveProperty('status', 'VERIFIED');
+     });
+ 
+     it('remove', async () => {
+@@ -261,8 +269,8 @@ describe('DocumentsService', () => {
+ 
+   describe('Extended Coverage Operations - Branches', () => {
+     it('should execute methods with alternate parameters to trigger secondary branches', async () => {
+-      const safeExec = async (promise: any) => {
+-        try { await promise; } catch (e) {}
++      const safeExec = async (promise: Promise<unknown>) => {
++        try { await promise; } catch (e) { /* expected in some branches */ }
+       };
+       
+       // Execute standard paths
+@@ -273,17 +281,17 @@ describe('DocumentsService', () => {
+       await safeExec(service.deleteExpired());
+       await safeExec(service.flagExpiryNotified('doc-1'));
+       // Fixed: Removed the 3rd argument
+-      await safeExec(service.signDocument('doc-1', { signature: 'test' } as any));
++      await safeExec(service.signDocument('doc-1', { signature: 'test' } as unknown as SignDocumentDto));
+       // Fixed: Removed the 2nd argument
+       await safeExec(service.verifySignature('doc-1'));
+ 
+       // Execute alternate paths (missing users, admin roles, null parameters)
+-      await safeExec(service.getVersions('doc-1', null as any, 'ADMIN'));
+-      await safeExec(service.getVersion('doc-1', 'v1', null as any, 'ADMIN'));
+-      await safeExec(service.findAuthorizedById('doc-1', null as any, null as any));
+-      await safeExec(service.findAll(null as any, { category: 'legal' } as any, 'ADMIN'));
++      await safeExec(service.getVersions('doc-1', null as unknown as string, 'ADMIN'));
++      await safeExec(service.getVersion('doc-1', 'v1', null as unknown as string, 'ADMIN'));
++      await safeExec(service.findAuthorizedById('doc-1', null as unknown as string, null as unknown as string));
++      await safeExec(service.findAll(null as unknown as string, { category: 'legal' }, 'ADMIN'));
+       // Fixed: Removed the 3rd argument
+-      await safeExec(service.signDocument('doc-1', {} as any));
++      await safeExec(service.signDocument('doc-1', {} as unknown as SignDocumentDto));
+     });
+   });
+   
+diff --git a/src/documents/signed-url/signed-url-providers.spec.ts b/src/documents/signed-url/signed-url-providers.spec.ts
+index 86f1152..f478f03 100644
+--- a/src/documents/signed-url/signed-url-providers.spec.ts
++++ b/src/documents/signed-url/signed-url-providers.spec.ts
+@@ -2,9 +2,10 @@ import { AzureSignedUrlProvider } from './azure-signed-url-provider';
+ import { GcsSignedUrlProvider } from './gcs-signed-url-provider';
+ import { NotConfiguredSignedUrlProvider } from './not-configured.signed-url-provider';
+ import { S3SignedUrlProvider } from './s3-signed-url-provider';
++import { SignedUrlRequest } from './signed-url-provider.interface';
+ 
+ describe('Signed URL Providers', () => {
+-  const mockPayload = { operation: 'download', objectKey: 'test.pdf' } as any;
++  const mockPayload = { operation: 'download', objectKey: 'test.pdf' } as SignedUrlRequest;
+ 
+   it('AzureSignedUrlProvider should execute getSignedUrl', async () => {
+     const provider = new AzureSignedUrlProvider();
+diff --git a/src/documents/signed-url/signed-url.service.spec.ts b/src/documents/signed-url/signed-url.service.spec.ts
+index 54aaeb5..7d3fc08 100644
+--- a/src/documents/signed-url/signed-url.service.spec.ts
++++ b/src/documents/signed-url/signed-url.service.spec.ts
+@@ -1,5 +1,6 @@
+ import { Test, TestingModule } from '@nestjs/testing';
+ import { SignedUrlService } from './signed-url.service';
++import { SignedUrlRequest, SignedUrlResponse } from './signed-url-provider.interface';
+ 
+ describe('SignedUrlService', () => {
+   let service: SignedUrlService;
+@@ -31,8 +32,8 @@ describe('SignedUrlService', () => {
+ 
+   describe('getSignedUrl', () => {
+     it('should delegate to the injected provider', async () => {
+-      const payload = { operation: 'download' as any, objectKey: 'test.pdf' };
+-      mockProvider.getSignedUrl.mockResolvedValue({ url: 'http://signed' } as any);
++      const payload = { operation: 'download', objectKey: 'test.pdf' } as SignedUrlRequest;
++      mockProvider.getSignedUrl.mockResolvedValue({ url: 'http://signed' } as SignedUrlResponse);
+       
+       const result = await service.getSignedUrl(payload);
+       
+diff --git a/src/email/email.service.spec.ts b/src/email/email.service.spec.ts
+index 4ae9caa..943b0f8 100644
+--- a/src/email/email.service.spec.ts
++++ b/src/email/email.service.spec.ts
+@@ -1,8 +1,12 @@
+ import { EmailService } from './email.service';
++import { ConfigService } from '@nestjs/config';
++import { PrismaService } from '../database/prisma.service';
++import { TrackingService } from '../tracking/tracking.service';
++import { Queue } from 'bullmq';
+ 
+ describe('EmailService.handleBounce', () => {
+   it('disables email notifications on hard bounce', async () => {
+-    const prisma: any = {
++    const prisma = {
+       user: {
+         findUnique: jest.fn().mockResolvedValue({ id: 'user-1', email: 'test@example.com' }),
+         update: jest.fn().mockResolvedValue(undefined),
+@@ -16,10 +20,10 @@ describe('EmailService.handleBounce', () => {
+     };
+ 
+     const service = new EmailService(
+-      { get: jest.fn().mockReturnValue('http://localhost:3000/api') } as any,
+-      prisma,
+-      { createEmailEngagement: jest.fn() } as any,
+-      { add: jest.fn() } as any,
++      { get: jest.fn().mockReturnValue('http://localhost:3000/api') } as unknown as ConfigService,
++      prisma as unknown as PrismaService,
++      { createEmailEngagement: jest.fn() } as unknown as TrackingService,
++      { add: jest.fn() } as unknown as Queue,
+     );
+ 
+     await service.handleBounce('test@example.com', 'HARD', 'Mailbox disabled', {
+diff --git a/src/fraud/fraud.service.spec.ts b/src/fraud/fraud.service.spec.ts
+index 7e33c78..fb4b091 100644
+--- a/src/fraud/fraud.service.spec.ts
++++ b/src/fraud/fraud.service.spec.ts
+@@ -5,6 +5,20 @@ import { PrismaService } from '../database/prisma.service';
+ import { EmailService } from '../email/email.service';
+ import { FraudPattern, FraudSeverity } from '../types/prisma.types';
+ 
++// FraudService's AlertPayload type and private detection helpers aren't exported;
++// this describes just enough shape to call them from tests without `any`.
++interface FraudServiceInternals {
++  createOrUpdateAlert(payload: Record<string, unknown>): Promise<{ id: string } | null>;
++  findOpenAlert(payload: Record<string, unknown>): Promise<unknown>;
++  notifySecurityTeam(alert: unknown, isUpdate?: boolean): Promise<void>;
++  blockUserForFraud(
++    userId: string,
++    alertId: string,
++    actorId: string,
++    reason: string,
++  ): Promise<void>;
++}
++
+ describe('FraudService', () => {
+   let service: FraudService;
+ 
+@@ -44,11 +58,11 @@ describe('FraudService', () => {
+       findFirst: jest.fn(),
+       findMany: jest.fn(),
+     },
+-  } as any;
++  };
+ 
+   const mockEmailService = {
+     sendFraudAlertEmail: jest.fn(),
+-  } as any;
++  };
+ 
+   const mockConfigService = {
+     get: jest.fn((key: string) => {
+@@ -58,7 +72,7 @@ describe('FraudService', () => {
+ 
+       return undefined;
+     }),
+-  } as any;
++  };
+ 
+   beforeEach(async () => {
+     const module: TestingModule = await Test.createTestingModule({
+@@ -85,7 +99,7 @@ describe('FraudService', () => {
+     mockPrismaService.loginAttempt.count.mockResolvedValue(6);
+ 
+     const createOrUpdateAlertSpy = jest
+-      .spyOn(service as any, 'createOrUpdateAlert')
++      .spyOn(service as unknown as FraudServiceInternals, 'createOrUpdateAlert')
+       .mockResolvedValue({ id: 'alert-1' });
+ 
+     const result = await service.evaluateFailedLogin('user@example.com', '10.0.0.1', 'Mozilla');
+@@ -126,8 +140,8 @@ describe('FraudService', () => {
+     ]);
+ 
+     const createOrUpdateAlertSpy = jest
+-      .spyOn(service as any, 'createOrUpdateAlert')
+-      .mockImplementation(async (payload: any) => payload);
++      .spyOn(service as unknown as FraudServiceInternals, 'createOrUpdateAlert')
++      .mockImplementation(async (payload: Record<string, unknown>) => payload as { id: string });
+ 
+     const alerts = await service.evaluatePropertyCreated('property-1');
+ 
+@@ -153,10 +167,10 @@ describe('FraudService', () => {
+   });
+ 
+   it('auto-blocks a user when a critical alert is created with enforcement enabled', async () => {
+-    jest.spyOn(service as any, 'findOpenAlert').mockResolvedValue(null);
+-    jest.spyOn(service as any, 'notifySecurityTeam').mockResolvedValue(undefined);
++    jest.spyOn(service as unknown as FraudServiceInternals, 'findOpenAlert').mockResolvedValue(null);
++    jest.spyOn(service as unknown as FraudServiceInternals, 'notifySecurityTeam').mockResolvedValue(undefined);
+     const blockUserForFraudSpy = jest
+-      .spyOn(service as any, 'blockUserForFraud')
++      .spyOn(service as unknown as FraudServiceInternals, 'blockUserForFraud')
+       .mockResolvedValue(undefined);
+ 
+     mockPrismaService.fraudAlert.create.mockResolvedValue({
+@@ -171,7 +185,7 @@ describe('FraudService', () => {
+       },
+     });
+ 
+-    await (service as any).createOrUpdateAlert({
++    await (service as unknown as FraudServiceInternals).createOrUpdateAlert({
+       userId: 'user-1',
+       pattern: FraudPattern.TOKEN_REUSE,
+       severity: FraudSeverity.CRITICAL,
+diff --git a/src/properties/properties.service.agent.spec.ts b/src/properties/properties.service.agent.spec.ts
+index 884324c..438089b 100644
+--- a/src/properties/properties.service.agent.spec.ts
++++ b/src/properties/properties.service.agent.spec.ts
+@@ -9,7 +9,6 @@ import { CacheService } from '../cache/cache.service';
+ 
+ describe('PropertiesService - Agent Assignment', () => {
+   let service: PropertiesService;
+-  let prisma: PrismaService;
+ 
+   const mockPrismaService = {
+     property: {
+@@ -52,7 +51,6 @@ describe('PropertiesService - Agent Assignment', () => {
+     }).compile();
+ 
+     service = module.get<PropertiesService>(PropertiesService);
+-    prisma = module.get<PrismaService>(PrismaService);
+   });
+ 
+   afterEach(() => {
+@@ -72,7 +70,7 @@ describe('PropertiesService - Agent Assignment', () => {
+         { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
+       );
+ 
+-      expect((prisma as any).propertyAgent.create).toHaveBeenCalledWith({
++      expect(mockPrismaService.propertyAgent.create).toHaveBeenCalledWith({
+         data: {
+           propertyId: 'prop-1',
+           agentId: 'agent-1',
+@@ -127,7 +125,7 @@ describe('PropertiesService - Agent Assignment', () => {
+         { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
+       );
+ 
+-      expect((prisma as any).propertyAgent.update).toHaveBeenCalledWith({
++      expect(mockPrismaService.propertyAgent.update).toHaveBeenCalledWith({
+         where: {
+           propertyId_agentId: {
+             propertyId: 'prop-1',
+diff --git a/src/transactions/transaction-cancellation.service.spec.ts b/src/transactions/transaction-cancellation.service.spec.ts
+index 6b5815c..d8a7004 100644
+--- a/src/transactions/transaction-cancellation.service.spec.ts
++++ b/src/transactions/transaction-cancellation.service.spec.ts
+@@ -1,5 +1,7 @@
+ import { NotFoundException, BadRequestException } from '@nestjs/common';
+ import { TransactionCancellationService } from './transaction-cancellation.service';
++import { PrismaService } from '../database/prisma.service';
++import { NotificationsService } from '../notifications/notifications.service';
+ 
+ const mockTx = {
+   id: 'tx-1',
+@@ -29,7 +31,10 @@ describe('TransactionCancellationService', () => {
+ 
+   beforeEach(() => {
+     jest.clearAllMocks();
+-    service = new TransactionCancellationService(mockPrisma as any, mockNotifications as any);
++    service = new TransactionCancellationService(
++      mockPrisma as unknown as PrismaService,
++      mockNotifications as unknown as NotificationsService,
++    );
+   });
+ 
+   describe('cancel', () => {
+diff --git a/src/transactions/transaction-reminders.service.spec.ts b/src/transactions/transaction-reminders.service.spec.ts
+index 70bb982..1e1764d 100644
+--- a/src/transactions/transaction-reminders.service.spec.ts
++++ b/src/transactions/transaction-reminders.service.spec.ts
+@@ -1,4 +1,7 @@
+ import { TransactionRemindersService } from './transaction-reminders.service';
++import { PrismaService } from '../database/prisma.service';
++import { NotificationsService } from '../notifications/notifications.service';
++import { CacheService } from '../cache/cache.service';
+ 
+ const mockMilestone = {
+   id: 'ms-1',
+@@ -28,9 +31,9 @@ const mockCache = {
+ 
+ function makeService(): TransactionRemindersService {
+   return new TransactionRemindersService(
+-    mockPrisma as any,
+-    mockNotifications as any,
+-    mockCache as any,
++    mockPrisma as unknown as PrismaService,
++    mockNotifications as unknown as NotificationsService,
++    mockCache as unknown as CacheService,
+   );
+ }
+ 
+@@ -142,8 +145,9 @@ describe('TransactionRemindersService', () => {
+     it('respects buyer opt-out preference', async () => {
+       mockCache.setNx.mockResolvedValue(true);
+       mockPrisma.transactionMilestone.findMany.mockResolvedValue([mockMilestone]);
+-      mockPrisma.userPreferences.findUnique.mockImplementation(({ where }: any) =>
+-        where.userId === 'buyer-1' ? { optOutReminders: true } : null,
++      mockPrisma.userPreferences.findUnique.mockImplementation(
++        ({ where }: { where: { userId: string } }) =>
++          where.userId === 'buyer-1' ? { optOutReminders: true } : null,
+       );
+ 
+       const result = await makeService().sendDeadlineReminders();
+diff --git a/src/trust-score/trust-score.service.spec.ts b/src/trust-score/trust-score.service.spec.ts
+index a6298fa..3fdd676 100644
+--- a/src/trust-score/trust-score.service.spec.ts
++++ b/src/trust-score/trust-score.service.spec.ts
+@@ -1,5 +1,5 @@
+ import { Test, TestingModule } from '@nestjs/testing';
+-import { TrustScoreService } from './trust-score.service';
++import { TrustScoreService, TrustScoreBreakdown } from './trust-score.service';
+ import { PrismaService } from '../database/prisma.service';
+ 
+ describe('TrustScoreService', () => {
+@@ -50,7 +50,7 @@ describe('TrustScoreService', () => {
+       update: jest.fn(),
+       findMany: jest.fn(),
+     },
+-  } as any;
++  };
+ 
+   beforeEach(async () => {
+     const module: TestingModule = await Test.createTestingModule({
+@@ -192,7 +192,7 @@ describe('TrustScoreService', () => {
+       jest.spyOn(service, 'calculateTrustScore').mockResolvedValue({
+         userId: 'user-123',
+         score: 80,
+-        breakdown: {} as any,
++        breakdown: {} as TrustScoreBreakdown,
+         lastUpdated: new Date(),
+         nextUpdateTime: new Date(),
+       });
+@@ -259,7 +259,7 @@ describe('TrustScoreService', () => {
+       jest.spyOn(service, 'calculateTrustScore').mockResolvedValue({
+         userId: 'user-1',
+         score: 75,
+-        breakdown: {} as any,
++        breakdown: {} as TrustScoreBreakdown,
+         lastUpdated: new Date(),
+         nextUpdateTime: new Date(),
+       });
+diff --git a/src/webhooks/webhooks.service.spec.ts b/src/webhooks/webhooks.service.spec.ts
+index b9223ba..8f31a70 100644
+--- a/src/webhooks/webhooks.service.spec.ts
++++ b/src/webhooks/webhooks.service.spec.ts
+@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
+ import { WebhooksService } from './webhooks.service';
+ import { PrismaService } from '../database/prisma.service';
+ import { NotFoundException } from '@nestjs/common';
++import { CreateWebhookDto } from './webhook.dto';
+ 
+ const mockPrisma = {};
+ 
+@@ -22,7 +23,7 @@ describe('WebhooksService', () => {
+ 
+   describe('create', () => {
+     it('should throw error (webhooks not yet implemented)', async () => {
+-      await expect(service.create('user-1', {} as any)).rejects.toThrow(
++      await expect(service.create('user-1', {} as CreateWebhookDto)).rejects.toThrow(
+         'Webhooks module not yet implemented',
+       );
+     });

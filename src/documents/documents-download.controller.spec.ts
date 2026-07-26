@@ -7,6 +7,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
 import { Response } from 'express';
+import { RequestSignedUploadDto } from './dto/document-access.dto';
 
 describe('DocumentsDownloadController', () => {
   let controller: DocumentsDownloadController;
@@ -109,7 +110,7 @@ describe('DocumentsDownloadController', () => {
       fileName: 'test.pdf', 
       mimeType: 'application/pdf', 
       fileSizeBytes: 1024 
-    } as any;
+    } as RequestSignedUploadDto;
 
     const mockSignedUrlResponse = {
       url: 'http://signed.url/upload',

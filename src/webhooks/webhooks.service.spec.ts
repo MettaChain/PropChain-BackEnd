@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WebhooksService } from './webhooks.service';
 import { PrismaService } from '../database/prisma.service';
 import { NotFoundException } from '@nestjs/common';
+import { CreateWebhookDto } from './webhook.dto';
 
 const mockPrisma = {};
 
@@ -22,7 +23,7 @@ describe('WebhooksService', () => {
 
   describe('create', () => {
     it('should throw error (webhooks not yet implemented)', async () => {
-      await expect(service.create('user-1', {} as any)).rejects.toThrow(
+      await expect(service.create('user-1', {} as CreateWebhookDto)).rejects.toThrow(
         'Webhooks module not yet implemented',
       );
     });

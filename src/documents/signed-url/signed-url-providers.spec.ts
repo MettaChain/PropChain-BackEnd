@@ -2,9 +2,10 @@ import { AzureSignedUrlProvider } from './azure-signed-url-provider';
 import { GcsSignedUrlProvider } from './gcs-signed-url-provider';
 import { NotConfiguredSignedUrlProvider } from './not-configured.signed-url-provider';
 import { S3SignedUrlProvider } from './s3-signed-url-provider';
+import { SignedUrlRequest } from './signed-url-provider.interface';
 
 describe('Signed URL Providers', () => {
-  const mockPayload = { operation: 'download', objectKey: 'test.pdf' } as any;
+  const mockPayload = { operation: 'download', objectKey: 'test.pdf' } as SignedUrlRequest;
 
   it('AzureSignedUrlProvider should execute getSignedUrl', async () => {
     const provider = new AzureSignedUrlProvider();
