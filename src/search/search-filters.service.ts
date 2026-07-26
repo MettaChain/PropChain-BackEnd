@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
 export interface FilterOption {
@@ -17,7 +18,7 @@ export interface SavedFilter {
   id: string;
   userId: string;
   name: string;
-  filters: Record<string, any>;
+  filters: Record<string, unknown>;
   isQuickFilter: boolean;
   createdAt: Date;
   usageCount: number;
@@ -25,14 +26,23 @@ export interface SavedFilter {
 
 export interface FilterCombination {
   operator: 'AND' | 'OR';
-  filters: Record<string, any>[];
+  filters: Record<string, unknown>[];
+}
+
+interface SaveFilterDto {
+  name: string;
+  filters: Record<string, unknown>;
+  isQuickFilter?: boolean;
 }
 
 @Injectable()
 export class SearchFiltersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async applyFilters(whereClause: any, filters: Record<string, any>): Promise<any> {
+  async applyFilters(
+    whereClause: Prisma.PropertyWhereInput,
+    filters: Record<string, unknown>,
+  ): Promise<Prisma.PropertyWhereInput> {
     const filterKeys = Object.keys(filters);
 
     for (const key of filterKeys) {
@@ -82,7 +92,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyPriceFilter(whereClause: any, price: any): any {
+  private applyPriceFilter(whereClause: Prisma.PropertyWhereInput, price: unknown): Prisma.PropertyWhereInput {
     if (price.min !== undefined || price.max !== undefined) {
       whereClause.price = {};
       if (price.min !== undefined) {
@@ -95,7 +105,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyBedroomsFilter(whereClause: any, bedrooms: any): any {
+  private applyBedroomsFilter(whereClause: Prisma.PropertyWhereInput, bedrooms: unknown): Prisma.PropertyWhereInput {
     if (typeof bedrooms === 'number') {
       whereClause.bedrooms = bedrooms;
     } else if (bedrooms.min !== undefined || bedrooms.max !== undefined) {
@@ -110,7 +120,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyBathroomsFilter(whereClause: any, bathrooms: any): any {
+  private applyBathroomsFilter(whereClause: Prisma.PropertyWhereInput, bathrooms: unknown): Prisma.PropertyWhereInput {
     if (typeof bathrooms === 'number') {
       whereClause.bathrooms = bathrooms;
     } else if (bathrooms.min !== undefined || bathrooms.max !== undefined) {
@@ -125,7 +135,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applySquareFeetFilter(whereClause: any, squareFeet: any): any {
+  private applySquareFeetFilter(whereClause: Prisma.PropertyWhereInput, squareFeet: unknown): Prisma.PropertyWhereInput {
     if (squareFeet.min !== undefined || squareFeet.max !== undefined) {
       whereClause.squareFeet = {};
       if (squareFeet.min !== undefined) {
@@ -138,7 +148,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyPropertyTypeFilter(whereClause: any, propertyType: any): any {
+  private applyPropertyTypeFilter(whereClause: Prisma.PropertyWhereInput, propertyType: unknown): Prisma.PropertyWhereInput {
     if (Array.isArray(propertyType)) {
       whereClause.propertyType = { in: propertyType };
     } else {
@@ -147,7 +157,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyStatusFilter(whereClause: any, status: any): any {
+  private applyStatusFilter(whereClause: Prisma.PropertyWhereInput, status: unknown): Prisma.PropertyWhereInput {
     if (Array.isArray(status)) {
       whereClause.status = { in: status };
     } else {
@@ -156,7 +166,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyYearBuiltFilter(whereClause: any, yearBuilt: any): any {
+  private applyYearBuiltFilter(whereClause: Prisma.PropertyWhereInput, yearBuilt: unknown): Prisma.PropertyWhereInput {
     if (yearBuilt.min !== undefined || yearBuilt.max !== undefined) {
       whereClause.yearBuilt = {};
       if (yearBuilt.min !== undefined) {
@@ -169,14 +179,14 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyFeaturesFilter(whereClause: any, features: string[]): any {
+  private applyFeaturesFilter(whereClause: Prisma.PropertyWhereInput, features: string[]): Prisma.PropertyWhereInput {
     if (features.length > 0) {
       whereClause.features = { hasSome: features };
     }
     return whereClause;
   }
 
-  private applyCityFilter(whereClause: any, city: any): any {
+  private applyCityFilter(whereClause: Prisma.PropertyWhereInput, city: unknown): Prisma.PropertyWhereInput {
     if (Array.isArray(city)) {
       whereClause.city = { in: city };
     } else {
@@ -185,7 +195,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyStateFilter(whereClause: any, state: any): any {
+  private applyStateFilter(whereClause: Prisma.PropertyWhereInput, state: unknown): Prisma.PropertyWhereInput {
     if (Array.isArray(state)) {
       whereClause.state = { in: state };
     } else {
@@ -194,7 +204,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyDateRangeFilter(whereClause: any, dateRange: any): any {
+  private applyDateRangeFilter(whereClause: Prisma.PropertyWhereInput, dateRange: unknown): Prisma.PropertyWhereInput {
     if (dateRange.start || dateRange.end) {
       whereClause.createdAt = {};
       if (dateRange.start) {
@@ -207,7 +217,7 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyCustomFilter(whereClause: any, key: string, value: any): any {
+  private applyCustomFilter(whereClause: Prisma.PropertyWhereInput, key: string, value: unknown): Prisma.PropertyWhereInput {
     whereClause[key] = value;
     return whereClause;
   }
@@ -293,7 +303,7 @@ export class SearchFiltersService {
     ];
   }
 
-  async saveFilter(userId: string, filterData: any): Promise<SavedFilter> {
+  async saveFilter(userId: string, filterData: SaveFilterDto): Promise<SavedFilter> {
     // This would typically save to database
     // For now, return mock data
     const savedFilter: SavedFilter = {
@@ -331,7 +341,10 @@ export class SearchFiltersService {
     // For now, do nothing
   }
 
-  async applyFilterCombination(whereClause: any, combination: FilterCombination): Promise<any> {
+  async applyFilterCombination(
+    whereClause: Prisma.PropertyWhereInput,
+    combination: FilterCombination,
+  ): Promise<Prisma.PropertyWhereInput> {
     if (combination.operator === 'AND') {
       const conditions = combination.filters.map((filter) => this.applyFilters({}, filter));
       whereClause.AND = [...(whereClause.AND || []), ...conditions];
