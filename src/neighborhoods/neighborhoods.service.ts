@@ -187,6 +187,133 @@ export class NeighborhoodsService {
     });
   }
 
+  // ---------- Neighborhood Scoring (#935) ----------
+
+  private readonly defaultWeights = {
+    walkScore: 0.25,
+    transitScore: 0.2,
+    bikeScore: 0.1,
+    crimeIndex: 0.25,
+    schoolRating: 0.2,
+  };
+
+  async calculateCompositeScore(
+    neighborhoodId: string,
+    weights?: Record<string, number>,
+  ): Promise<{ score: number; breakdown: Record<string, number | null> }> {
+    const neighborhood = await this.prisma.neighborhood.findUnique({
+      where: { id: neighborhoodId },
+      select: {
+        walkScore: true,
+        transitScore: true,
+        bikeScore: true,
+        crimeIndex: true,
+        schoolRating: true,
+        metadata: true,
+      },
+    });
+
+    if (!neighborhood) {
+      throw new NotFoundException(`Neighborhood ${neighborhoodId} not found`);
+    }
+
+    const w = { ...this.defaultWeights, ...weights };
+    const totalWeight = Object.values(w).reduce((s, v) => s + v, 0);
+    const normalized = totalWeight > 0 ? totalWeight : 1;
+
+    const normalizedWeights = {
+      walkScore: w.walkScore / normalized,
+      transitScore: w.transitScore / normalized,
+      bikeScore: w.bikeScore / normalized,
+      crimeIndex: w.crimeIndex / normalized,
+      schoolRating: w.schoolRating / normalized,
+    };
+
+    const breakdown: Record<string, number | null> = {
+      walkScore: neighborhood.walkScore,
+      transitScore: neighborhood.transitScore,
+      bikeScore: neighborhood.bikeScore,
+      crimeIndex: neighborhood.crimeIndex,
+      schoolRating: neighborhood.schoolRating,
+    };
+
+    let score = 0;
+    if (neighborhood.walkScore != null) {
+      score += neighborhood.walkScore * normalizedWeights.walkScore;
+    }
+    if (neighborhood.transitScore != null) {
+      score += neighborhood.transitScore * normalizedWeights.transitScore;
+    }
+    if (neighborhood.bikeScore != null) {
+      score += neighborhood.bikeScore * normalizedWeights.bikeScore;
+    }
+    if (neighborhood.crimeIndex != null) {
+      score += (100 - neighborhood.crimeIndex) * normalizedWeights.crimeIndex;
+    }
+    if (neighborhood.schoolRating != null) {
+      score += (neighborhood.schoolRating / 10) * 100 * normalizedWeights.schoolRating;
+    }
+
+    const finalScore = Math.round(Math.min(100, Math.max(1, score)));
+
+    const existingMetadata = (neighborhood.metadata as Record<string, any>) || {};
+    const scoreHistory = Array.isArray(existingMetadata.scoreHistory)
+      ? existingMetadata.scoreHistory
+      : [];
+    scoreHistory.push({
+      score: finalScore,
+      weights: normalizedWeights,
+      breakdown,
+      calculatedAt: new Date().toISOString(),
+    });
+
+    await this.prisma.neighborhood.update({
+      where: { id: neighborhoodId },
+      data: {
+        metadata: {
+          ...existingMetadata,
+          scoreHistory,
+        },
+      } as any,
+    });
+
+    return { score: finalScore, breakdown };
+  }
+
+  async getScoreHistory(neighborhoodId: string): Promise<any[]> {
+    await this.assertExists(neighborhoodId);
+    const neighborhood = await this.prisma.neighborhood.findUnique({
+      where: { id: neighborhoodId },
+      select: { metadata: true },
+    });
+    const metadata = (neighborhood!.metadata as Record<string, any>) || {};
+    return Array.isArray(metadata.scoreHistory) ? metadata.scoreHistory : [];
+  }
+
+  async rankNeighborhoods(
+    city: string,
+    weights?: Record<string, number>,
+  ): Promise<Array<{ rank: number; neighborhoodId: string; name: string; score: number }>> {
+    const neighborhoods = await this.prisma.neighborhood.findMany({
+      where: { city },
+      select: { id: true, name: true },
+    });
+
+    const scored: Array<{ rank: number; neighborhoodId: string; name: string; score: number }> = [];
+
+    for (const n of neighborhoods) {
+      const { score } = await this.calculateCompositeScore(n.id, weights);
+      scored.push({ rank: 0, neighborhoodId: n.id, name: n.name, score });
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    scored.forEach((item, idx) => {
+      item.rank = idx + 1;
+    });
+
+    return scored;
+  }
+
   private async assertExists(id: string) {
     const found = await this.prisma.neighborhood.findUnique({
       where: { id },
