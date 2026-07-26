@@ -244,8 +244,8 @@ model User {
   tourRequests            TourRequest[]          @relation("TourRequestRequester")
   tourAgentAssignments    TourRequest[]          @relation("TourRequestAgent")
   agentAvailabilities     AgentAvailability[]
-  supportTickets          SupportTicket[]
-  assignedTickets         SupportTicket[]        @relation("AssignedTickets")
+  supportTickets          SupportTicket[]       @relation("SupportTicketUser")
+  assignedTickets         SupportTicket[]        @relation("SupportTicketAgent")
   supportTicketNotes      SupportTicketNote[]
   transactionNotes        TransactionNote[]            @relation("TransactionNoteAuthor")
   deletedProperties       Property[]               @relation("DeletedProperties")
@@ -1499,8 +1499,8 @@ model SupportTicket {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  user       User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignedTo User?              @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  user       User?              @relation("SupportTicketUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo User?              @relation("SupportTicketAgent", fields: [assignedToId], references: [id], onDelete: SetNull)
   notes      SupportTicketNote[]
 
   @@index([userId])
