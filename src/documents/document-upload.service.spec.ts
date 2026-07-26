@@ -40,10 +40,10 @@ describe('DocumentUploadService', () => {
       const req: UploadRequest = {
         fileName: 'large.pdf',
         mimeType: 'application/pdf',
-        fileSizeBytes: 11 * 1024 * 1024,
+        fileSizeBytes: 30 * 1024 * 1024,
       };
       expect(() => service.validate(req)).toThrow(BadRequestException);
-      expect(() => service.validate(req)).toThrow('File exceeds maximum allowed size');
+      expect(() => service.validate(req)).toThrow('File exceeds maximum allowed size of 25 MB for application/pdf');
     });
 
     it('should throw BadRequestException for empty file name', () => {
