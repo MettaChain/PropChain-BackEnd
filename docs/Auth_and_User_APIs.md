@@ -56,6 +56,11 @@ Request payload:
 }
 ```
 
+> **Captcha-gated**: The login endpoint requires a valid reCAPTCHA token when the site has
+> `CAPTCHA_SECRET_KEY` configured. Pass `"captchaToken": "<reCAPTCHA response>"` in the JSON body.
+> The server validates the token against Google's siteverify API before processing the login.
+> If `CAPTCHA_SECRET_KEY` is not set, captcha validation is skipped.
+
 Success response (200 OK):
 
 ```json

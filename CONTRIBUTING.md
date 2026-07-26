@@ -50,7 +50,7 @@ Before opening a PR, run the relevant checks:
 - Run all tests: `npm test`
 - Run tests in watch mode: `npm run test:watch`
 - Run test coverage: `npm run test:cov`
-- Run lint and apply automatic fixes: `npm run lint`
+- Run lint (must pass with zero warnings): `npm run lint -- --max-warnings=0`
 - Format code: `npm run format`
 
 If your change touches database schema or Prisma models, update the schema and run:
