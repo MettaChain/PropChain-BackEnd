@@ -13,11 +13,12 @@ import { AuthModule } from '../auth/auth.module';
 import { PropertiesResolver } from './properties.resolver';
 import { PubSub } from 'graphql-subscriptions';
 import { FraudModule } from '../fraud/fraud.module';
+import { DocumentsModule } from '../documents/documents.module';
 import { PropertyReportService } from './report/property-report.service';
 import { CacheModuleConfig } from '../cache/cache.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, FraudModule, ConfigModule, CacheModuleConfig],
+  imports: [PrismaModule, AuthModule, FraudModule, ConfigModule, CacheModuleConfig, DocumentsModule],
   controllers: [PropertiesController, PropertyImagesController],
   providers: [
     PropertiesService,
