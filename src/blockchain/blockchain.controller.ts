@@ -140,4 +140,37 @@ export class BlockchainController {
   getStatus(): Record<string, any> {
     return this.blockchainService.getStatus();
   }
+
+  // ─── RPC Health Monitoring Endpoints ──────────────────────────────────────
+
+  @Get('rpc/health')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get RPC provider health status',
+    description: 'Check health of all configured RPC providers with latency and block info',
+  })
+  async getRpcHealth() {
+    return this.blockchainService.getRpcHealthSummary();
+  }
+
+  @Post('rpc/health/check')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Trigger RPC health check',
+    description: 'Manually trigger an RPC health check across all providers',
+  })
+  async triggerRpcHealthCheck() {
+    await this.blockchainService.checkRpcHealth();
+    return this.blockchainService.getRpcHealthSummary();
+  }
+
+  @Get('rpc/gas-price')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get current gas price',
+    description: 'Fetch current gas price estimates from the active RPC provider',
+  })
+  async getGasPrice() {
+    return this.blockchainService.getGasPrice();
+  }
 }

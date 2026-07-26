@@ -2,7 +2,7 @@
 
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
-import { CreateWebhookDto, UpdateWebhookDto } from './webhook.dto';
+import { CreateWebhookDto, UpdateWebhookDto, VerifyWebhookDto } from './webhook.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -39,5 +39,10 @@ export class WebhooksController {
   @Get(':id/deliveries')
   getDeliveries(@Param('id') id: string, @CurrentUser() user: any) {
     return this.webhooksService.getDeliveries(id, user.id);
+  }
+
+  @Post(':id/verify')
+  verifyChallenge(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: VerifyWebhookDto) {
+    return this.webhooksService.verifyChallenge(id, user.id, dto.challenge);
   }
 }
