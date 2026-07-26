@@ -20,6 +20,7 @@ describe('EmailService.handleBounce', () => {
       prisma,
       { createEmailEngagement: jest.fn() } as any,
       { add: jest.fn() } as any,
+      { translate: jest.fn().mockReturnValue('test') } as any,
     );
 
     await service.handleBounce('test@example.com', 'HARD', 'Mailbox disabled', {
