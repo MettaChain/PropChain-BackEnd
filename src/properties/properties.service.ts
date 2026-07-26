@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -138,7 +139,7 @@ export class PropertiesService {
     });
   }
 
-  private readonly logger = new (require('@nestjs/common').Logger)('PropertiesService');
+  private readonly logger = new Logger('PropertiesService');
 
   async create(createPropertyDto: CreatePropertyDto, ownerId: string) {
     const { price, squareFeet, lotSize, latitude, longitude, hoaMonthlyFee, ...rest } =
