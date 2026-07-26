@@ -240,6 +240,7 @@ model User {
     openHouseRsvps             OpenHouseRsvp[]
   transactionNotes        TransactionNote[]            @relation("TransactionNoteAuthor")
   deletedProperties       Property[]               @relation("DeletedProperties")
+  comparisonShares        ComparisonShare[]
 
   @@index([email])
   @@index([isDeactivated])
