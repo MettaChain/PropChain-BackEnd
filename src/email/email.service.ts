@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { TrackingService } from '../tracking/tracking.service';
+import { I18nService } from '../i18n/i18n.service';
 import { v4 as uuidv4 } from 'uuid';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -17,6 +18,7 @@ export interface EmailOptions {
   emailType?: string;
   template?: string;
   context?: any;
+  language?: string;
 }
 
 export interface FraudAlertEmailPayload {
@@ -49,6 +51,7 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly trackingService: TrackingService,
+    private readonly i18nService: I18nService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
   ) {}
 
@@ -165,6 +168,15 @@ export class EmailService {
     const baseUrl = this.configService.get<string>('API_URL', 'http://localhost:3000/api');
     const html = options.html;
 
+    if (options.language && options.template) {
+      const lang = options.language;
+      const i18nKey = `email.${options.template}`;
+      const translated = this.i18nService.translate(i18nKey, lang, options.context);
+      if (translated !== i18nKey) {
+        options.subject = options.subject || translated;
+      }
+    }
+
     // 1. Check if user is blocked or has invalid email
     if (options.userId) {
       const user = await this.prisma.user.findUnique({ where: { id: options.userId } });
@@ -223,5 +235,29 @@ export class EmailService {
       this.logger.error(`❌ Failed to queue email to ${options.to}: ${error.message}`);
       throw error;
     }
+  }
+
+  async sendLocalizedEmail(
+    to: string,
+    templateKey: string,
+    userId: string,
+    params?: Record<string, string | number>,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { languagePreference: true },
+    });
+
+    const language = user?.languagePreference || 'en';
+    const translated = this.i18nService.translate(templateKey, language, params);
+
+    await this.sendEmail({
+      to,
+      subject: translated,
+      template: templateKey.replace('.', '-'),
+      context: params,
+      userId,
+      language,
+    });
   }
 }

@@ -3,8 +3,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
-/** Fields included in the side-by-side comparison view. */
 const COMPARABLE_FIELDS = [
   'title',
   'address',
@@ -27,7 +27,6 @@ const COMPARABLE_FIELDS = [
 
 type ComparableField = (typeof COMPARABLE_FIELDS)[number];
 
-/** Numeric fields used to compute min/max highlights. */
 const NUMERIC_FIELDS: ReadonlySet<ComparableField> = new Set<ComparableField>([
   'price',
   'bedrooms',
@@ -37,13 +36,20 @@ const NUMERIC_FIELDS: ReadonlySet<ComparableField> = new Set<ComparableField>([
   'yearBuilt',
 ]);
 
+const SCORE_WEIGHTS = {
+  pricePerSqft: 0.30,
+  locationScore: 0.25,
+  condition: 0.25,
+  age: 0.20,
+};
+
 export interface FieldRow {
   field: ComparableField;
   values: unknown[];
   allEqual: boolean;
   min?: number | null;
   max?: number | null;
-  bestIndex?: number | null; // index of property with min price / largest area, etc.
+  bestIndex?: number | null;
   worstIndex?: number | null;
 }
 
@@ -51,9 +57,6 @@ export interface FieldRow {
 export class PropertyComparisonService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Compare 2-4 properties side-by-side and highlight differing fields.
-   */
   async compare(ids: string[]) {
     const properties = await this.prisma.property.findMany({
       where: { id: { in: ids } },
@@ -69,14 +72,12 @@ export class PropertyComparisonService {
       },
     });
 
-    // Validate all requested IDs exist.
     if (properties.length !== ids.length) {
       const found = new Set(properties.map((p) => p.id));
       const missing = ids.filter((id) => !found.has(id));
       throw new NotFoundException(`Properties not found: ${missing.join(', ')}`);
     }
 
-    // Preserve the order requested by the caller.
     const ordered = ids.map((id) => properties.find((p) => p.id === id)!);
 
     const comparison: FieldRow[] = COMPARABLE_FIELDS.map((field) =>
@@ -93,6 +94,174 @@ export class PropertyComparisonService {
       differingFields,
       commonFields,
     };
+  }
+
+  calculateScore(properties: any[]) {
+    const currentYear = new Date().getFullYear();
+
+    const scores = properties.map((property) => {
+      const price = this.normalize(property.price) as number || 0;
+      const sqft = this.normalize(property.squareFeet) as number || 0;
+      const pricePerSqft = sqft > 0 ? price / sqft : 0;
+
+      const yearBuilt = property.yearBuilt || currentYear;
+      const age = currentYear - yearBuilt;
+
+      let locationScore = 50;
+      if (property.latitude && property.longitude) {
+        locationScore = this.calculateLocationScore(
+          property.latitude,
+          property.longitude,
+        );
+      }
+
+      let conditionScore = 50;
+      if (property.features && Array.isArray(property.features)) {
+        const featureCount = property.features.length;
+        conditionScore = Math.min(100, 30 + featureCount * 5);
+      }
+
+      const normalizedPricePerSqft = pricePerSqft > 0
+        ? Math.max(0, 100 - (pricePerSqft / 10))
+        : 50;
+      const normalizedAge = Math.max(0, 100 - age);
+      const normalizedCondition = conditionScore;
+
+      const weightedScore =
+        normalizedPricePerSqft * SCORE_WEIGHTS.pricePerSqft +
+        locationScore * SCORE_WEIGHTS.locationScore +
+        normalizedCondition * SCORE_WEIGHTS.condition +
+        normalizedAge * SCORE_WEIGHTS.age;
+
+      return {
+        propertyId: property.id,
+        title: property.title,
+        pricePerSqft: Math.round(pricePerSqft * 100) / 100,
+        locationScore: Math.round(locationScore * 100) / 100,
+        conditionScore: Math.round(normalizedCondition * 100) / 100,
+        age,
+        weightedScore: Math.round(weightedScore * 100) / 100,
+      };
+    });
+
+    const sorted = [...scores].sort((a, b) => b.weightedScore - a.weightedScore);
+
+    return {
+      scores: sorted,
+      best: sorted[0] || null,
+      weights: SCORE_WEIGHTS,
+    };
+  }
+
+  async createShareableLink(propertyIds: string[], createdById?: string) {
+    const properties = await this.prisma.property.findMany({
+      where: { id: { in: propertyIds } },
+      select: { id: true },
+    });
+
+    if (properties.length !== propertyIds.length) {
+      const found = new Set(properties.map((p) => p.id));
+      const missing = propertyIds.filter((id) => !found.has(id));
+      throw new NotFoundException(`Properties not found: ${missing.join(', ')}`);
+    }
+
+    const shareToken = uuidv4();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const share = await this.prisma.comparisonShare.create({
+      data: {
+        shareToken,
+        propertyIds,
+        createdById: createdById || null,
+        expiresAt,
+      },
+    });
+
+    return {
+      shareToken: share.shareToken,
+      propertyIds: share.propertyIds,
+      expiresAt: share.expiresAt,
+      url: `/property-comparison/shared/${share.shareToken}`,
+    };
+  }
+
+  async getSharedComparison(shareToken: string) {
+    const share = await this.prisma.comparisonShare.findUnique({
+      where: { shareToken },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Shared comparison not found');
+    }
+
+    if (share.expiresAt && share.expiresAt < new Date()) {
+      throw new NotFoundException('This shared comparison link has expired');
+    }
+
+    const comparison = await this.compare(share.propertyIds);
+
+    return {
+      shareToken: share.shareToken,
+      createdAt: share.createdAt,
+      expiresAt: share.expiresAt,
+      ...comparison,
+    };
+  }
+
+  async exportComparison(propertyIds: string[]) {
+    const result = await this.compare(propertyIds);
+    const scoreResult = this.calculateScore(result.properties);
+
+    const exportData = {
+      title: 'Property Comparison Report',
+      generatedAt: new Date().toISOString(),
+      propertyCount: result.count,
+      properties: result.properties.map((p) => ({
+        id: p.id,
+        title: p.title,
+        address: `${p.address}, ${p.city}, ${p.state} ${p.zipCode}`,
+        price: this.normalize(p.price),
+        propertyType: p.propertyType,
+        bedrooms: p.bedrooms,
+        bathrooms: this.normalize(p.bathrooms),
+        squareFeet: this.normalize(p.squareFeet),
+        lotSize: this.normalize(p.lotSize),
+        yearBuilt: p.yearBuilt,
+        status: p.status,
+        features: p.features,
+      })),
+      comparison: {
+        differingFields: result.differingFields,
+        commonFields: result.commonFields,
+      },
+      scores: scoreResult.scores,
+      summary: {
+        bestValue: scoreResult.best,
+        averagePrice: this.average(
+          result.properties.map((p) => this.normalize(p.price) as number).filter((v) => v > 0),
+        ),
+        averageSqft: this.average(
+          result.properties.map((p) => this.normalize(p.squareFeet) as number).filter((v) => v > 0),
+        ),
+      },
+    };
+
+    return exportData;
+  }
+
+  private calculateLocationScore(lat: number, lng: number): number {
+    const urbanCenterLat = 40.7128;
+    const urbanCenterLng = -74.006;
+    const distance = Math.sqrt(
+      Math.pow(lat - urbanCenterLat, 2) + Math.pow(lng - urbanCenterLng, 2),
+    );
+    return Math.max(0, Math.min(100, 100 - distance * 10));
+  }
+
+  private average(values: number[]): number {
+    if (values.length === 0) return 0;
+    return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
   }
 
   private buildFieldRow(
@@ -122,7 +291,6 @@ export class PropertyComparisonService {
         row.min = minEntry.v;
         row.max = maxEntry.v;
 
-        // For price → lowest is "best". For everything else higher is better.
         if (field === 'price') {
           row.bestIndex = minEntry.i;
           row.worstIndex = maxEntry.i;
@@ -141,7 +309,6 @@ export class PropertyComparisonService {
     return row;
   }
 
-  /** Convert Prisma `Decimal` to number; sort feature arrays for stable comparison. */
   private normalize(value: unknown): unknown {
     if (value === null || value === undefined) {
       return null;
