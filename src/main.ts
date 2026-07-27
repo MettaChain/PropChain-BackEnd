@@ -27,21 +27,25 @@ async function bootstrap() {
       `Node.js >= ${REQUIRED_NODE_MAJOR} required, found ${process.versions.node}. ` +
         `Please upgrade Node.js (see https://nodejs.org/).`,
     );
-
-    // Setup Swagger documentation
-    setupSwagger(app);
-
-    app.enableShutdownHooks();
-
-    const port = process.env.PORT || 3000;
-    await app.listen(port);
-    logger.log(`PropChain API running on http://localhost:${port}`);
-    logger.log(`API Versioning enabled. Supported versions: v1, v2`);
-    logger.log(`📚 Swagger UI available at http://localhost:${port}/api/docs`);
-    logger.log(`📋 OpenAPI spec available at http://localhost:${port}/api/openapi.json`);
-    logger.log(`💾 Redis Caching enabled`);
-    logger.log(`🛡️ Rate Limiting enabled (per-user, per-endpoint, IP-based)`);
+    process.exit(1);
   }
 
-  bootstrap();
+  // Create NestJS application
+  const app = await NestFactory.create(AppModule);
+
+  // Setup Swagger documentation - only called after app is initialized
+  setupSwagger(app);
+
+  app.enableShutdownHooks();
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  logger.log(`PropChain API running on http://localhost:${port}`);
+  logger.log(`API Versioning enabled. Supported versions: v1, v2`);
+  logger.log(`📚 Swagger UI available at http://localhost:${port}/api/docs`);
+  logger.log(`📋 OpenAPI spec available at http://localhost:${port}/api/openapi.json`);
+  logger.log(`💾 Redis Caching enabled`);
+  logger.log(`🛡️ Rate Limiting enabled (per-user, per-endpoint, IP-based)`);
 }
+
+bootstrap();
