@@ -38,10 +38,34 @@ describe('WebhooksService', () => {
   });
 
   describe('create', () => {
-    it('should throw error (webhooks not yet implemented)', async () => {
-      await expect(service.create('user-1', {} as CreateWebhookDto)).rejects.toThrow(
-        'Webhooks module not yet implemented',
-      );
+    it('creates a webhook and returns it with the plaintext secret', async () => {
+      const dto: CreateWebhookDto = {
+        url: 'https://example.com/hook',
+        eventTypes: ['transaction.created'],
+        description: 'test webhook',
+      } as CreateWebhookDto;
+
+      prisma.webhook.create.mockResolvedValue({
+        id: 'wh-1',
+        userId: 'user-1',
+        url: dto.url,
+        secret: 'stored-secret',
+        events: dto.eventTypes,
+        description: dto.description,
+      });
+
+      const result = await service.create('user-1', dto);
+
+      expect(prisma.webhook.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'user-1',
+          url: dto.url,
+          events: dto.eventTypes,
+          description: dto.description,
+          secret: expect.any(String),
+        }),
+      });
+      expect(result).toHaveProperty('secret');
     });
   });
 

@@ -51,6 +51,9 @@ describe('TrustScoreService', () => {
       update: jest.fn(),
       findMany: jest.fn(),
     },
+    verificationDocument: {
+      findFirst: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
