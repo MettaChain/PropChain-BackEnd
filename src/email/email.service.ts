@@ -159,7 +159,9 @@ export class EmailService {
         },
       });
 
-      this.logger.warn(`Hard bounce processed for ${email}: user marked as BOUNCED, email notifications disabled`);
+      this.logger.warn(
+        `Hard bounce processed for ${email}: user marked as BOUNCED, email notifications disabled`,
+      );
     } else {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -217,22 +219,18 @@ export class EmailService {
   }
 
   async getSenderReputation() {
-    const [
-      totalBounced,
-      totalComplaints,
-      totalUsers,
-      bouncedUsers,
-      complainedUsers,
-    ] = await Promise.all([
-      this.prisma.emailBounce.count({ where: { bounceType: 'HARD' } }),
-      this.prisma.emailBounce.count({ where: { spamAction: 'COMPLAINED' } }),
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { emailStatus: 'BOUNCED' } }),
-      this.prisma.user.count({ where: { isBlocked: false } }),
-    ]);
+    const [totalBounced, totalComplaints, totalUsers, bouncedUsers, complainedUsers] =
+      await Promise.all([
+        this.prisma.emailBounce.count({ where: { bounceType: 'HARD' } }),
+        this.prisma.emailBounce.count({ where: { spamAction: 'COMPLAINED' } }),
+        this.prisma.user.count(),
+        this.prisma.user.count({ where: { emailStatus: 'BOUNCED' } }),
+        this.prisma.user.count({ where: { isBlocked: false } }),
+      ]);
 
     const bounceRate = totalUsers > 0 ? (bouncedUsers / totalUsers) * 100 : 0;
-    const complaintRate = totalUsers > 0 ? (complainedUsers > 0 ? (complainedUsers / totalUsers) * 100 : 0) : 0;
+    const complaintRate =
+      totalUsers > 0 ? (complainedUsers > 0 ? (complainedUsers / totalUsers) * 100 : 0) : 0;
     const reputationScore = Math.max(0, 100 - bounceRate * 10 - complaintRate * 20);
 
     return {
@@ -258,7 +256,9 @@ export class EmailService {
   }
 
   async sendEmail(options: EmailOptions): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const baseUrl = this.configService.get<string>('API_URL', 'http://localhost:3000/api');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const html = options.html;
 
     if (options.language && options.template) {

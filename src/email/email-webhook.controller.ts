@@ -3,10 +3,12 @@
 import { Controller, Post, Body, Get, HttpCode, UseGuards } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
 

@@ -11,6 +11,7 @@ import { LoginRateLimitService } from '../../src/auth/login-rate-limit.service';
 import { FraudService } from '../../src/fraud/fraud.service';
 import { ApiKeyAnalyticsService } from '../../src/auth/api-key-analytics.service';
 import { ConfigService } from '@nestjs/config';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { createSha256, hashPassword } from '../../src/auth/security.utils';
 import * as jwt from 'jsonwebtoken';
 
@@ -19,6 +20,7 @@ const REFRESH_SECRET = 'test-refresh-secret';
 
 describe('Fraud alert auto-block e2e', () => {
   let app: INestApplication;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let authService: AuthService;
   let prisma: any;
 
@@ -66,12 +68,14 @@ describe('Fraud alert auto-block e2e', () => {
         },
         findFirst: async ({ where }: any) => {
           if (!where) return null;
-          return Array.from(users.values()).find((u) => {
-            for (const k of Object.keys(where)) {
-              if (u[k] !== where[k]) return false;
-            }
-            return true;
-          }) ?? null;
+          return (
+            Array.from(users.values()).find((u) => {
+              for (const k of Object.keys(where)) {
+                if (u[k] !== where[k]) return false;
+              }
+              return true;
+            }) ?? null
+          );
         },
         update: async ({ where, data }: any) => {
           const user = users.get(where.id);
@@ -79,6 +83,7 @@ describe('Fraud alert auto-block e2e', () => {
           Object.assign(user, data);
           return user;
         },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         updateMany: async ({ where, data }: any) => {
           for (const user of users.values()) {
             Object.assign(user, data);
@@ -112,7 +117,10 @@ describe('Fraud alert auto-block e2e', () => {
         },
         update: async ({ where, data }: any) => {
           const existing = blacklistedTokens.get(where.jti);
-          if (existing) { Object.assign(existing, data); return existing; }
+          if (existing) {
+            Object.assign(existing, data);
+            return existing;
+          }
           return data;
         },
         count: async () => blacklistedTokens.size,
@@ -132,13 +140,25 @@ describe('Fraud alert auto-block e2e', () => {
         findUnique: async ({ where }: any) => fraudAlerts.get(where.id) ?? null,
         create: async ({ data }: any) => {
           const id = nid();
-          const record = { id, ...data, occurrenceCount: 1, lastDetectedAt: new Date(), status: 'OPEN', autoBlocked: data.autoBlocked ?? false, createdAt: new Date(), updatedAt: new Date() };
+          const record = {
+            id,
+            ...data,
+            occurrenceCount: 1,
+            lastDetectedAt: new Date(),
+            status: 'OPEN',
+            autoBlocked: data.autoBlocked ?? false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
           fraudAlerts.set(id, record);
           return record;
         },
         update: async ({ where, data }: any) => {
           const existing = fraudAlerts.get(where.id);
-          if (existing) { Object.assign(existing, data); return existing; }
+          if (existing) {
+            Object.assign(existing, data);
+            return existing;
+          }
           return data;
         },
         findMany: async () => Array.from(fraudAlerts.values()),
@@ -212,7 +232,8 @@ describe('Fraud alert auto-block e2e', () => {
             if (where?.OR) {
               match = false;
               for (const cond of where.OR) {
-                if (cond.refreshTokenJti && s.refreshTokenJti === cond.refreshTokenJti) match = true;
+                if (cond.refreshTokenJti && s.refreshTokenJti === cond.refreshTokenJti)
+                  match = true;
                 if (cond.accessTokenJti && s.accessTokenJti === cond.accessTokenJti) match = true;
               }
             }
@@ -221,12 +242,17 @@ describe('Fraud alert auto-block e2e', () => {
           return null;
         },
         findMany: async ({ where }: any) => {
-          return Array.from(sessions.values()).filter((s) => !where?.userId || s.userId === where.userId);
+          return Array.from(sessions.values()).filter(
+            (s) => !where?.userId || s.userId === where.userId,
+          );
         },
         updateMany: async ({ where, data }: any) => {
           let count = 0;
           for (const s of sessions.values()) {
-            if (where?.userId && s.userId === where.userId) { Object.assign(s, data); count++; }
+            if (where?.userId && s.userId === where.userId) {
+              Object.assign(s, data);
+              count++;
+            }
           }
           return { count };
         },
@@ -312,21 +338,23 @@ describe('Fraud alert auto-block e2e', () => {
         {
           provide: FraudService,
           useValue: {
-            handleTokenReuse: jest.fn().mockImplementation(async (userId: string, jti: string, ip: string) => {
-              await prisma.user.update({ where: { id: userId }, data: { isBlocked: true } });
-              await prisma.fraudAlert.create({
-                data: {
-                  userId,
-                  pattern: 'TOKEN_REUSE',
-                  severity: 'CRITICAL',
-                  status: 'OPEN',
-                  description: `Token reuse detected for user ${userId}`,
-                  ipAddress: ip,
-                  evidence: { jti },
-                  autoBlocked: true,
-                },
-              });
-            }),
+            handleTokenReuse: jest
+              .fn()
+              .mockImplementation(async (userId: string, jti: string, ip: string) => {
+                await prisma.user.update({ where: { id: userId }, data: { isBlocked: true } });
+                await prisma.fraudAlert.create({
+                  data: {
+                    userId,
+                    pattern: 'TOKEN_REUSE',
+                    severity: 'CRITICAL',
+                    status: 'OPEN',
+                    description: `Token reuse detected for user ${userId}`,
+                    ipAddress: ip,
+                    evidence: { jti },
+                    autoBlocked: true,
+                  },
+                });
+              }),
             evaluateFailedLogin: jest.fn().mockResolvedValue(null),
             evaluateSuccessfulLogin: jest.fn().mockResolvedValue([]),
           },
@@ -350,7 +378,9 @@ describe('Fraud alert auto-block e2e', () => {
     fraudService.handleTokenReuse.mockClear();
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function signRefresh(payload: Record<string, any>) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { exp, ...rest } = payload;
     return jwt.sign(rest, REFRESH_SECRET, { expiresIn: '7d', issuer: 'PropChain' });
   }

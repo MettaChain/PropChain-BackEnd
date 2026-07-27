@@ -3,7 +3,7 @@
 /**
  * Response Format Interceptor
  * Standardizes all API responses into a consistent envelope format
- * 
+ *
  * Success response format: { success: true, data, meta, timestamp }
  * Error response format: { success: false, message, errors, timestamp }
  * Pagination meta format: { page, limit, total, totalPages }
@@ -81,7 +81,7 @@ export class ResponseFormatInterceptor implements NestInterceptor {
         if (error instanceof HttpException) {
           statusCode = error.getStatus();
           const errorResponse = error.getResponse();
-          
+
           if (typeof errorResponse === 'string') {
             message = errorResponse;
           } else if (typeof errorResponse === 'object') {
@@ -93,7 +93,7 @@ export class ResponseFormatInterceptor implements NestInterceptor {
         }
 
         response.status(statusCode);
-        
+
         const errorResponse: ErrorResponse = {
           success: false,
           message,
@@ -114,8 +114,9 @@ export class ResponseFormatInterceptor implements NestInterceptor {
 
   private validatePaginationMeta(meta: any): PaginationMeta | Record<string, any> {
     // Check if it has pagination properties
-    const hasPaginationProps = 'page' in meta || 'limit' in meta || 'total' in meta || 'totalPages' in meta;
-    
+    const hasPaginationProps =
+      'page' in meta || 'limit' in meta || 'total' in meta || 'totalPages' in meta;
+
     if (hasPaginationProps) {
       return {
         page: meta.page || 1,
@@ -124,7 +125,7 @@ export class ResponseFormatInterceptor implements NestInterceptor {
         totalPages: meta.totalPages || Math.ceil((meta.total || 0) / (meta.limit || 10)),
       } as PaginationMeta;
     }
-    
+
     // Return as-is if it's just regular meta
     return meta;
   }

@@ -1,10 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 @Catch()
@@ -15,7 +9,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    
+
     const status = HttpStatus.INTERNAL_SERVER_ERROR;
     const message = exception instanceof Error ? exception.message : 'Internal server error';
 
@@ -30,7 +24,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       message: process.env.NODE_ENV === 'production' ? 'Internal server error' : message,
-      stack: process.env.NODE_ENV === 'development' && exception instanceof Error ? exception.stack : undefined,
+      stack:
+        process.env.NODE_ENV === 'development' && exception instanceof Error
+          ? exception.stack
+          : undefined,
     });
   }
 }

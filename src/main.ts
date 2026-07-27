@@ -14,8 +14,11 @@ import { ResponseFormatInterceptor } from './common/interceptors/response-format
 import { setupSwagger } from './config/swagger.config';
 import { validateEnvironment } from './utils/validate-env';
 // Import our exception filters
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
@@ -26,7 +29,7 @@ async function bootstrap() {
   // Node.js version check (#775, #754 NestJS 11 requires Node 20+)
   const REQUIRED_NODE_MAJOR = 20;
   const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
-  
+
   if (Number.isNaN(nodeMajor) || nodeMajor < REQUIRED_NODE_MAJOR) {
     logger.error(
       `Node.js >= ${REQUIRED_NODE_MAJOR} required, found ${process.versions.node}. ` +
@@ -38,11 +41,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // Register global interceptors
   const responseFormatInterceptor = app.get(ResponseFormatInterceptor);
@@ -77,7 +82,9 @@ async function bootstrap() {
   logger.log(`📋 OpenAPI spec available at http://localhost:${port}/api/openapi.json`);
   logger.log(`💾 Redis Caching enabled`);
   logger.log(`🛡️ Rate Limiting enabled (per-user, per-endpoint, IP-based)`);
-  logger.log(`✅ Response format interceptor enabled - all API responses now follow standardized format`);
+  logger.log(
+    `✅ Response format interceptor enabled - all API responses now follow standardized format`,
+  );
 }
 
 bootstrap();

@@ -83,7 +83,9 @@ export class SearchService {
       }
 
       // Execute query with sorting and pagination
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { page = 1, limit = 20 } = searchQuery.pagination || {};
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { field = 'createdAt', order = 'desc' } = searchQuery.sort || {};
 
       // Mock data for now - this would typically query the database
