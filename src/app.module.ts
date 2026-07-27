@@ -40,6 +40,10 @@ import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { AuditModule } from './audit/audit.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { PropertyTaxModule } from './properties/tax/property-tax.module';
+import { ResponseFormatInterceptor } from './common/interceptors/response-format.interceptor';
+import { VersionHeaderInterceptor } from './versioning/version-header.interceptor';
+import { DeprecationWarningInterceptor } from './versioning/deprecation-warning.interceptor';
+import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 
 @Module({
   imports: [
@@ -91,6 +95,12 @@ import { PropertyTaxModule } from './properties/tax/property-tax.module';
   ],
 
   controllers: [AppController],
+  providers: [
+    ResponseFormatInterceptor,
+    VersionHeaderInterceptor,
+    DeprecationWarningInterceptor,
+    RateLimitHeadersInterceptor,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
