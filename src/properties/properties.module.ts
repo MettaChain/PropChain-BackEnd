@@ -24,12 +24,7 @@ import { CacheModuleConfig } from '../cache/cache.module';
     PropertyImagesService,
     GeocodingService,
     PropertyExpiryService,
-    PropertiesResolver,
     PropertyReportService,
-    {
-      provide: 'PUB_SUB',
-      useValue: new PubSub(),
-    },
   ],
   exports: [PropertiesService, PropertyReportService, PropertyImagesService, GeocodingService, PropertyExpiryService],
 })
