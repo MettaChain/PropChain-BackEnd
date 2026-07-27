@@ -13,6 +13,10 @@ import { RateLimitService } from './auth/rate-limit.service';
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 import { setupSwagger } from './config/swagger.config';
 import { validateEnvironment } from './utils/validate-env';
+// Import our exception filters
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
   validateEnvironment();
@@ -27,21 +31,50 @@ async function bootstrap() {
       `Node.js >= ${REQUIRED_NODE_MAJOR} required, found ${process.versions.node}. ` +
         `Please upgrade Node.js (see https://nodejs.org/).`,
     );
-
-    // Setup Swagger documentation
-    setupSwagger(app);
-
-    app.enableShutdownHooks();
-
-    const port = process.env.PORT || 3000;
-    await app.listen(port);
-    logger.log(`PropChain API running on http://localhost:${port}`);
-    logger.log(`API Versioning enabled. Supported versions: v1, v2`);
-    logger.log(`📚 Swagger UI available at http://localhost:${port}/api/docs`);
-    logger.log(`📋 OpenAPI spec available at http://localhost:${port}/api/openapi.json`);
-    logger.log(`💾 Redis Caching enabled`);
-    logger.log(`🛡️ Rate Limiting enabled (per-user, per-endpoint, IP-based)`);
+    process.exit(1);
   }
 
-  bootstrap();
+  const app = await NestFactory.create(AppModule);
+
+  // Register global exception filters
+  app.useGlobalFilters(
+    new AllExceptionsFilter(),
+    new HttpExceptionFilter(),
+    new PrismaExceptionFilter(),
+  );
+
+  // Global validation pipe
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true,
+  }));
+
+  // Setup global guards and interceptors
+  const reflector = app.get(Reflector);
+  app.useGlobalGuards(new RateLimitGuard(new RateLimitService(), reflector));
+  
+  app.useGlobalInterceptors(
+    new VersionHeaderInterceptor(),
+    new DeprecationWarningInterceptor(),
+    new CacheMetricsInterceptor(app.get(CacheMonitoringService)),
+    new RateLimitHeadersInterceptor(),
+  );
+
+  // Setup Swagger documentation
+  setupSwagger(app);
+
+  app.enableShutdownHooks();
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  logger.log(`PropChain API running on http://localhost:${port}`);
+  logger.log(`API Versioning enabled. Supported versions: v1, v2`);
+  logger.log(`📚 Swagger UI available at http://localhost:${port}/api/docs`);
+  logger.log(`📋 OpenAPI spec available at http://localhost:${port}/api/openapi.json`);
+  logger.log(`💾 Redis Caching enabled`);
+  logger.log(`🛡️ Rate Limiting enabled (per-user, per-endpoint, IP-based)`);
+  logger.log(`✅ Global exception filters registered successfully`);
 }
+
+bootstrap();
