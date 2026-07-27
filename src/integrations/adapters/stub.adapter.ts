@@ -43,6 +43,7 @@ export class StubCrmAdapter implements ICrmAdapter {
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async syncContact(userId: string, data: Partial<CrmContact>): Promise<void> {
     this.logger.debug(`Stub CRM sync user ${userId}`);
   }
@@ -52,6 +53,7 @@ export class StubCrmAdapter implements ICrmAdapter {
 export class StubPaymentAdapter implements IPaymentAdapter {
   private readonly logger = new Logger(StubPaymentAdapter.name);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processPayment(amount: number, currency: string, token: string): Promise<PaymentResult> {
     this.logger.debug(`Stub processing payment: ${amount} ${currency}`);
     return {

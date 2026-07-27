@@ -10,6 +10,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { BackupStatus, BackupTrigger, DatabaseBackup, RestoreStatus } from '@prisma/client';
 import { CronJob } from 'cron';
 import * as crypto from 'crypto';

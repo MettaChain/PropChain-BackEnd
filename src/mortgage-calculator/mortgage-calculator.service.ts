@@ -7,6 +7,7 @@ import {
   AmortizationScheduleDto,
   AmortizationEntry,
   MortgageScenarioDto,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ExportAmortizationDto,
 } from './dto/mortgage-calculator.dto';
 
@@ -129,7 +130,10 @@ export class MortgageCalculatorService {
       schedule,
       summary: {
         totalPayment: this.round(
-          monthlyPI * numPayments + totalPMI + monthlyPropertyTax * numPayments + monthlyInsurance * numPayments,
+          monthlyPI * numPayments +
+            totalPMI +
+            monthlyPropertyTax * numPayments +
+            monthlyInsurance * numPayments,
         ),
         totalInterest: this.round(totalInterest),
         totalPMI: this.round(totalPMI),
@@ -217,26 +221,26 @@ export class MortgageCalculatorService {
     lines.push('='.repeat(95));
     lines.push(
       'Month'.padEnd(8) +
-      'Payment'.padEnd(12) +
-      'Principal'.padEnd(12) +
-      'Interest'.padEnd(12) +
-      'PMI'.padEnd(10) +
-      'Tax'.padEnd(10) +
-      'Insurance'.padEnd(12) +
-      'Balance'.padEnd(14),
+        'Payment'.padEnd(12) +
+        'Principal'.padEnd(12) +
+        'Interest'.padEnd(12) +
+        'PMI'.padEnd(10) +
+        'Tax'.padEnd(10) +
+        'Insurance'.padEnd(12) +
+        'Balance'.padEnd(14),
     );
     lines.push('-'.repeat(95));
 
     for (const entry of schedule) {
       lines.push(
         String(entry.month).padEnd(8) +
-        entry.payment.toFixed(2).padEnd(12) +
-        entry.principal.toFixed(2).padEnd(12) +
-        entry.interest.toFixed(2).padEnd(12) +
-        entry.pmi.toFixed(2).padEnd(10) +
-        entry.propertyTax.toFixed(2).padEnd(10) +
-        entry.insurance.toFixed(2).padEnd(12) +
-        entry.balance.toFixed(2).padEnd(14),
+          entry.payment.toFixed(2).padEnd(12) +
+          entry.principal.toFixed(2).padEnd(12) +
+          entry.interest.toFixed(2).padEnd(12) +
+          entry.pmi.toFixed(2).padEnd(10) +
+          entry.propertyTax.toFixed(2).padEnd(10) +
+          entry.insurance.toFixed(2).padEnd(12) +
+          entry.balance.toFixed(2).padEnd(14),
       );
     }
 

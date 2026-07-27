@@ -25,8 +25,7 @@ export class CacheHeadersInterceptor implements NestInterceptor {
 
         const contentType = res.getHeader('content-type') as string | undefined;
         const isImageResponse =
-          contentType?.startsWith('image/') ||
-          req.path?.includes('/uploads/');
+          contentType?.startsWith('image/') || req.path?.includes('/uploads/');
 
         if (isImageResponse) {
           const format = contentType?.split(';')[0]?.trim() || 'image/jpeg';

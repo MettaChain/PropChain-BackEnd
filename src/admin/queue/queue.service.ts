@@ -10,9 +10,7 @@ const KNOWN_QUEUES = ['mail', 'export', 'email-digest'] as const;
 export class QueueMonitoringService {
   private readonly logger = new Logger(QueueMonitoringService.name);
 
-  constructor(
-    @InjectQueue('mail') private readonly mailQueue: Queue,
-  ) {}
+  constructor(@InjectQueue('mail') private readonly mailQueue: Queue) {}
 
   async getAllQueues() {
     const queues: any[] = [];

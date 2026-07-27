@@ -104,11 +104,7 @@ describe('SearchFacetsService', () => {
     });
 
     it('should coerce numeric values to strings', () => {
-      const items = [
-        { bedrooms: 3 },
-        { bedrooms: 2 },
-        { bedrooms: 3 },
-      ];
+      const items = [{ bedrooms: 3 }, { bedrooms: 2 }, { bedrooms: 3 }];
 
       const result = service.buildFacets(items, ['bedrooms']);
 
@@ -119,11 +115,7 @@ describe('SearchFacetsService', () => {
     });
 
     it('should coerce boolean values to strings', () => {
-      const items = [
-        { hasPool: true },
-        { hasPool: false },
-        { hasPool: true },
-      ];
+      const items = [{ hasPool: true }, { hasPool: false }, { hasPool: true }];
 
       const result = service.buildFacets(items, ['hasPool']);
 
@@ -170,10 +162,7 @@ describe('SearchFacetsService', () => {
     });
 
     it('should return empty array when no items match', () => {
-      const items = [
-        { propertyType: 'House' },
-        { propertyType: 'Condo' },
-      ];
+      const items = [{ propertyType: 'House' }, { propertyType: 'Condo' }];
 
       const result = service.applyFacetFilter(items, { propertyType: 'Land' });
       expect(result).toEqual([]);

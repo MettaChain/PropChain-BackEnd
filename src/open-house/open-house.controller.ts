@@ -1,6 +1,17 @@
 // @ts-nocheck
 
-import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Param,
+  Patch,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { OpenHouseService } from './open-house.service';
 import { CreateOpenHouseDto } from './dto/create-open-house.dto';

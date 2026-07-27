@@ -49,7 +49,13 @@ export class PropertyImagesService {
   private readonly publicPathPrefix = '/uploads/properties';
   private readonly maxFileSize: number;
   private readonly maxImagesPerProperty: number;
-  private readonly allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+  private readonly allowedMimeTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+  ];
 
   private readonly variants: ImageVariantSpec[] = [
     { name: 'thumbnail', width: 300, quality: 70 },
@@ -74,10 +80,7 @@ export class PropertyImagesService {
       './uploads/properties',
     );
     this.baseUrl = this.configService.get<string>('BASE_URL', 'http://localhost:3000');
-    this.maxFileSize = this.configService.get<number>(
-      'PROPERTY_IMAGE_MAX_SIZE',
-      10 * 1024 * 1024,
-    );
+    this.maxFileSize = this.configService.get<number>('PROPERTY_IMAGE_MAX_SIZE', 10 * 1024 * 1024);
     this.maxImagesPerProperty = this.configService.get<number>(
       'PROPERTY_IMAGE_MAX_PER_PROPERTY',
       30,

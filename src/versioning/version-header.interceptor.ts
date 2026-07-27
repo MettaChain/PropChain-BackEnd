@@ -76,6 +76,7 @@ export class VersionHeaderInterceptor implements NestInterceptor {
     }
 
     return next.handle().pipe(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       tap((data) => {
         // You can add additional processing here if needed
       }),

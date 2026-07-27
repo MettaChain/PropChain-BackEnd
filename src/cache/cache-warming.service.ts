@@ -108,11 +108,7 @@ export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
         orderBy: { viewCount: 'desc' },
         take: 50,
       });
-      await this.cacheService.set(
-        'properties:popular',
-        popular,
-        CACHE_TTL.MEDIUM,
-      );
+      await this.cacheService.set('properties:popular', popular, CACHE_TTL.MEDIUM);
       this.logger.debug(`Warmed popular properties (${popular.length} items)`);
     } catch (error) {
       this.logger.warn('Failed to warm popular properties', error);
@@ -143,11 +139,7 @@ export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
         orderBy: { frequency: 'desc' },
         take: 20,
       });
-      await this.cacheService.set(
-        'search:popular',
-        popular,
-        CACHE_TTL.MEDIUM,
-      );
+      await this.cacheService.set('search:popular', popular, CACHE_TTL.MEDIUM);
       this.logger.debug('Warmed search suggestions cache');
     } catch (error) {
       this.logger.warn('Failed to warm search suggestions', error);
@@ -162,9 +154,8 @@ export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
    */
   private async warmPredictiveKeys(): Promise<void> {
     try {
-      const accessPattern = await this.cacheService.get<Record<string, number>>(
-        'cache:access-pattern',
-      );
+      const accessPattern =
+        await this.cacheService.get<Record<string, number>>('cache:access-pattern');
 
       if (!accessPattern) return;
 
@@ -173,6 +164,7 @@ export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
         .sort(([, a], [, b]) => b - a)
         .slice(0, 10);
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       for (const [key, _frequency] of sorted) {
         // Only warm keys that are already cached (refresh TTL)
         const existing = await this.cacheService.get(key);

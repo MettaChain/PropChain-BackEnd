@@ -125,9 +125,18 @@ describe('Transaction Lifecycle e2e', () => {
     fakePrisma = new FakePrismaService();
 
     // Seed fake data for lookups (UUID format required by DTOs)
-    fakePrisma.users.set('11111111-1111-4111-b111-111111111111', { id: '11111111-1111-4111-b111-111111111111', email: 'buyer@test.com' });
-    fakePrisma.users.set('22222222-2222-4222-b222-222222222222', { id: '22222222-2222-4222-b222-222222222222', email: 'seller@test.com' });
-    fakePrisma.properties.set('33333333-3333-4333-b333-333333333333', { id: '33333333-3333-4333-b333-333333333333', address: '123 Test St' });
+    fakePrisma.users.set('11111111-1111-4111-b111-111111111111', {
+      id: '11111111-1111-4111-b111-111111111111',
+      email: 'buyer@test.com',
+    });
+    fakePrisma.users.set('22222222-2222-4222-b222-222222222222', {
+      id: '22222222-2222-4222-b222-222222222222',
+      email: 'seller@test.com',
+    });
+    fakePrisma.properties.set('33333333-3333-4333-b333-333333333333', {
+      id: '33333333-3333-4333-b333-333333333333',
+      address: '123 Test St',
+    });
 
     const moduleRef = await Test.createTestingModule({
       controllers: [TransactionsController],

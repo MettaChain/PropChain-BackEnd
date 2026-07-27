@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { IsString, IsOptional, IsArray, IsDateString, IsBoolean, IsIn } from 'class-validator';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const DOCUMENT_TYPE_ENUM = [

@@ -3,6 +3,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'fs';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { join } from 'path';
 
 export interface SmsResult {

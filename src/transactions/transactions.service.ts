@@ -221,9 +221,7 @@ export class TransactionsService {
       },
     });
 
-    this.logger.log(
-      `Transaction ${id} recorded on blockchain: ${blockchainRecord.blockchainHash}`,
-    );
+    this.logger.log(`Transaction ${id} recorded on blockchain: ${blockchainRecord.blockchainHash}`);
 
     return {
       transaction: this.toResponseDto(updated),
@@ -416,6 +414,7 @@ export class TransactionsService {
       amount: number;
       type: string;
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     user: { sub: string; email: string; role: string; type: string },
   ): Promise<any> {
     const [property, buyer, seller] = await Promise.all([
@@ -521,6 +520,7 @@ export class TransactionsService {
       strategyType?: string;
       jurisdiction?: string;
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     user: { sub: string; email: string; role: string; type: string },
   ): Promise<any> {
     const existing = await this.prisma.transactionTaxStrategy.findFirst({
@@ -543,6 +543,7 @@ export class TransactionsService {
   /**
    * Convert transaction to response DTO
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async updateEscrow(transactionId: string, dto: any, actorId?: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },

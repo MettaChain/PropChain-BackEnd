@@ -249,6 +249,8 @@ model User {
   supportTicketNotes      SupportTicketNote[]
   transactionNotes        TransactionNote[]            @relation("TransactionNoteAuthor")
   deletedProperties       Property[]               @relation("DeletedProperties")
+  deletedTransactions     Transaction[]            @relation("DeletedTransactions")
+  deletedDocuments        Document[]               @relation("DeletedDocuments")
   priceChanges            PropertyPriceHistory[]    @relation("PriceChangeAuthor")
   comparisonShares        ComparisonShare[]
 
@@ -654,6 +656,10 @@ model Transaction {
   cancelledAt        DateTime?         @map("cancelled_at")
   refundAmount       Decimal?          @map("refund_amount")
   refundStatus       RefundStatus      @default(NONE) @map("refund_status")
+  // Soft-delete (#918)
+  deleted            Boolean           @default(false)
+  deletedAt          DateTime?         @map("deleted_at")
+  deletedById        String?           @map("deleted_by_id")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -663,6 +669,7 @@ model Transaction {
   buyer                 User                     @relation("BuyerTransactions", fields: [buyerId], references: [id])
   seller                User                     @relation("SellerTransactions", fields: [sellerId], references: [id])
   cancelledBy           User?                    @relation("CancelledTransactions", fields: [cancelledById], references: [id])
+  deletedBy             User?                    @relation("DeletedTransactions", fields: [deletedById], references: [id], onDelete: SetNull)
   fraudAlerts           FraudAlert[]
   taxStrategies         TransactionTaxStrategy[]
   disputes              Dispute[]
@@ -673,6 +680,7 @@ model Transaction {
   @@index([buyerId])
   @@index([sellerId])
   @@index([status])
+  @@index([deleted])
   @@index([blockchainHash])
   @@map("transactions")
 }
@@ -727,6 +735,10 @@ model Document {
   // Archival Workflow (#573)
   status         DocumentStatus @default(ACTIVE)
   archivedAt     DateTime?    @map("archived_at")
+  // Soft-delete (#918)
+  deleted        Boolean      @default(false)
+  deletedAt      DateTime?    @map("deleted_at")
+  deletedById    String?      @map("deleted_by_id")
   // eSignature (#403)
   signedBy       String?      @map("signed_by")
   signedAt       DateTime?    @map("signed_at")
@@ -740,6 +752,7 @@ model Document {
   property Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   dispute  Dispute?        @relation(fields: [disputeId], references: [id], onDelete: SetNull)
+  deletedBy User?          @relation("DeletedDocuments", fields: [deletedById], references: [id], onDelete: SetNull)
   versions DocumentVersion[]
 
   @@index([propertyId])
@@ -749,6 +762,7 @@ model Document {
   @@index([category])
   @@index([isExpired])
   @@index([expiresAt])
+  @@index([deleted])
   @@map("documents")
 }
 

@@ -5,7 +5,12 @@ import { SessionsService } from './sessions.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { SessionsListDto, RevokeSessionDto, RevokeAllSessionsDto, UpdateSessionDto } from './dto/session.dto';
+import {
+  SessionsListDto,
+  RevokeSessionDto,
+  RevokeAllSessionsDto,
+  UpdateSessionDto,
+} from './dto/session.dto';
 
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)

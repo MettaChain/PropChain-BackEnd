@@ -7,6 +7,7 @@
 
 import { Inject } from '@nestjs/common';
 import { CacheService } from './cache.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { CACHE_TTL } from './cache.config';
 
 /**
