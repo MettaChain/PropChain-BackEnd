@@ -1377,7 +1377,7 @@ export class AuthService {
 
     if (emailRateLimit.isExceeded) {
       this.logger.warn(
-        `Password reset request rate limit exceeded for email: ${this.redactEmail(data.email)} (IP: ${ipAddress || 'unknown'})`,
+        `Password reset request rate limit exceeded for email: ${redactEmail(data.email)} (IP: ${ipAddress || 'unknown'})`,
       );
       // Don't reveal rate limit was exceeded to prevent user enumeration
       return;
@@ -1608,6 +1608,21 @@ export class AuthService {
   }
 
   async verifyInitialEmail(token: string, ipAddress?: string, userAgent?: string) {
+    // Apply rate limiting: max 5 attempts per token per hour
+    const tokenRateLimit = await this.rateLimitService.checkTokenRateLimit(
+      'POST /auth/verify-email',
+      token,
+      5,
+      60 * 60 * 1000, // 1 hour
+    );
+
+    if (tokenRateLimit.isExceeded) {
+      this.logger.warn(
+        `Email verification token rate limit exceeded. Token: ${token.substring(0, 8)}... (IP: ${ipAddress || 'unknown'})`,
+      );
+      throw new BadRequestException('Too many attempts. Please try again later.');
+    }
+
     // Find user by verification token
     const user = await this.prisma.user.findFirst({
       where: {
@@ -1658,6 +1673,22 @@ export class AuthService {
   }
 
   async resendEmailVerification(email: string, ipAddress?: string, userAgent?: string) {
+    // Apply rate limiting: max 3 requests per email per hour
+    const emailRateLimit = await this.rateLimitService.checkEmailRateLimit(
+      'POST /auth/email/resend',
+      email,
+      3,
+      60 * 60 * 1000, // 1 hour
+    );
+
+    if (emailRateLimit.isExceeded) {
+      this.logger.warn(
+        `Email resend rate limit exceeded for email: ${redactEmail(email)} (IP: ${ipAddress || 'unknown'})`,
+      );
+      // Don't reveal rate limit was exceeded to prevent user enumeration
+      return;
+    }
+
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       return;
