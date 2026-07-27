@@ -1,102 +1,232 @@
-# Architecture Diagram
+# PropChain Backend Architecture
 
-```mermaid
-graph TB
-    Client[Client App] -->|HTTP/WS| Gateway[NestJS Gateway]
+## Tech Stack
 
-    Gateway --> Auth[Auth Module]
-    Gateway --> Users[Users Module]
-    Gateway --> Properties[Properties Module]
-    Gateway --> Transactions[Transactions Module]
-    Gateway --> Documents[Documents Module]
-    Gateway --> Search[Search Module]
-    Gateway --> Admin[Admin Module]
-    Gateway --> Fraud[Fraud Module]
-    Gateway --> Notifications[Notifications Module]
+| Layer            | Technology                               |
+| ---------------- | ---------------------------------------- |
+| Runtime          | Node.js >= 18                            |
+| Framework        | NestJS 10                                |
+| Language         | TypeScript 5.3                           |
+| Database         | PostgreSQL (via Prisma ORM 6.x)          |
+| Cache            | Redis (via ioredis + cache-manager)      |
+| API              | REST (Express) + GraphQL (Apollo Server) |
+| Authentication   | Passport.js (JWT + Google OAuth2)        |
+| Blockchain       | Web3.js / Ethers.js 6                    |
+| Job Queue        | BullMQ (Redis-backed)                    |
+| Email            | Nodemailer via @nestjs-modules/mailer    |
+| Image Processing | Sharp                                    |
+| PDF Generation   | PDFKit                                   |
+| Documentation    | Swagger / OpenAPI                        |
+| Testing          | Jest + Supertest                         |
+| Monitoring       | Prometheus (prom-client)                 |
+| Realtime         | Socket.IO (WebSockets)                   |
 
-    Auth --> JWT[JWT Strategy]
-    Auth --> Google[Google OAuth]
-    Auth --> MFA[2FA / TOTP]
-    Auth --> RateLimit[Rate Limit Guard]
-    Auth --> APIKeys[API Key Management]
+## Directory Structure
 
-    Users --> Prisma[(Prisma Client)]
-    Properties --> Prisma
-    Transactions --> Prisma
-    Documents --> Prisma
-    Search --> Prisma
-    Admin --> Prisma
-    Fraud --> Prisma
-
-    Prisma --> PostgreSQL[(PostgreSQL)]
-
-    Properties --> Blockchain[Blockchain Service]
-    Blockchain --> Ethereum[Ethereum / Sepolia]
-
-    Documents --> Uploads[File Uploads]
-    Uploads --> LocalFS[Local FS / S3]
-
-    Notifications --> WebSocket[WebSocket Gateway]
-    Notifications --> Email[Email Service]
-    Notifications --> SMS[SMS Service]
-
-    Fraud --> Email
-    Admin --> Backup[Backup Service]
-    Backup --> PgDump[pg_dump]
-
-    Search --> Cache[(Redis Cache)]
-    RateLimit --> Cache
-    Cache --> CacheWarming[Cache Warming]
-
-    Admin --> BullMQ[BullMQ Queues]
-    Transactions --> BullMQ
-
-    Gateway --> GraphQL[GraphQL / Apollo]
+```
+propchain-backend/
+├── prisma/
+│   ├── schema.prisma          # Database schema
+│   ├── seed.ts                # Seed script
+│   └── migrations/            # Migration history
+├── src/
+│   ├── main.ts                # Application bootstrap
+│   ├── app.module.ts          # Root module
+│   ├── app.controller.ts      # Health check / root routes
+│   ├── admin/                 # Admin panel & management
+│   ├── analytics/             # Search & property analytics
+│   ├── audit/                 # Audit logging
+│   ├── auth/                  # Auth (JWT, OAuth, guards, RBAC)
+│   ├── backup/                # Database backup/restore
+│   ├── blockchain/            # On-chain recording & verification
+│   ├── cache/                 # Redis caching layer
+│   ├── commissions/           # Agent commission tracking
+│   ├── common/                # Shared types, middleware, decorators
+│   ├── config/                # Swagger, env validation
+│   ├── content/               # Content management
+│   ├── dashboard/             # Dashboard aggregations
+│   ├── database/              # Prisma service & module
+│   ├── documents/             # Document upload, versioning, signing
+│   ├── duplicate-detection/   # Property duplicate detection
+│   ├── email/                 # Email sending
+│   ├── email-digest/          # Digest emails
+│   ├── favorites/             # User favorites/bookmarks
+│   ├── fraud/                 # Fraud detection & investigation
+│   ├── integrations/          # Third-party adapters
+│   ├── metrics/               # Prometheus metrics
+│   ├── mortgage-calculator/   # Mortgage estimation
+│   ├── neighborhoods/         # Neighborhoods, schools, amenities
+│   ├── notifications/         # Push, in-app, SMS notifications
+│   ├── open-house/            # Open house scheduling & RSVP
+│   ├── properties/            # Core property CRUD & images
+│   ├── property-comparison/   # Side-by-side comparison
+│   ├── property-views/        # View tracking & analytics
+│   ├── search/                # Full-text search & suggestions
+│   ├── sessions/              # User session management
+│   ├── support-tickets/       # Support ticket system
+│   ├── tracking/              # Link click tracking
+│   ├── transactions/          # Transaction lifecycle
+│   ├── trust-score/           # User trust scoring
+│   ├── types/                 # Shared TypeScript types
+│   ├── users/                 # User profiles & preferences
+│   ├── utils/                 # Utility functions
+│   ├── versioning/            # API versioning
+│   └── webhooks/              # Webhook management
+├── test/                      # E2E tests
+├── docs/                      # Developer documentation
+└── package.json
 ```
 
-## Request Flow
+## Module Dependency Diagram
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant G as NestJS Gateway
-    participant RL as Rate Limit Guard
-    participant AU as Auth Service
-    participant S as Feature Service
-    participant DB as PostgreSQL
-    participant BC as Blockchain
-
-    C->>G: HTTP Request
-    G->>RL: canActivate()
-    RL->>RL: Check Redis counters
-    alt Rate limit exceeded
-        RL-->>C: 429 Too Many Requests
-    else Within limits
-        RL->>G: Allow
-        G->>AU: Validate JWT
-        AU->>AU: Verify token + roles
-        AU->>G: Authenticated context
-        G->>S: Handle request
-        S->>DB: Query/Mutate
-        DB-->>S: Result
-        alt Blockchain required
-            S->>BC: Record transaction
-            BC-->>S: Tx hash
-        end
-        S-->>C: Response
-    end
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          AppModule                                  │
+│                                                                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │ Config   │  │ Prisma   │  │ GraphQL  │  │ ScheduleModule   │   │
+│  │ Module   │  │ Module   │  │ Module   │  │                  │   │
+│  └────┬─────┘  └────┬─────┘  └──────────┘  └──────────────────┘   │
+│       │              │                                              │
+│  ┌────▼──────────────▼────────────────────────────────────────────┐ │
+│  │                    Core Infrastructure                         │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐     │ │
+│  │  │ Cache    │ │ Auth     │ │Database  │ │ Rate Limit   │     │ │
+│  │  │ Module   │ │ Module   │ │ Module   │ │ Service      │     │ │
+│  │  └──────────┘ └────┬─────┘ └──────────┘ └──────────────┘     │ │
+│  └─────────────────────┼─────────────────────────────────────────┘ │
+│                        │                                            │
+│  ┌─────────────────────▼─────────────────────────────────────────┐ │
+│  │                     Feature Modules                            │ │
+│  │                                                                │ │
+│  │  ┌───────────┐  ┌────────────┐  ┌──────────────────────┐     │ │
+│  │  │Properties │  │Transactions│  │     Documents        │     │ │
+│  │  │  Module   │──│   Module   │──│      Module          │     │ │
+│  │  └─────┬─────┘  └─────┬──────┘  └──────────────────────┘     │ │
+│  │        │               │                                       │ │
+│  │  ┌─────▼─────┐  ┌─────▼──────┐  ┌──────────────────────┐     │ │
+│  │  │Property   │  │Commissions │  │  Neighborhoods       │     │ │
+│  │  │ Images    │  │  Module    │  │     Module           │     │ │
+│  │  │  Module   │  └────────────┘  └──────────────────────┘     │ │
+│  │  └───────────┘                                                │ │
+│  │                                                                │ │
+│  │  ┌───────────┐  ┌────────────┐  ┌──────────────────────┐     │ │
+│  │  │Favorites  │  │  Search    │  │    Notifications     │     │ │
+│  │  │  Module   │  │  Module    │  │       Module         │     │ │
+│  │  └───────────┘  └────────────┘  └──────────────────────┘     │ │
+│  │                                                                │ │
+│  │  ┌───────────┐  ┌────────────┐  ┌──────────────────────┐     │ │
+│  │  │  Fraud    │  │  Blockchain│  │    Analytics         │     │ │
+│  │  │  Module   │  │  Module    │  │      Module          │     │ │
+│  │  └───────────┘  └────────────┘  └──────────────────────┘     │ │
+│  │                                                                │ │
+│  │  ┌───────────┐  ┌────────────┐  ┌──────────────────────┐     │ │
+│  │  │  Admin    │  │   Backup   │  │     Metrics          │     │ │
+│  │  │  Module   │  │  Module    │  │      Module          │     │ │
+│  │  └───────────┘  └────────────┘  └──────────────────────┘     │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Module Relationships
+## Data Flow Overview
 
-| Module | Depends On | Provides |
-|--------|-----------|----------|
-| Auth | Users, JWT, Redis | Authentication, 2FA, API keys |
-| Users | Prisma | User CRUD, profiles |
-| Properties | Prisma, Blockchain, Geocoding | Property listings, images |
-| Transactions | Prisma, Blockchain | Transaction lifecycle |
-| Documents | Prisma, Uploads | Document management, signing |
-| Search | Prisma, Redis | Full-text search, facets, autocomplete |
-| Fraud | Prisma, Email | Fraud detection, alerts, auto-block |
-| Admin | Prisma, Backup, BullMQ | Admin ops, backups, reports |
-| Notifications | WebSocket, Email, SMS | Real-time + async notifications |
+### Request Lifecycle
+
+```
+Client Request
+    │
+    ▼
+┌──────────────────┐
+│  Rate Limiting   │  IP-based + user-based throttling
+│  (Guard)         │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  JWT Auth        │  Token validation, session check
+│  (Guard)         │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  RBAC Guard      │  Role + permission checking
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  ValidationPipe  │  DTO validation, whitelisting
+│  (NestJS)        │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Controller      │  Route handling
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Service         │  Business logic, authorization
+└────────┬─────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌────────┐ ┌────────┐
+│ Prisma │ │ Redis  │
+│ (PostgreSQL)  │ Cache  │
+└────────┘ └────────┘
+```
+
+### Property Image Pipeline
+
+```
+Upload (multer/memory buffer)
+    │
+    ▼
+┌──────────────────────┐
+│ Validate             │  Size, mime type, per-property cap
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Sharp Pipeline        │  Auto-rotate, resize, convert
+│ ├── Full (1920px)    │  WebP quality 85
+│ ├── Medium (800px)   │  WebP quality 80
+│ └── Thumbnail (300px)│  WebP quality 75
+│ Strip EXIF metadata   │  Privacy protection
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Duplicate Detection   │  Perceptual hash (SHA-256 prefix)
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Persist to DB + Disk │  PropertyImage record + files on disk
+└──────────────────────┘
+```
+
+### Transaction Lifecycle
+
+```
+PENDING → UNDER_CONTRACT → COMPLETED
+   │              │
+   └── CANCELLED ─┘
+
+Each state change:
+  1. Validate transition (status machine)
+  2. Update property status
+  3. Record transaction history
+  4. Emit notifications
+  5. Optional: record on blockchain
+```
+
+## Key Design Decisions
+
+1. **Dual API Surface**: REST (primary) + GraphQL (queries/subscriptions)
+2. **Prisma as Single Source of Truth**: All DB access through PrismaService
+3. **Decorator-based RBAC**: `@RequirePermissions()` for endpoint authorization
+4. **Event-Driven Notifications**: WebSocket gateway for real-time delivery
+5. **Blockchain as Audit Trail**: Optional on-chain recording for transactions
+6. **Image Variants via Sharp**: Three sizes generated at upload time, stored on disk
+7. **Fraud Detection Pipeline**: Pattern matching with configurable severity levels

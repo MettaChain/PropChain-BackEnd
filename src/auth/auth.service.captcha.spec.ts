@@ -8,6 +8,7 @@ import { SessionsService } from '../sessions/sessions.service';
 import { EmailService } from '../email/email.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { FraudService } from '../fraud/fraud.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 
 describe('AuthService – CAPTCHA failure lockout', () => {
   let service: AuthService;
@@ -73,6 +74,7 @@ describe('AuthService – CAPTCHA failure lockout', () => {
         { provide: EmailService, useValue: emailService },
         { provide: LoginRateLimitService, useValue: rateLimitService },
         { provide: FraudService, useValue: fraudService },
+        { provide: ApiKeyAnalyticsService, useValue: { trackUsage: jest.fn(), getUsageStats: jest.fn() } },
         { provide: ConfigService, useValue: configService },
       ],
     }).compile();

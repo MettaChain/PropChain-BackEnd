@@ -13,6 +13,7 @@ import { RateLimitService } from '../../src/auth/rate-limit.service';
 import { RateLimitGuard } from '../../src/auth/guards/rate-limit.guard';
 import { RateLimitHeadersInterceptor } from '../../src/auth/interceptors/rate-limit-headers.interceptor';
 import { FraudService } from '../../src/fraud/fraud.service';
+import { ApiKeyAnalyticsService } from '../../src/auth/api-key-analytics.service';
 import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
@@ -187,6 +188,13 @@ describe('Rate-limit guard e2e – burst traffic', () => {
         RateLimitGuard,
         RateLimitHeadersInterceptor,
         Reflector,
+        {
+          provide: ApiKeyAnalyticsService,
+          useValue: {
+            trackUsage: jest.fn().mockResolvedValue(undefined),
+            getUsageStats: jest.fn().mockResolvedValue({}),
+          },
+        },
         { provide: PrismaService, useValue: prisma },
         {
           provide: UsersService,

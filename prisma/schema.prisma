@@ -300,20 +300,22 @@ model BackupScheduleConfig {
 }
 
 model ApiKey {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  name        String
-  keyPrefix   String    @map("key_prefix")
-  keyHash     String    @unique @map("key_hash")
-  permissions String[]  @default([])
-  usageCount  Int       @default(0) @map("usage_count")
-  lastUsedAt  DateTime? @map("last_used_at")
-  expiresAt   DateTime? @map("expires_at")
-  revokedAt   DateTime? @map("revoked_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  name          String
+  keyPrefix     String    @map("key_prefix")
+  keyHash       String    @unique @map("key_hash")
+  permissions   String[]  @default([])
+  usageCount    Int       @default(0) @map("usage_count")
+  monthlyQuota  Int?      @map("monthly_quota")
+  lastUsedAt    DateTime? @map("last_used_at")
+  expiresAt     DateTime? @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageDaily ApiKeyUsageDaily[]
 
   @@index([userId])
   @@index([keyPrefix])
@@ -1149,6 +1151,7 @@ model EmailBounce {
   bounceType BounceType @map("bounce_type")
   reason     String?
   rawEvent   Json?      @map("raw_event")
+  spamAction SpamAction @default(NONE) @map("spam_action")
   createdAt  DateTime   @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1156,6 +1159,7 @@ model EmailBounce {
   @@index([userId])
   @@index([email])
   @@index([bounceType])
+  @@index([spamAction])
   @@map("email_bounces")
 }
 
@@ -1355,6 +1359,29 @@ enum JobStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum SpamAction {
+  NONE
+  COMPLAINED
+  UNSUBSCRIBED
+}
+
+// Daily API key usage aggregation for analytics (#945)
+model ApiKeyUsageDaily {
+  id            String   @id @default(uuid())
+  apiKeyId      String   @map("api_key_id")
+  date          DateTime @db.Date
+  requestCount  Int      @default(0) @map("request_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, date])
+  @@index([apiKeyId, date])
+  @@index([date])
+  @@map("api_key_usage_daily")
 }
 
 // ─── Webhook Event System (#958) ──────────────────────────────────────────────

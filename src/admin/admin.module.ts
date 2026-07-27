@@ -9,9 +9,10 @@ import { FraudModule } from '../fraud/fraud.module';
 import { BackupModule } from '../backup/backup.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { SessionsModule } from '../sessions/sessions.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
-  imports: [PrismaModule, FraudModule, BackupModule, TransactionsModule, SessionsModule],
+  imports: [PrismaModule, FraudModule, BackupModule, TransactionsModule, SessionsModule, QueueModule],
   controllers: [AdminController],
   providers: [AdminService, AdminAuditInterceptor],
   exports: [AdminService],

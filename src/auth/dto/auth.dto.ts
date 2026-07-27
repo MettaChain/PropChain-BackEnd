@@ -100,6 +100,9 @@ export class CreateApiKeyDto {
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
+
+  @IsOptional()
+  monthlyQuota?: number;
 }
 
 export class UpdateApiKeyPermissionsDto {
