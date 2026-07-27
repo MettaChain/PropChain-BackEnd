@@ -49,6 +49,8 @@ import { LoginRateLimitService } from './login-rate-limit.service';
 import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 
+const MIN_JWT_SECRET_LENGTH = 32;
+
 type JwtPayload = {
   sub: string;
   email: string;
@@ -89,9 +91,21 @@ export class AuthService {
     private readonly rateLimitService: LoginRateLimitService,
     private readonly fraudService: FraudService,
   ) {
-    this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
-    this.jwtRefreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ?? 'propchain-refresh-secret';
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    if (!jwtSecret || jwtSecret.length < MIN_JWT_SECRET_LENGTH) {
+      throw new Error(
+        `JWT_SECRET must be set and at least ${MIN_JWT_SECRET_LENGTH} characters (256 bits) long`,
+      );
+    }
+    this.jwtSecret = jwtSecret;
+
+    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    if (!jwtRefreshSecret || jwtRefreshSecret.length < MIN_JWT_SECRET_LENGTH) {
+      throw new Error(
+        `JWT_REFRESH_SECRET must be set and at least ${MIN_JWT_SECRET_LENGTH} characters (256 bits) long`,
+      );
+    }
+    this.jwtRefreshSecret = jwtRefreshSecret;
     this.accessTokenTtlSeconds = parseDuration(
       this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m',
       15 * 60,

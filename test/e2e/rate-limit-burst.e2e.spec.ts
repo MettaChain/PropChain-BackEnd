@@ -87,12 +87,14 @@ describe('Rate-limit guard e2e – burst traffic', () => {
         },
         findFirst: async ({ where }: any) => {
           if (!where) return null;
-          return Array.from(users.values()).find((u) => {
-            for (const k of Object.keys(where)) {
-              if (u[k] !== where[k]) return false;
-            }
-            return true;
-          }) ?? null;
+          return (
+            Array.from(users.values()).find((u) => {
+              for (const k of Object.keys(where)) {
+                if (u[k] !== where[k]) return false;
+              }
+              return true;
+            }) ?? null
+          );
         },
         update: async ({ where, data }: any) => {
           const user = users.get(where.id);
@@ -122,7 +124,12 @@ describe('Rate-limit guard e2e – burst traffic', () => {
       fraudAlert: {
         findFirst: async () => null,
         findUnique: async () => null,
-        create: async ({ data }: any) => ({ id: nid(), ...data, occurrenceCount: 1, status: 'OPEN' }),
+        create: async ({ data }: any) => ({
+          id: nid(),
+          ...data,
+          occurrenceCount: 1,
+          status: 'OPEN',
+        }),
         update: async ({ data }: any) => data,
         findMany: async () => [],
         count: async () => 0,
@@ -208,8 +215,8 @@ describe('Rate-limit guard e2e – burst traffic', () => {
           useValue: {
             get: (key: string) => {
               const cfg: Record<string, string> = {
-                JWT_SECRET: 'test-access-secret',
-                JWT_REFRESH_SECRET: 'test-refresh-secret',
+                JWT_SECRET: 'test-access-secret-at-least-32-characters-long',
+                JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
                 JWT_ACCESS_EXPIRES_IN: '15m',
                 JWT_REFRESH_EXPIRES_IN: '7d',
                 BCRYPT_ROUNDS: '4',

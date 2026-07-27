@@ -53,7 +53,11 @@ describe('AuthService.resetPassword – password-reset token validation', () => 
         return passwordHistory.filter((h) => h.userId === where.userId);
       }),
       create: jest.fn(async ({ data }: any) => {
-        const record = { id: Math.random().toString(36).slice(2, 8), ...data, createdAt: new Date() };
+        const record = {
+          id: Math.random().toString(36).slice(2, 8),
+          ...data,
+          createdAt: new Date(),
+        };
         passwordHistory.push(record);
         return record;
       }),
@@ -89,8 +93,8 @@ describe('AuthService.resetPassword – password-reset token validation', () => 
   const mockConfigService = {
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
-        JWT_SECRET: 'test-access-secret',
-        JWT_REFRESH_SECRET: 'test-refresh-secret',
+        JWT_SECRET: 'test-access-secret-at-least-32-characters-long',
+        JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
         JWT_ACCESS_EXPIRES_IN: '15m',
         JWT_REFRESH_EXPIRES_IN: '7d',
         BCRYPT_ROUNDS: '4',
