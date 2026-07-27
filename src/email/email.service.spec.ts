@@ -39,7 +39,7 @@ describe('EmailService.handleBounce', () => {
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { emailStatus: 'INVALID' },
+      data: { emailStatus: 'BOUNCED' },
     });
     expect(prisma.userPreferences.upsert).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
