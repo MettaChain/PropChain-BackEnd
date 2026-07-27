@@ -50,6 +50,7 @@ import { RateLimitService } from './rate-limit.service';
 import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 import { ENDPOINT_RATE_LIMITS } from './rate-limit.config';
+import { CacheService } from '../cache/cache.service';
 
 type JwtPayload = {
   sub: string;
@@ -91,6 +92,7 @@ export class AuthService {
     private readonly loginRateLimitService: LoginRateLimitService,
     private readonly rateLimitService: RateLimitService,
     private readonly fraudService: FraudService,
+    private readonly cacheService: CacheService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
     this.jwtRefreshSecret =
@@ -122,7 +124,7 @@ export class AuthService {
   async register(data: RegisterDto, ipAddress?: string) {
     // Block re-registration from same IP until prior email is verified
     if (ipAddress) {
-      const allowed = this.canRegisterFromIp(ipAddress);
+      const allowed = await this.canRegisterFromIp(ipAddress);
       if (!allowed) {
         throw new BadRequestException(
           'A registration from this IP is already pending email verification. Please verify your email before registering a new account.',
@@ -207,10 +209,23 @@ export class AuthService {
     };
   }
 
-  private canRegisterFromIp(ipAddress: string): boolean {
-    const entry = this.registrationIpMap.get(ipAddress);
-    if (!entry) return true;
-    if (Date.now() > entry.expiresAt.getTime()) {
+  private async canRegisterFromIp(ipAddress: string): Promise<boolean> {
+    const cacheKey = `registration:ip:${ipAddress}`;
+    const entry = await this.cacheService.get<{ email: string; expiresAt: Date }>(cacheKey);
+    
+    // Check cache first
+    if (entry) {
+      if (Date.now() > entry.expiresAt.getTime()) {
+        await this.cacheService.del(cacheKey);
+        return true;
+      }
+      return false;
+    }
+    
+    // Fallback to in-memory map for backward compatibility
+    const inMemoryEntry = this.registrationIpMap.get(ipAddress);
+    if (!inMemoryEntry) return true;
+    if (Date.now() > inMemoryEntry.expiresAt.getTime()) {
       this.registrationIpMap.delete(ipAddress);
       return true;
     }
