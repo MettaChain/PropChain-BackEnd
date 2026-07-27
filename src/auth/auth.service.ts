@@ -1423,7 +1423,22 @@ export class AuthService {
     await this.emailService.sendPasswordResetEmail(user.email, resetToken);
   }
 
-  async resetPassword(data: ResetPasswordDto): Promise<void> {
+  async resetPassword(data: ResetPasswordDto, ipAddress?: string): Promise<void> {
+    // Apply rate limiting: max 5 attempts per token per hour
+    const tokenRateLimit = await this.rateLimitService.checkTokenRateLimit(
+      'POST /auth/password-reset/reset',
+      data.token,
+      5,
+      60 * 60 * 1000, // 1 hour
+    );
+
+    if (tokenRateLimit.isExceeded) {
+      this.logger.warn(
+        `Password reset token rate limit exceeded. Token: ${data.token.substring(0, 8)}... (IP: ${ipAddress || 'unknown'})`,
+      );
+      throw new BadRequestException('Too many attempts. Please try again later.');
+    }
+
     const tokenHash = createSha256(data.token);
     const resetToken = await this.prisma.passwordResetToken.findUnique({
       where: { token: tokenHash },

@@ -171,13 +171,15 @@ export class AuthController {
   }
 
   @Post('password-reset/request')
-  requestPasswordReset(@Body() requestPasswordResetDto: RequestPasswordResetDto) {
-    return this.authService.requestPasswordReset(requestPasswordResetDto);
+  requestPasswordReset(@Body() requestPasswordResetDto: RequestPasswordResetDto, @Req() request: Request) {
+    const ipAddress = request.ip || request.socket.remoteAddress;
+    return this.authService.requestPasswordReset(requestPasswordResetDto, ipAddress);
   }
 
   @Post('password-reset/reset')
-  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(resetPasswordDto);
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto, @Req() request: Request) {
+    const ipAddress = request.ip || request.socket.remoteAddress;
+    return this.authService.resetPassword(resetPasswordDto, ipAddress);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
