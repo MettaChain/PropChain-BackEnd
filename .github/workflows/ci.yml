@@ -100,8 +100,12 @@ jobs:
         JWT_SECRET: test-secret-key
         JWT_REFRESH_SECRET: test-refresh-secret-key
 
-    - name: Check documents module test coverage (>70%)
-      run: npx jest src/documents --coverage --collectCoverageFrom="src/documents/**/*.ts" --collectCoverageFrom="!src/documents/**/*.module.ts" --collectCoverageFrom="!src/documents/**/*.dto.ts" --coverageThreshold='{"global":{"statements":70,"branches":70,"functions":70,"lines":70}}'
+    # Issue #913 – Enforce global (50%) and per-module coverage thresholds.
+    # Thresholds are declared in jest.config.js so they are version-controlled
+    # alongside the code they guard. The --passWithNoTests flag is set in
+    # jest.config.js, so empty modules will not cause spurious failures.
+    - name: Check coverage thresholds (jest.config.js)
+      run: npm run test:cov
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
         JWT_SECRET: test-secret-key

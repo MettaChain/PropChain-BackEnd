@@ -199,18 +199,26 @@ export class NotificationsService {
   }
 
   async deliverPending(userId: string) {
+    // Issue #911 – Replace the N+1 loop (one UPDATE per notification) with a
+    // single batch UPDATE after collecting the IDs that were delivered.
     const pending = await this.prisma.notification.findMany({
       where: { userId, status: 'PENDING' },
     });
 
+    const deliveredIds: string[] = [];
     for (const notification of pending) {
       const delivered = this.gateway.sendToUser(userId, 'notification', notification);
       if (delivered) {
-        await this.prisma.notification.update({
-          where: { id: notification.id },
-          data: { status: 'DELIVERED' },
-        });
+        deliveredIds.push(notification.id);
       }
+    }
+
+    if (deliveredIds.length > 0) {
+      // Single batch update instead of one UPDATE per notification
+      await this.prisma.notification.updateMany({
+        where: { id: { in: deliveredIds } },
+        data: { status: 'DELIVERED' },
+      });
     }
   }
 
