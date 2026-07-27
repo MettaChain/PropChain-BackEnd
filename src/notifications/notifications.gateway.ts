@@ -109,12 +109,47 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         this.userSockets.delete(userId);
       }
       this.socketUsers.delete(client.id);
-      this.logger.log(`User ${userId} disconnected (${client.id})`);
+      // Clean up rate limit entry for this socket
+      this.eventRateLimits.delete(client.id);
+      this.logger.log(`User ${userId} disconnected (${client.id}). Remaining connections: ${sockets.length}`);
     }
+  }
+
+  private checkRateLimit(clientId: string): boolean {
+    const now = Date.now();
+    const rateLimit = this.eventRateLimits.get(clientId);
+    
+    if (!rateLimit) {
+      // First event, initialize rate limit
+      this.eventRateLimits.set(clientId, { count: 1, resetTime: now + this.RATE_LIMIT_WINDOW });
+      return true;
+    }
+
+    // Reset counter if window has expired
+    if (now > rateLimit.resetTime) {
+      rateLimit.count = 1;
+      rateLimit.resetTime = now + this.RATE_LIMIT_WINDOW;
+      return true;
+    }
+
+    // Check if limit exceeded
+    if (rateLimit.count >= this.MAX_EVENTS_PER_MINUTE) {
+      this.logger.warn(`Rate limit exceeded for client ${clientId}`);
+      return false;
+    }
+
+    // Increment counter
+    rateLimit.count++;
+    return true;
   }
 
   @SubscribeMessage('joinProperty')
   handleJoinProperty(@ConnectedSocket() client: Socket, @MessageBody() data: { propertyId: string }) {
+    // Check rate limit
+    if (!this.checkRateLimit(client.id)) {
+      return { event: 'error', data: { message: 'Rate limit exceeded. Please try again later.' } };
+    }
+
     if (data?.propertyId) {
       client.join(`property:${data.propertyId}`);
       this.logger.log(`Client ${client.id} joined property room ${data.propertyId}`);
@@ -125,11 +160,17 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
   @SubscribeMessage('leaveProperty')
   handleLeaveProperty(@ConnectedSocket() client: Socket, @MessageBody() data: { propertyId: string }) {
+    // Check rate limit
+    if (!this.checkRateLimit(client.id)) {
+      return { event: 'error', data: { message: 'Rate limit exceeded. Please try again later.' } };
+    }
+
     if (data?.propertyId) {
       client.leave(`property:${data.propertyId}`);
       this.logger.log(`Client ${client.id} left property room ${data.propertyId}`);
       return { event: 'leftProperty', data: { propertyId: data.propertyId } };
     }
+    return { event: 'error', data: { message: 'propertyId is required' } };
   }
 
   @SubscribeMessage('joinTransaction')
@@ -137,6 +178,11 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { transactionId: string },
   ) {
+    // Check rate limit
+    if (!this.checkRateLimit(client.id)) {
+      return { event: 'error', data: { message: 'Rate limit exceeded. Please try again later.' } };
+    }
+
     if (data?.transactionId) {
       client.join(`transaction:${data.transactionId}`);
       this.logger.log(`Client ${client.id} joined transaction room ${data.transactionId}`);
@@ -150,14 +196,25 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { transactionId: string },
   ) {
+    // Check rate limit
+    if (!this.checkRateLimit(client.id)) {
+      return { event: 'error', data: { message: 'Rate limit exceeded. Please try again later.' } };
+    }
+
     if (data?.transactionId) {
       client.leave(`transaction:${data.transactionId}`);
       return { event: 'leftTransaction', data: { transactionId: data.transactionId } };
     }
+    return { event: 'error', data: { message: 'transactionId is required' } };
   }
 
   @SubscribeMessage('joinUser')
   handleJoinUser(@ConnectedSocket() client: Socket, @MessageBody() data: { userId: string }) {
+    // Check rate limit
+    if (!this.checkRateLimit(client.id)) {
+      return { event: 'error', data: { message: 'Rate limit exceeded. Please try again later.' } };
+    }
+
     const socketUserId = this.socketUsers.get(client.id);
     if (socketUserId && socketUserId === data?.userId) {
       client.join(`user:${data.userId}`);
