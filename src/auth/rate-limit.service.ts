@@ -182,6 +182,34 @@ export class RateLimitService {
   }
 
   /**
+   * Check rate limit for an email address on a specific endpoint
+   * Used for endpoints like password reset request and email resend that are email-specific
+   */
+  async checkEmailRateLimit(
+    endpoint: string,
+    email: string,
+    limit: number,
+    windowMs: number,
+  ): Promise<RateLimitStatus> {
+    const key = RATE_LIMIT_KEYS.EMAIL(endpoint, email);
+    return this.checkRateLimit(key, limit, windowMs);
+  }
+
+  /**
+   * Check rate limit for a token on a specific endpoint
+   * Used for endpoints like password reset and email verification that are token-specific
+   */
+  async checkTokenRateLimit(
+    endpoint: string,
+    token: string,
+    limit: number,
+    windowMs: number,
+  ): Promise<RateLimitStatus> {
+    const key = RATE_LIMIT_KEYS.TOKEN(endpoint, token);
+    return this.checkRateLimit(key, limit, windowMs);
+  }
+
+  /**
    * Get rate limit status with headers
    */
   getHeaders(status: RateLimitStatus): Record<string, string> {

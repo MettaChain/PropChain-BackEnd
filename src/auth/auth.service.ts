@@ -46,8 +46,10 @@ import { AuthUserPayload } from './types/auth-user.type';
 import { GoogleProfile } from './strategies/google.strategy';
 
 import { LoginRateLimitService } from './login-rate-limit.service';
+import { RateLimitService } from './rate-limit.service';
 import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
+import { ENDPOINT_RATE_LIMITS } from './rate-limit.config';
 
 type JwtPayload = {
   sub: string;
@@ -86,7 +88,8 @@ export class AuthService {
     private readonly sessionsService: SessionsService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
-    private readonly rateLimitService: LoginRateLimitService,
+    private readonly loginRateLimitService: LoginRateLimitService,
+    private readonly rateLimitService: RateLimitService,
     private readonly fraudService: FraudService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
