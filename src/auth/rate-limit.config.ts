@@ -51,6 +51,18 @@ export const ENDPOINT_RATE_LIMITS: Record<string, { windowMs: number; max: numbe
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3, // 3 resends per hour
   },
+  'POST /auth/password-reset/request': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 3, // 3 requests per hour
+  },
+  'POST /auth/password-reset/reset': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // 5 reset attempts per token
+  },
+  'POST /auth/verify-email': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // 5 verification attempts per token
+  },
   'POST /auth/request-password-reset': {
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3, // 3 requests per hour
@@ -152,6 +164,8 @@ export const RATE_LIMIT_KEYS = {
   IP: (ip: string) => `rate-limit:ip:${ip}`,
   USER_IP: (userId: string, ip: string) => `rate-limit:user-ip:${userId}:${ip}`,
   API_KEY: (apiKey: string) => `rate-limit:api-key:${apiKey}`,
+  EMAIL: (endpoint: string, email: string) => `rate-limit:email:${endpoint}:${email.toLowerCase()}`,
+  TOKEN: (endpoint: string, token: string) => `rate-limit:token:${endpoint}:${token}`,
 };
 
 /**
