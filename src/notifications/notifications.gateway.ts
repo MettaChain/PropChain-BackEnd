@@ -10,7 +10,9 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, UnauthorizedException } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
+import { AuthUserPayload } from '../auth/types/auth-user.type';
 
 @WebSocketGateway({
   cors: {
@@ -25,18 +27,73 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   private logger: Logger = new Logger('NotificationsGateway');
   private userSockets = new Map<string, string[]>();
   private socketUsers = new Map<string, string>();
+  private eventRateLimits = new Map<string, { count: number; resetTime: number }>();
+  private readonly MAX_CONNECTIONS_PER_USER = 5;
+  private readonly MAX_EVENTS_PER_MINUTE = 60;
+  private readonly RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
 
-  handleConnection(client: Socket) {
-    const userId = client.handshake.query.userId as string;
-    if (userId) {
-      const sockets = this.userSockets.get(userId) || [];
-      sockets.push(client.id);
-      this.userSockets.set(userId, sockets);
+  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+
+  private extractTokenFromHandshake(client: Socket): string | null {
+    // Try to get token from authorization header
+    const authHeader = client.handshake.headers.authorization;
+    if (authHeader) {
+      const [scheme, token] = authHeader.split(' ');
+      if (scheme === 'Bearer' && token) {
+        return token;
+      }
+    }
+    
+    // Fallback to query parameter for websocket connections that can't send headers
+    const tokenFromQuery = client.handshake.query.token as string;
+    if (tokenFromQuery) {
+      return tokenFromQuery;
+    }
+    
+    return null;
+  }
+
+  async handleConnection(client: Socket) {
+    try {
+      // Extract and validate JWT token
+      const token = this.extractTokenFromHandshake(client);
+      if (!token) {
+        this.logger.warn(`Connection rejected: Missing authentication token (client: ${client.id})`);
+        client.disconnect(true);
+        return;
+      }
+
+      let authUser: AuthUserPayload;
+      try {
+        authUser = await this.authService.validateAccessToken(token);
+      } catch (error) {
+        this.logger.warn(`Connection rejected: Invalid JWT token (client: ${client.id})`);
+        client.disconnect(true);
+        return;
+      }
+
+      const userId = authUser.sub;
+      
+      // Check max connections per user
+      const currentConnections = this.userSockets.get(userId) || [];
+      if (currentConnections.length >= this.MAX_CONNECTIONS_PER_USER) {
+        this.logger.warn(`Connection rejected: User ${userId} exceeded max connections (${this.MAX_CONNECTIONS_PER_USER})`);
+        client.disconnect(true);
+        return;
+      }
+
+      // Add the new connection
+      currentConnections.push(client.id);
+      this.userSockets.set(userId, currentConnections);
       this.socketUsers.set(client.id, userId);
 
+      // Join the user's private room
       client.join(`user:${userId}`);
 
-      this.logger.log(`User ${userId} connected (${client.id})`);
+      this.logger.log(`User ${userId} connected (${client.id}). Active connections: ${currentConnections.length}/${this.MAX_CONNECTIONS_PER_USER}`);
+    } catch (error) {
+      this.logger.error(`Error during connection handling: ${error.message}`, error.stack);
+      client.disconnect(true);
     }
   }
 
