@@ -48,15 +48,7 @@ import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-head
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-      sortSchema: true,
-      // playground removed: Apollo Server v5 defaults to Apollo Sandbox (uses @apollo/server@^5 peer)
-      subscriptions: {
-        'graphql-ws': true,
-      },
-    }),
+
     ScheduleModule.forRoot(),
     CacheModuleConfig,
     AnalyticsModule,
