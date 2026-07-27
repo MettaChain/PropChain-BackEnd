@@ -1,18 +1,13 @@
 // @ts-nocheck
 
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { AuthUserPayload } from '../../auth/types/auth-user.type';
 import { UserRole } from '../../types/prisma.types';
 import { QueueMonitoringService } from './queue.service';
@@ -44,10 +39,7 @@ export class QueueController {
 
   @Post(':name/jobs/:jobId/retry')
   @ApiOperation({ summary: 'Retry a failed job' })
-  retryJob(
-    @Param('name') name: string,
-    @Param('jobId') jobId: string,
-  ) {
+  retryJob(@Param('name') name: string, @Param('jobId') jobId: string) {
     return this.queueService.retryJob(name, jobId);
   }
 
@@ -59,10 +51,7 @@ export class QueueController {
 
   @Delete(':name/jobs/:jobId')
   @ApiOperation({ summary: 'Remove a job from a queue' })
-  removeJob(
-    @Param('name') name: string,
-    @Param('jobId') jobId: string,
-  ) {
+  removeJob(@Param('name') name: string, @Param('jobId') jobId: string) {
     return this.queueService.removeJob(name, jobId);
   }
 }

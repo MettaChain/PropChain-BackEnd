@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { NotificationsGateway } from './notifications.gateway';

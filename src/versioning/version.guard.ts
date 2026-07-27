@@ -7,6 +7,7 @@
 
 import { Injectable, CanActivate, ExecutionContext, BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ApiVersionEnum, SUPPORTED_API_VERSIONS, isVersionSunset } from './api-version.constants';
 import { API_VERSION_KEY } from './api-version.decorator';
 

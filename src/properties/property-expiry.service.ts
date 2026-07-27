@@ -162,7 +162,9 @@ export class PropertyExpiryService {
     });
 
     if (result.count > 0) {
-      this.logger.log(`Archived ${result.count} properties past ${GRACE_PERIOD_DAYS}-day grace period`);
+      this.logger.log(
+        `Archived ${result.count} properties past ${GRACE_PERIOD_DAYS}-day grace period`,
+      );
 
       const archivedProps = await this.propertiesService.prisma.property.findMany({
         where: {
@@ -228,7 +230,9 @@ export class PropertyExpiryService {
       },
     });
 
-    this.logger.log(`Property ${id} renewed for ${days} days. New expiry: ${newExpiryDate.toISOString()}`);
+    this.logger.log(
+      `Property ${id} renewed for ${days} days. New expiry: ${newExpiryDate.toISOString()}`,
+    );
 
     return {
       property: updated,

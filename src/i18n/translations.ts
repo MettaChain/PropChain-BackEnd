@@ -4,22 +4,31 @@ export type SupportedLanguage = 'en' | 'es';
 
 export const translations: Record<SupportedLanguage, Record<string, string>> = {
   en: {
-    'property.expiring_soon': 'Your property "{{title}}" is scheduled to expire in {{days}} day(s). Consider renewing it to keep it active.',
+    'property.expiring_soon':
+      'Your property "{{title}}" is scheduled to expire in {{days}} day(s). Consider renewing it to keep it active.',
     'property.expired': 'Your property "{{title}}" has expired due to reaching its expiry date.',
-    'property.archived': 'Your property "{{title}}" has been archived after the {{days}}-day grace period following expiry.',
-    'property.renewed': 'Your property "{{title}}" has been successfully renewed until {{expiryDate}}.',
+    'property.archived':
+      'Your property "{{title}}" has been archived after the {{days}}-day grace period following expiry.',
+    'property.renewed':
+      'Your property "{{title}}" has been successfully renewed until {{expiryDate}}.',
     'email.welcome': 'Welcome to PropChain!',
-    'email.welcome_message': 'Thank you for joining PropChain, the blockchain-powered real estate platform.',
+    'email.welcome_message':
+      'Thank you for joining PropChain, the blockchain-powered real estate platform.',
     'email.password_reset': 'Password Reset Request',
-    'email.password_reset_message': 'You requested a password reset. Click the link below to set a new password.',
+    'email.password_reset_message':
+      'You requested a password reset. Click the link below to set a new password.',
     'email.password_reset_instruction': 'If you did not request this, please ignore this email.',
     'email.transaction_update': 'Transaction Status Update',
-    'email.transaction_completed': 'Your transaction for "{{title}}" has been completed successfully.',
-    'email.transaction_pending': 'Your transaction for "{{title}}" is pending. We will notify you of any updates.',
+    'email.transaction_completed':
+      'Your transaction for "{{title}}" has been completed successfully.',
+    'email.transaction_pending':
+      'Your transaction for "{{title}}" is pending. We will notify you of any updates.',
     'email.transaction_cancelled': 'Your transaction for "{{title}}" has been cancelled.',
     'email.fraud_alert': 'Fraud Alert',
-    'email.fraud_alert_message': 'A fraud alert has been detected on your account. Please review the details.',
-    'email.account_locked': 'Your account has been locked for {{duration}} minutes due to multiple failed login attempts.',
+    'email.fraud_alert_message':
+      'A fraud alert has been detected on your account. Please review the details.',
+    'email.account_locked':
+      'Your account has been locked for {{duration}} minutes due to multiple failed login attempts.',
     'error.not_found': 'The requested resource was not found.',
     'error.unauthorized': 'You are not authorized to perform this action.',
     'error.forbidden': 'Access to this resource is forbidden.',
@@ -36,27 +45,38 @@ export const translations: Record<SupportedLanguage, Record<string, string>> = {
     'common.renew': 'Renew',
   },
   es: {
-    'property.expiring_soon': 'Su propiedad "{{title}}" está programada para expirar en {{days}} día(s). Considere renovarla para mantenerla activa.',
-    'property.expired': 'Su propiedad "{{title}}" ha expirado por haber alcanzado su fecha de vencimiento.',
-    'property.archived': 'Su propiedad "{{title}}" ha sido archivada después del período de gracia de {{days}} días tras la expiración.',
-    'property.renewed': 'Su propiedad "{{title}}" ha sido renovada exitosamente hasta {{expiryDate}}.',
+    'property.expiring_soon':
+      'Su propiedad "{{title}}" está programada para expirar en {{days}} día(s). Considere renovarla para mantenerla activa.',
+    'property.expired':
+      'Su propiedad "{{title}}" ha expirado por haber alcanzado su fecha de vencimiento.',
+    'property.archived':
+      'Su propiedad "{{title}}" ha sido archivada después del período de gracia de {{days}} días tras la expiración.',
+    'property.renewed':
+      'Su propiedad "{{title}}" ha sido renovada exitosamente hasta {{expiryDate}}.',
     'email.welcome': '¡Bienvenido a PropChain!',
-    'email.welcome_message': 'Gracias por unirse a PropChain, la plataforma de bienes raíces impulsada por blockchain.',
+    'email.welcome_message':
+      'Gracias por unirse a PropChain, la plataforma de bienes raíces impulsada por blockchain.',
     'email.password_reset': 'Solicitud de Restablecimiento de Contraseña',
-    'email.password_reset_message': 'Solicitó un restablecimiento de contraseña. Haga clic en el enlace a continuación para establecer una nueva contraseña.',
-    'email.password_reset_instruction': 'Si no solicitó esto, por favor ignore este correo electrónico.',
+    'email.password_reset_message':
+      'Solicitó un restablecimiento de contraseña. Haga clic en el enlace a continuación para establecer una nueva contraseña.',
+    'email.password_reset_instruction':
+      'Si no solicitó esto, por favor ignore este correo electrónico.',
     'email.transaction_update': 'Actualización del Estado de la Transacción',
     'email.transaction_completed': 'Su transacción para "{{title}}" se ha completado exitosamente.',
-    'email.transaction_pending': 'Su transacción para "{{title}}" está pendiente. Le notificaremos de cualquier actualización.',
+    'email.transaction_pending':
+      'Su transacción para "{{title}}" está pendiente. Le notificaremos de cualquier actualización.',
     'email.transaction_cancelled': 'Su transacción para "{{title}}" ha sido cancelada.',
     'email.fraud_alert': 'Alerta de Fraude',
-    'email.fraud_alert_message': 'Se ha detectado una alerta de fraude en su cuenta. Por favor revise los detalles.',
-    'email.account_locked': 'Su cuenta ha sido bloqueada por {{duration}} minutos debido a múltiples intentos de inicio de sesión fallidos.',
+    'email.fraud_alert_message':
+      'Se ha detectado una alerta de fraude en su cuenta. Por favor revise los detalles.',
+    'email.account_locked':
+      'Su cuenta ha sido bloqueada por {{duration}} minutos debido a múltiples intentos de inicio de sesión fallidos.',
     'error.not_found': 'El recurso solicitado no fue encontrado.',
     'error.unauthorized': 'No está autorizado para realizar esta acción.',
     'error.forbidden': 'El acceso a este recurso está prohibido.',
     'error.bad_request': 'La solicitud es inválida. Por favor verifique su entrada.',
-    'error.server_error': 'Ocurrió un error interno del servidor. Por favor intente de nuevo más tarde.',
+    'error.server_error':
+      'Ocurrió un error interno del servidor. Por favor intente de nuevo más tarde.',
     'error.property_not_found': 'No se encontró la propiedad con ID {{id}}.',
     'error.property_expired': 'Este listado de propiedad ha expirado y ya no está disponible.',
     'notification.property_expiry_warning': 'Advertencia de Expiración de Propiedad',

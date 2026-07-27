@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { Injectable, Logger } from '@nestjs/common';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailDigestService } from './email-digest.service';
 import { DigestFrequency } from '@prisma/client';

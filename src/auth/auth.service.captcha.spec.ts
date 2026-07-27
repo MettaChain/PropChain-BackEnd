@@ -74,7 +74,10 @@ describe('AuthService – CAPTCHA failure lockout', () => {
         { provide: EmailService, useValue: emailService },
         { provide: LoginRateLimitService, useValue: rateLimitService },
         { provide: FraudService, useValue: fraudService },
-        { provide: ApiKeyAnalyticsService, useValue: { trackUsage: jest.fn(), getUsageStats: jest.fn() } },
+        {
+          provide: ApiKeyAnalyticsService,
+          useValue: { trackUsage: jest.fn(), getUsageStats: jest.fn() },
+        },
         { provide: ConfigService, useValue: configService },
       ],
     }).compile();

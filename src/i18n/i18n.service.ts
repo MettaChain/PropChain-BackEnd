@@ -7,7 +7,11 @@ import { SupportedLanguage, translations } from './translations';
 export class I18nService {
   private readonly defaultLanguage: SupportedLanguage = 'en';
 
-  translate(key: string, language?: string | null, params?: Record<string, string | number>): string {
+  translate(
+    key: string,
+    language?: string | null,
+    params?: Record<string, string | number>,
+  ): string {
     const lang = this.resolveLanguage(language);
     let text = translations[lang]?.[key] || translations[this.defaultLanguage]?.[key] || key;
 
@@ -20,7 +24,11 @@ export class I18nService {
     return text;
   }
 
-  translateTemplate(key: string, language?: string | null, params?: Record<string, string | number>): {
+  translateTemplate(
+    key: string,
+    language?: string | null,
+    params?: Record<string, string | number>,
+  ): {
     subject: string;
     body: string;
   } {

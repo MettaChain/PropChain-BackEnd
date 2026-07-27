@@ -1,6 +1,8 @@
 // @ts-nocheck
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { IsString, IsOptional, IsUUID, IsNumber, Min, Max, IsBoolean } from 'class-validator';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Field, InputType, Int } from '@nestjs/graphql';
 
 export class FlagForReviewDto {

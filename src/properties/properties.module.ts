@@ -18,7 +18,15 @@ import { PropertyReportService } from './report/property-report.service';
 import { CacheModuleConfig } from '../cache/cache.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, FraudModule, ConfigModule, CacheModuleConfig, DocumentsModule, NotificationsModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    FraudModule,
+    ConfigModule,
+    CacheModuleConfig,
+    DocumentsModule,
+    NotificationsModule,
+  ],
   controllers: [PropertiesController, PropertyImagesController],
   providers: [
     PropertiesService,
@@ -27,6 +35,12 @@ import { CacheModuleConfig } from '../cache/cache.module';
     PropertyExpiryService,
     PropertyReportService,
   ],
-  exports: [PropertiesService, PropertyReportService, PropertyImagesService, GeocodingService, PropertyExpiryService],
+  exports: [
+    PropertiesService,
+    PropertyReportService,
+    PropertyImagesService,
+    GeocodingService,
+    PropertyExpiryService,
+  ],
 })
 export class PropertiesModule {}

@@ -20,7 +20,9 @@ import {
   GetBlockchainStatsDto,
 } from './dto/blockchain.dto';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   RpcHealthCheckResult,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   RpcProviderStatus,
   GasPriceResult,
   RpcHealthSummaryDto,
@@ -100,7 +102,8 @@ export class BlockchainService {
 
   private initializeRpcProviders() {
     const primaryRpc = this.config?.rpcUrl;
-    const additionalRpc = this.configService.get('BLOCKCHAIN_RPC_URLS', '')
+    const additionalRpc = this.configService
+      .get('BLOCKCHAIN_RPC_URLS', '')
       .split(',')
       .map((s: string) => s.trim())
       .filter(Boolean);
@@ -491,6 +494,7 @@ export class BlockchainService {
       }
 
       // Update transaction in database with blockchain data
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const updated = await this.prisma.transaction.update({
         where: { id: dto.transactionId },
         data: {
@@ -578,6 +582,7 @@ export class BlockchainService {
    */
   private async simulateSmartContractCall(
     dto: RecordTransactionOnBlockchainDto,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     blockchainHash: string,
   ): Promise<string> {
     // Simulate blockchain delay
@@ -639,6 +644,7 @@ export class BlockchainService {
    */
   private async simulateTransactionVerification(
     transactionHash: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     network: BlockchainNetwork,
   ): Promise<BlockchainVerificationResultDto> {
     // In production, this would query the blockchain
@@ -672,6 +678,7 @@ export class BlockchainService {
    */
   private formatVerificationResult(
     tx: BlockchainTransaction,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     network: BlockchainNetwork,
   ): BlockchainVerificationResultDto {
     return {

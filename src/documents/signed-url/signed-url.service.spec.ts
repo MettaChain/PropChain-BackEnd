@@ -3,7 +3,7 @@ import { SignedUrlService } from './signed-url.service';
 
 describe('SignedUrlService', () => {
   let service: SignedUrlService;
-  
+
   // Create a mock provider that mimics the SignedUrlProvider interface
   const mockProvider = {
     getSignedUrl: jest.fn(),
@@ -33,9 +33,9 @@ describe('SignedUrlService', () => {
     it('should delegate to the injected provider', async () => {
       const payload = { operation: 'download' as any, objectKey: 'test.pdf' };
       mockProvider.getSignedUrl.mockResolvedValue({ url: 'http://signed' } as any);
-      
+
       const result = await service.getSignedUrl(payload);
-      
+
       expect(mockProvider.getSignedUrl).toHaveBeenCalledWith(payload);
       expect(result).toEqual({ url: 'http://signed' });
     });

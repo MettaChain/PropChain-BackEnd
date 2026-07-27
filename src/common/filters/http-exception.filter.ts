@@ -1,10 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  Logger,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 @Catch(HttpException)
@@ -16,7 +10,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
     const status = exception.getStatus();
-    
+
     const exceptionResponse = exception.getResponse();
     let message = 'An unexpected error occurred';
     let errors = null;

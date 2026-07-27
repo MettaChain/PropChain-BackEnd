@@ -57,7 +57,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('joinProperty')
-  handleJoinProperty(@ConnectedSocket() client: Socket, @MessageBody() data: { propertyId: string }) {
+  handleJoinProperty(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { propertyId: string },
+  ) {
     if (data?.propertyId) {
       client.join(`property:${data.propertyId}`);
       this.logger.log(`Client ${client.id} joined property room ${data.propertyId}`);
@@ -67,7 +70,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('leaveProperty')
-  handleLeaveProperty(@ConnectedSocket() client: Socket, @MessageBody() data: { propertyId: string }) {
+  handleLeaveProperty(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { propertyId: string },
+  ) {
     if (data?.propertyId) {
       client.leave(`property:${data.propertyId}`);
       this.logger.log(`Client ${client.id} left property room ${data.propertyId}`);
@@ -122,7 +128,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   emitPropertyPriceChanged(propertyId: string, data: any) {
-    this.server.to(`property:${propertyId}`).emit('property:price_changed', { propertyId, ...data });
+    this.server
+      .to(`property:${propertyId}`)
+      .emit('property:price_changed', { propertyId, ...data });
     this.logger.log(`Emitted property:price_changed for ${propertyId}`);
   }
 

@@ -88,12 +88,14 @@ describe('Rate-limit guard e2e – burst traffic', () => {
         },
         findFirst: async ({ where }: any) => {
           if (!where) return null;
-          return Array.from(users.values()).find((u) => {
-            for (const k of Object.keys(where)) {
-              if (u[k] !== where[k]) return false;
-            }
-            return true;
-          }) ?? null;
+          return (
+            Array.from(users.values()).find((u) => {
+              for (const k of Object.keys(where)) {
+                if (u[k] !== where[k]) return false;
+              }
+              return true;
+            }) ?? null
+          );
         },
         update: async ({ where, data }: any) => {
           const user = users.get(where.id);
@@ -101,6 +103,7 @@ describe('Rate-limit guard e2e – burst traffic', () => {
           Object.assign(user, data);
           return user;
         },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         updateMany: async ({ where, data }: any) => {
           for (const user of users.values()) {
             Object.assign(user, data);
@@ -123,7 +126,12 @@ describe('Rate-limit guard e2e – burst traffic', () => {
       fraudAlert: {
         findFirst: async () => null,
         findUnique: async () => null,
-        create: async ({ data }: any) => ({ id: nid(), ...data, occurrenceCount: 1, status: 'OPEN' }),
+        create: async ({ data }: any) => ({
+          id: nid(),
+          ...data,
+          occurrenceCount: 1,
+          status: 'OPEN',
+        }),
         update: async ({ data }: any) => data,
         findMany: async () => [],
         count: async () => 0,

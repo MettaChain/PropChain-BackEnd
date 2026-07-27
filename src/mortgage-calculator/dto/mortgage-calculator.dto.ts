@@ -1,6 +1,14 @@
 // @ts-nocheck
 
-import { IsNumber, IsPositive, Min, Max, IsArray, IsOptional, ValidateNested } from 'class-validator';
+import {
+  IsNumber,
+  IsPositive,
+  Min,
+  Max,
+  IsArray,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class MortgageCalculatorDto {

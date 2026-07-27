@@ -6,9 +6,7 @@ import { QueueController } from './queue.controller';
 import { QueueMonitoringService } from './queue.service';
 
 @Module({
-  imports: [
-    BullModule.registerQueue({ name: 'mail' }),
-  ],
+  imports: [BullModule.registerQueue({ name: 'mail' })],
   controllers: [QueueController],
   providers: [QueueMonitoringService],
   exports: [QueueMonitoringService],

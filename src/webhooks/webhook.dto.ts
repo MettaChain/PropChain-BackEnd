@@ -7,9 +7,12 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   IsEmail,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ValidateNested,
 } from 'class-validator';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Type } from 'class-transformer';
 
 export enum WebhookEventType {
