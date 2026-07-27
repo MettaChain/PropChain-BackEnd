@@ -191,15 +191,23 @@ export class AuthService {
 
     // Track IP for re-registration prevention
     if (ipAddress) {
-      const expiryMs =
+      const expirySeconds =
         parseDuration(
           this.configService.get<string>('EMAIL_VERIFICATION_EXPIRES_IN') ?? '24h',
           24 * 60 * 60,
-        ) * 1000;
-      this.registrationIpMap.set(ipAddress, {
+        );
+      const expiryMs = expirySeconds * 1000;
+      const cacheKey = `registration:ip:${ipAddress}`;
+      const entry = {
         email: user.email,
         expiresAt: new Date(Date.now() + expiryMs),
-      });
+      };
+      
+      // Store in Redis with TTL
+      await this.cacheService.set(cacheKey, entry, expirySeconds);
+      
+      // Also keep in in-memory map for backward compatibility/fallback
+      this.registrationIpMap.set(ipAddress, entry);
     }
 
     return {
@@ -232,12 +240,21 @@ export class AuthService {
     return false;
   }
 
-  private cleanupIpForEmail(email: string): void {
+  private async cleanupIpForEmail(email: string): Promise<void> {
+    // First check in-memory map to find the IP for this email
+    let ipToCleanup: string | null = null;
     for (const [ip, entry] of this.registrationIpMap.entries()) {
       if (entry.email === email) {
         this.registrationIpMap.delete(ip);
-        return;
+        ipToCleanup = ip;
+        break;
       }
+    }
+    
+    // Also delete from Redis if we found the IP, or scan for it
+    if (ipToCleanup) {
+      const cacheKey = `registration:ip:${ipToCleanup}`;
+      await this.cacheService.del(cacheKey);
     }
   }
 
@@ -1677,6 +1694,9 @@ export class AuthService {
       },
     });
 
+    // Clean up IP tracking since email is now verified
+    await this.cleanupIpForEmail(user.email);
+    
     // Issue token pair
     const tokens = await this.issueTokenPair(updatedUser, undefined, ipAddress, userAgent);
 
