@@ -86,18 +86,61 @@ export class SearchService {
       const { page = 1, limit = 20 } = searchQuery.pagination || {};
       const { field = 'createdAt', order = 'desc' } = searchQuery.sort || {};
 
-      // Mock data for now - this would typically query the database
-      const items: any[] = [];
-      const total = 0;
+      // Calculate skip for pagination
+      const skip = (page - 1) * limit;
 
-      // Generate facets
-      const facets = await this.facetsService.buildFacets(items, [
-        'propertyType',
-        'status',
-        'city',
-        'state',
-        'bedrooms',
-        'bathrooms',
+      // Execute both count and findMany queries in parallel for better performance
+      const [total, items, facets] = await Promise.all([
+        // Get total count of matching properties
+        this.prisma.property.count({ where: whereClause }),
+        
+        // Get paginated, sorted properties
+        this.prisma.property.findMany({
+          where: whereClause,
+          orderBy: { [field]: order },
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            address: true,
+            city: true,
+            state: true,
+            zipCode: true,
+            price: true,
+            bedrooms: true,
+            bathrooms: true,
+            squareFootage: true,
+            propertyType: true,
+            status: true,
+            latitude: true,
+            longitude: true,
+            createdAt: true,
+            updatedAt: true,
+            images: true,
+          },
+        }),
+
+        // Generate facets from all matching properties (not just paginated)
+        this.facetsService.buildFacets(await this.prisma.property.findMany({
+          where: whereClause,
+          select: {
+            propertyType: true,
+            status: true,
+            city: true,
+            state: true,
+            bedrooms: true,
+            bathrooms: true,
+          },
+        }), [
+          'propertyType',
+          'status',
+          'city',
+          'state',
+          'bedrooms',
+          'bathrooms',
+        ])
       ]);
 
       // Get suggestions
