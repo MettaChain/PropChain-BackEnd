@@ -41,148 +41,128 @@ export class TransactionsService {
    * Create a new transaction
    */
   async create(dto: CreateTransactionDto): Promise<TransactionResponseDto> {
-    try {
-      // Validate that property and users exist
-      const [property, buyer, seller] = await Promise.all([
-        this.prisma.property.findUnique({ where: { id: dto.propertyId } }),
-        this.prisma.user.findUnique({ where: { id: dto.buyerId } }),
-        this.prisma.user.findUnique({ where: { id: dto.sellerId } }),
-      ]);
+    // Validate that property and users exist
+    const [property, buyer, seller] = await Promise.all([
+      this.prisma.property.findUnique({ where: { id: dto.propertyId } }),
+      this.prisma.user.findUnique({ where: { id: dto.buyerId } }),
+      this.prisma.user.findUnique({ where: { id: dto.sellerId } }),
+    ]);
 
-      if (!property) {
-        throw new NotFoundException('Property not found');
-      }
-      if (!buyer) {
-        throw new NotFoundException('Buyer not found');
-      }
-      if (!seller) {
-        throw new NotFoundException('Seller not found');
-      }
-
-      const feeBreakdown = this.transactionFeesService.calculateFees(Number(dto.amount));
-
-      const transaction = await this.prisma.transaction.create({
-        data: {
-          propertyId: dto.propertyId,
-          buyerId: dto.buyerId,
-          sellerId: dto.sellerId,
-          amount: dto.amount,
-          type: dto.type as any,
-          status: 'PENDING',
-          notes: dto.notes,
-          feeBreakdown: feeBreakdown as any,
-        },
-      });
-
-      await this.commissionsService.createCommissionsForTransaction(transaction.id);
-
-      this.logger.log(`Transaction created: ${transaction.id}`);
-      return this.toResponseDto(transaction);
-    } catch (error) {
-      this.logger.error(`Failed to create transaction: ${error.message}`, error.stack);
-      throw error;
+    if (!property) {
+      throw new NotFoundException('Property not found');
     }
+    if (!buyer) {
+      throw new NotFoundException('Buyer not found');
+    }
+    if (!seller) {
+      throw new NotFoundException('Seller not found');
+    }
+
+    const feeBreakdown = this.transactionFeesService.calculateFees(Number(dto.amount));
+
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        propertyId: dto.propertyId,
+        buyerId: dto.buyerId,
+        sellerId: dto.sellerId,
+        amount: dto.amount,
+        type: dto.type as any,
+        status: 'PENDING',
+        notes: dto.notes,
+        feeBreakdown: feeBreakdown as any,
+      },
+    });
+
+    await this.commissionsService.createCommissionsForTransaction(transaction.id);
+
+    this.logger.log(`Transaction created: ${transaction.id}`);
+    return this.toResponseDto(transaction);
   }
 
   /**
    * Find all transactions with filtering and pagination
    */
   async findAll(query: TransactionListQueryDto) {
-    try {
-      const page = query.page ?? 1;
-      const limit = query.limit ?? 20;
-      const skip = (page - 1) * limit;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
 
-      const where: any = {};
-      if (query.propertyId) where.propertyId = query.propertyId;
-      if (query.buyerId) where.buyerId = query.buyerId;
-      if (query.sellerId) where.sellerId = query.sellerId;
-      if (query.status) where.status = query.status;
-      if (query.type) where.type = query.type;
+    const where: any = {};
+    if (query.propertyId) where.propertyId = query.propertyId;
+    if (query.buyerId) where.buyerId = query.buyerId;
+    if (query.sellerId) where.sellerId = query.sellerId;
+    if (query.status) where.status = query.status;
+    if (query.type) where.type = query.type;
 
-      const [transactions, total] = await Promise.all([
-        this.prisma.transaction.findMany({
-          where,
-          skip,
-          take: limit,
-          include: {
-            property: { select: { id: true, title: true, address: true } },
-            buyer: { select: { id: true, email: true, firstName: true, lastName: true } },
-            seller: { select: { id: true, email: true, firstName: true, lastName: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-        this.prisma.transaction.count({ where }),
-      ]);
+    const [transactions, total] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          property: { select: { id: true, title: true, address: true } },
+          buyer: { select: { id: true, email: true, firstName: true, lastName: true } },
+          seller: { select: { id: true, email: true, firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
 
-      return {
-        total,
-        page,
-        limit,
-        items: transactions.map((t: any) => this.toResponseDto(t)),
-      };
-    } catch (error) {
-      this.logger.error(`Failed to list transactions: ${error.message}`, error.stack);
-      throw error;
-    }
+    return {
+      total,
+      page,
+      limit,
+      items: transactions.map((t: any) => this.toResponseDto(t)),
+    };
   }
 
   /**
    * Find a single transaction by ID
    */
   async findOne(id: string): Promise<TransactionResponseDto> {
-    try {
-      const transaction = await this.prisma.transaction.findUnique({
-        where: { id },
-        include: {
-          property: { select: { id: true, title: true, address: true } },
-          buyer: { select: { id: true, email: true, firstName: true, lastName: true } },
-          seller: { select: { id: true, email: true, firstName: true, lastName: true } },
-        },
-      });
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id },
+      include: {
+        property: { select: { id: true, title: true, address: true } },
+        buyer: { select: { id: true, email: true, firstName: true, lastName: true } },
+        seller: { select: { id: true, email: true, firstName: true, lastName: true } },
+      },
+    });
 
-      if (!transaction) {
-        throw new NotFoundException('Transaction not found');
-      }
-
-      return this.toResponseDto(transaction);
-    } catch (error) {
-      this.logger.error(`Failed to find transaction ${id}: ${error.message}`, error.stack);
-      throw error;
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
     }
+
+    return this.toResponseDto(transaction);
   }
 
   /**
    * Update a transaction
    */
   async update(id: string, dto: UpdateTransactionDto): Promise<TransactionResponseDto> {
-    try {
-      const transaction = await this.prisma.transaction.findUnique({
-        where: { id },
-      });
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id },
+    });
 
-      if (!transaction) {
-        throw new NotFoundException('Transaction not found');
-      }
-
-      const updated = await this.prisma.transaction.update({
-        where: { id },
-        data: {
-          status: dto.status as any,
-          notes: dto.notes,
-        },
-      });
-
-      if (dto.status) {
-        await this.commissionsService.updateCommissionsStatus(id, dto.status);
-      }
-
-      this.logger.log(`Transaction updated: ${id}`);
-      return this.toResponseDto(updated);
-    } catch (error) {
-      this.logger.error(`Failed to update transaction ${id}: ${error.message}`, error.stack);
-      throw error;
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
     }
+
+    const updated = await this.prisma.transaction.update({
+      where: { id },
+      data: {
+        status: dto.status as any,
+        notes: dto.notes,
+      },
+    });
+
+    if (dto.status) {
+      await this.commissionsService.updateCommissionsStatus(id, dto.status);
+    }
+
+    this.logger.log(`Transaction updated: ${id}`);
+    return this.toResponseDto(updated);
   }
 
   /**
