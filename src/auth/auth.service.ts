@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -48,6 +49,7 @@ import { GoogleProfile } from './strategies/google.strategy';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 
 type JwtPayload = {
   sub: string;
@@ -88,6 +90,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly rateLimitService: LoginRateLimitService,
     private readonly fraudService: FraudService,
+    @Optional() private readonly apiKeyAnalyticsService?: ApiKeyAnalyticsService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
     this.jwtRefreshSecret =
@@ -965,6 +968,7 @@ export class AuthService {
         keyPrefix: apiKeyValue.slice(0, 12),
         keyHash: createSha256(apiKeyValue),
         permissions,
+        monthlyQuota: data.monthlyQuota ?? null,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
       },
     });
@@ -1192,6 +1196,8 @@ export class AuthService {
       throw new UnauthorizedException('User account is blocked');
     }
 
+    await this.apiKeyAnalyticsService.checkQuota(apiKey.id);
+
     await this.prisma.apiKey.update({
       where: { id: apiKey.id },
       data: {
@@ -1200,6 +1206,10 @@ export class AuthService {
           increment: 1,
         },
       },
+    });
+
+    await this.apiKeyAnalyticsService.recordUsage(apiKey.id).catch((err) => {
+      this.logger.error(`Failed to record API key usage: ${err.message}`);
     });
 
     return {
@@ -1347,6 +1357,7 @@ export class AuthService {
       keyPrefix: apiKey.keyPrefix,
       permissions: apiKey.permissions,
       usageCount: apiKey.usageCount,
+      monthlyQuota: apiKey.monthlyQuota,
       lastUsedAt: apiKey.lastUsedAt,
       expiresAt: apiKey.expiresAt,
       revokedAt: apiKey.revokedAt,

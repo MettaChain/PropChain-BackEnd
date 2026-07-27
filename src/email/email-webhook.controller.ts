@@ -1,19 +1,24 @@
 // @ts-nocheck
 
-import { Controller, Post, Body, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, Get, HttpCode, UseGuards } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuthUserPayload } from '../auth/types/auth-user.type';
+import { UserRole } from '../types/prisma.types';
 
-@ApiTags('webhooks')
-@Controller('webhooks/email')
+@ApiTags('Email')
+@Controller('email')
 export class EmailWebhookController {
   constructor(private emailService: EmailService) {}
 
-  @Post('bounce')
+  @Post('webhook/bounce')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Handle email bounce webhooks' })
+  @ApiOperation({ summary: 'Handle email bounce/complaint webhooks' })
   async handleBounce(@Body() payload: any) {
-    // Basic extraction logic - in a real app, this would be provider-specific
     const email = payload.email || payload.recipient;
     const type = payload.type || (payload.bounceType === 'Hard' ? 'HARD' : 'SOFT');
     const reason = payload.reason || payload.diagnosticCode;
@@ -23,5 +28,26 @@ export class EmailWebhookController {
     }
 
     return { received: true };
+  }
+
+  @Post('webhook/complaint')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Handle spam complaint webhooks' })
+  async handleComplaint(@Body() payload: any) {
+    const email = payload.email || payload.recipient;
+
+    if (email) {
+      await this.emailService.handleComplaint(email, payload);
+    }
+
+    return { received: true };
+  }
+
+  @Get('reputation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get sender reputation metrics' })
+  async getReputation() {
+    return this.emailService.getSenderReputation();
   }
 }

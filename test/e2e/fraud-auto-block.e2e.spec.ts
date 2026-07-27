@@ -9,6 +9,7 @@ import { SessionsService } from '../../src/sessions/sessions.service';
 import { EmailService } from '../../src/email/email.service';
 import { LoginRateLimitService } from '../../src/auth/login-rate-limit.service';
 import { FraudService } from '../../src/fraud/fraud.service';
+import { ApiKeyAnalyticsService } from '../../src/auth/api-key-analytics.service';
 import { ConfigService } from '@nestjs/config';
 import { createSha256, hashPassword } from '../../src/auth/security.utils';
 import * as jwt from 'jsonwebtoken';
@@ -257,6 +258,13 @@ describe('Fraud alert auto-block e2e', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        {
+          provide: ApiKeyAnalyticsService,
+          useValue: {
+            trackUsage: jest.fn().mockResolvedValue(undefined),
+            getUsageStats: jest.fn().mockResolvedValue({}),
+          },
+        },
         AuthService,
         LoginRateLimitService,
         { provide: PrismaService, useValue: prisma },
