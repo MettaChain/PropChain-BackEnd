@@ -6,8 +6,14 @@ import { PrismaService } from '../database/prisma.service';
 describe('PropertyViewsService', () => {
   let service: PropertyViewsService;
   let prisma: {
-    property: { findUnique: jest.Mock };
-    propertyView: { create: jest.Mock; findMany: jest.Mock; count: jest.Mock; groupBy: jest.Mock };
+    property: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock };
+    propertyView: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      groupBy: jest.Mock;
+      findFirst: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -15,21 +21,21 @@ describe('PropertyViewsService', () => {
     prisma = {
       property: {
         findUnique: jest.fn(),
+        update: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       propertyView: {
         create: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         groupBy: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PropertyViewsService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [PropertyViewsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<PropertyViewsService>(PropertyViewsService);
@@ -43,9 +49,9 @@ describe('PropertyViewsService', () => {
     it('should throw NotFoundException for non-existent property', async () => {
       prisma.property.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.recordView('non-existent', { ipAddress: '127.0.0.1' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.recordView('non-existent', { ipAddress: '127.0.0.1' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should create a view and increment view count', async () => {
@@ -89,7 +95,11 @@ describe('PropertyViewsService', () => {
     it('should return unique visitor counts', async () => {
       prisma.propertyView.groupBy
         .mockResolvedValueOnce([{ userId: 'u1' }, { userId: 'u2' }])
-        .mockResolvedValueOnce([{ ipAddress: '1.1.1.1' }, { ipAddress: '2.2.2.2' }, { ipAddress: '3.3.3.3' }]);
+        .mockResolvedValueOnce([
+          { ipAddress: '1.1.1.1' },
+          { ipAddress: '2.2.2.2' },
+          { ipAddress: '3.3.3.3' },
+        ]);
 
       const result = await service.getUniqueVisitorCount('prop-1');
 
