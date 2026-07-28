@@ -46,7 +46,7 @@ import { AuthUserPayload } from './types/auth-user.type';
 import { GoogleProfile } from './strategies/google.strategy';
 
 import { LoginRateLimitService } from './login-rate-limit.service';
-import { User, UserRole } from '../types/prisma.types';
+import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 
@@ -1255,7 +1255,7 @@ export class AuthService {
       throw new UnauthorizedException('User account is blocked');
     }
 
-    await this.apiKeyAnalyticsService.checkQuota(apiKey.id);
+    await this.apiKeyAnalyticsService?.checkQuota(apiKey.id);
 
     await this.prisma.apiKey.update({
       where: { id: apiKey.id },
@@ -1267,8 +1267,8 @@ export class AuthService {
       },
     });
 
-    await this.apiKeyAnalyticsService.recordUsage(apiKey.id).catch((err) => {
-      this.logger.error(`Failed to record API key usage: ${err.message}`);
+    await this.apiKeyAnalyticsService?.recordUsage(apiKey.id).catch((err: unknown) => {
+      this.logger.error(`Failed to record API key usage: ${(err as Error).message}`);
     });
 
     return {
@@ -1282,7 +1282,7 @@ export class AuthService {
   }
 
   async issueTokenPair(
-    user: User,
+    user: { id: string; email: string; role: string },
     tokenFamily?: string,
     ipAddress?: string,
     userAgent?: string,

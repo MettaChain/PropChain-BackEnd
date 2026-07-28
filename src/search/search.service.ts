@@ -84,7 +84,9 @@ export class SearchService {
       // Execute query with sorting and pagination
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { page = 1, limit = 20, cursor } = searchQuery.pagination || {};
-      const cursorWhere = cursor ? { createdAt: { lt: new Date(Buffer.from(cursor, 'base64').toString()) } } : {};
+      const cursorWhere = cursor
+        ? { createdAt: { lt: new Date(Buffer.from(cursor, 'base64').toString()) } }
+        : {};
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { field = 'createdAt', order = 'desc' } = searchQuery.sort || {};
 
@@ -97,9 +99,10 @@ export class SearchService {
       const items: any[] = [];
       const total = 0;
 
-      const nextCursor = items.length === limit && items.length > 0
-        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
-        : null;
+      const nextCursor =
+        items.length === limit && items.length > 0
+          ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+          : null;
 
       // Generate facets
       const facets = await this.facetsService.buildFacets(items, [
@@ -140,7 +143,7 @@ export class SearchService {
   }
 
   async getSuggestions(query: string): Promise<string[]> {
-    return this.autocompleteService.getSuggestions(query);
+    return this.autocompleteService.getSuggestions(query) as unknown as Promise<string[]>;
   }
 
   async getSavedFilters(userId: string): Promise<any[]> {
