@@ -40,3 +40,27 @@ export {
   DisputeStatus,
   MilestoneStatus,
 };
+
+export enum TransactionTypeDto {
+  SALE = 'SALE',
+  PURCHASE = 'PURCHASE',
+  TRANSFER = 'TRANSFER',
+}
+
+export enum TransactionStatusDto {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  FAILED = 'FAILED',
+}
+
+export enum PropertyStatusDto {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  UNDER_CONTRACT = 'UNDER_CONTRACT',
+  SOLD = 'SOLD',
+  RENTED = 'RENTED',
+  ARCHIVED = 'ARCHIVED',
+  EXPIRED = 'EXPIRED',
+}

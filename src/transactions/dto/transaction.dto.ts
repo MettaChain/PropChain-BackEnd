@@ -13,6 +13,9 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { TransactionTypeDto, TransactionStatusDto } from '../../common/common.types';
+
+export { TransactionTypeDto, TransactionStatusDto };
 
 export interface FeeBreakdown {
   transactionAmount: number;
@@ -26,18 +29,7 @@ export interface FeeBreakdown {
   totalAmount: number;
 }
 
-export enum TransactionTypeDto {
-  SALE = 'SALE',
-  PURCHASE = 'PURCHASE',
-  TRANSFER = 'TRANSFER',
-}
 
-export enum TransactionStatusDto {
-  PENDING = 'PENDING',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-  FAILED = 'FAILED',
-}
 
 export class CreateTransactionDto {
   @ApiProperty({ description: 'Property ID' })

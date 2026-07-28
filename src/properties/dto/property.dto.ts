@@ -1,19 +1,12 @@
 // @ts-nocheck
 
-import { IsString, IsNumber, IsOptional, IsArray, IsIn, IsUrl } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsIn, IsUrl, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InputType, Field, Float } from '@nestjs/graphql';
 
-export const PROPERTY_STATUS_ENUM = [
-  'DRAFT',
-  'PENDING',
-  'ACTIVE',
-  'UNDER_CONTRACT',
-  'SOLD',
-  'RENTED',
-  'ARCHIVED',
-  'EXPIRED',
-] as const;
+import { PropertyStatusDto } from '../../common/common.types';
+
+export { PropertyStatusDto };
 
 @InputType()
 export class CreatePropertyDto {
@@ -217,10 +210,10 @@ export class UpdatePropertyDto {
   @IsNumber()
   yearBuilt?: number;
 
-  @Field(() => PropertyStatus, { nullable: true })
+  @Field(() => PropertyStatusDto, { nullable: true })
   @IsOptional()
-  @IsIn(PROPERTY_STATUS_ENUM)
-  status?: PropertyStatus;
+  @IsEnum(PropertyStatusDto)
+  status?: PropertyStatusDto;
 
   @Field(() => [String], { nullable: true })
   @IsOptional()

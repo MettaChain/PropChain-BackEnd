@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
-import { PROPERTY_STATUS_ENUM } from './property.dto';
+import { IsIn, IsOptional, IsString, MaxLength, IsEnum } from 'class-validator';
+import { PropertyStatusDto } from '../../common/common.types';
 
 /**
  * Body for `PATCH /properties/:id/status`.
@@ -9,8 +9,8 @@ import { PROPERTY_STATUS_ENUM } from './property.dto';
  * the transition from the current status to this one is allowed by the workflow.
  */
 export class TransitionPropertyStatusDto {
-  @IsIn(PROPERTY_STATUS_ENUM)
-  status: (typeof PROPERTY_STATUS_ENUM)[number];
+  @IsEnum(PropertyStatusDto)
+  status: PropertyStatusDto;
 
   /** Optional note explaining the transition (e.g., "buyer signed contract"). */
   @IsOptional()

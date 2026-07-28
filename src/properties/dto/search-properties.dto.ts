@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PROPERTY_STATUS_ENUM } from './property.dto';
+import { PropertyStatusDto } from '../../common/common.types';
 
 export const PROPERTY_SORT_FIELDS = [
   'price',
@@ -108,8 +108,8 @@ export class SearchPropertiesDto {
 
   // ----- Status -----
   @IsOptional()
-  @IsIn(PROPERTY_STATUS_ENUM)
-  status?: (typeof PROPERTY_STATUS_ENUM)[number];
+  @IsEnum(PropertyStatusDto)
+  status?: PropertyStatusDto;
 
   // ----- Expiry date -----
   @IsOptional()
