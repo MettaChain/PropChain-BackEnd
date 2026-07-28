@@ -197,8 +197,7 @@ describe('AccountDeletionService', () => {
 
   describe('performScheduledDeletion', () => {
     it('skips users on legal hold and counts them as blocked', async () => {
-      const { service, prisma, prismaUserDelete, prismaAccountDeletionAuditCreate } =
-        buildHarness();
+      const { service, prisma, prismaAccountDeletionAuditCreate } = buildHarness();
       prisma.user.findMany.mockResolvedValueOnce([
         { id: 'hold', email: 'a@b', legalHold: true },
         { id: 'clean', email: 'c@d', legalHold: false },
@@ -206,8 +205,8 @@ describe('AccountDeletionService', () => {
       const result = await service.performScheduledDeletion(new Date());
       expect(result.deletedCount).toBe(1);
       expect(result.blockedByLegalHold).toBe(1);
-      expect(prismaUserDelete).toHaveBeenCalledTimes(1);
-      expect(prismaUserDelete).toHaveBeenCalledWith({ where: { id: 'clean' } });
+      expect(prisma.user.delete).toHaveBeenCalledTimes(1);
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'clean' } });
       const actions = prismaAccountDeletionAuditCreate.mock.calls.map(
         (call) => (call[0] as any).data.action,
       );
