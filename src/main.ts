@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { VersionHeaderInterceptor } from './versioning/version-header.interceptor';
@@ -13,13 +13,9 @@ import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-head
 import { ResponseFormatInterceptor } from './common/interceptors/response-format.interceptor';
 import { setupSwagger } from './config/swagger.config';
 import { validateEnvironment } from './utils/validate-env';
-// Import our exception filters
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+// Issue #964 – exception filters are registered globally via APP_FILTER
+// providers in AppModule. We deliberately do NOT call useGlobalFilters here
+// to avoid registering the same filter twice.
 
 async function bootstrap() {
   validateEnvironment();
@@ -40,12 +36,25 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  // Global validation pipe
+  // Issue #964 – Localize validation error messages via the I18nService.
+  const { I18nService } = await import('./i18n/i18n.service');
+  const i18n = app.get(I18nService);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      exceptionFactory: (errors) => {
+        const messages = (errors ?? []).flatMap((err) =>
+          Object.values((err as { constraints?: Record<string, string> }).constraints ?? {}),
+        );
+        const translated = messages.map((message) =>
+          i18n.translate(message, { acceptLanguageHeader: undefined }),
+        );
+        return new BadRequestException(
+          Array.isArray(translated) && translated.length > 0 ? translated : messages,
+        );
+      },
     }),
   );
 
@@ -63,6 +72,11 @@ async function bootstrap() {
     cacheMetricsInterceptor,
     rateLimitHeadersInterceptor,
   );
+
+  // Issue #964 – Exception filters are registered globally via APP_FILTER
+  // providers in AppModule (see providers array). We avoid calling
+  // useGlobalFilters here to prevent double registration of the same
+  // filter classes.
 
   // Register global guards
   const reflector = app.get(Reflector);

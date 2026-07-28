@@ -45,6 +45,12 @@ import { HealthModule } from './health/health.module';
 import { ArchiveModule } from './archive/archive.module';
 // Issue #920 – Automated cleanup of expired records
 import { CleanupService } from './database/cleanup.service';
+// Issue #964 – Localized error messages with i18n
+import { I18nModule } from './i18n/i18n.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { APP_FILTER } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -58,6 +64,7 @@ import { CleanupService } from './database/cleanup.service';
     AnalyticsModule,
     PrismaModule,
     VersioningModule,
+    I18nModule,
     ApiDocumentationModule,
     UsersModule,
     AuthModule,
@@ -97,6 +104,11 @@ import { CleanupService } from './database/cleanup.service';
     RateLimitHeadersInterceptor,
     // Issue #920 – Cleanup service registers the @Cron scheduler
     CleanupService,
+    // Issue #964 – Register the i18n-aware exception filters globally via
+    // APP_FILTER so NestJS injects I18nService into them.
+    { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule implements NestModule {

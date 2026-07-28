@@ -13,10 +13,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  TransactionTypeDto,
-  TransactionStatusDto,
-} from '../../common/common.types';
+import { TransactionTypeDto, TransactionStatusDto } from '../../common/common.types';
 
 export interface FeeBreakdown {
   transactionAmount: number;

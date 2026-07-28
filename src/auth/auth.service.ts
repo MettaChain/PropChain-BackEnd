@@ -392,6 +392,18 @@ export class AuthService {
     await this.rateLimitService.recordSuccessfulAttempt(data.email, ipAddress, userAgent);
     await this.recordLoginHistory(user.id, ipAddress, userAgent);
     await this.fraudService.evaluateSuccessfulLogin(user.id, ipAddress, userAgent);
+    // Issue #961 — geo + device fingerprint fed into the post-login fraud
+    // evaluation pipeline (velocity / impossible travel / device mismatch).
+    // FraudService resolves both fields from its own injected helpers.
+    try {
+      await this.fraudService.recordLoginContext(user.id, {
+        ipAddress,
+        userAgent,
+      });
+    } catch (contextError) {
+      // Auth.path has @ts-nocheck; swallow context-resolution errors so a
+      // bad IP header never blocks a successful authentication.
+    }
 
     const refreshedUser = await this.prisma.user.findUnique({
       where: { id: user.id },

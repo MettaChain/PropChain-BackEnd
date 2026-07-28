@@ -14,6 +14,7 @@ import {
   Put,
   Query,
   Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -38,6 +39,9 @@ import {
 } from './dto/user.dto';
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { RequestAccountDeletionDto } from './dto/account-deletion.dto';
+import { AccountDeletionService, DeletionJobResult } from './account-deletion.service';
+import { DataExportService, ExportResult } from './data-export.service';
 
 const UNAUTHORIZED_ACTION_MESSAGE = 'You are not authorized to perform this action';
 const REACTIVATE_LIMIT = 5;
@@ -53,7 +57,65 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly activityLogService: ActivityLogService,
+    private readonly accountDeletionService: AccountDeletionService,
+    private readonly dataExportService: DataExportService,
   ) {}
+
+  // ─── Issue #960 — Account Deletion Workflow (self-service) ─────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/request-deletion')
+  async requestAccountDeletion(
+    @CurrentUser() user: AuthUserPayload,
+    @Body() body: RequestAccountDeletionDto,
+  ): Promise<{
+    userId: string;
+    isDeactivated: boolean;
+    scheduledDeletionAt: Date;
+    retentionDays: number;
+  }> {
+    return this.accountDeletionService.requestDeletion({
+      userId: user.sub,
+      actorId: user.sub,
+      retentionDays: body?.retentionDays,
+      reason: body?.reason ?? null,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/cancel-deletion')
+  async cancelAccountDeletion(
+    @CurrentUser() user: AuthUserPayload,
+  ): Promise<{ userId: string; isDeactivated: boolean; scheduledDeletionAt: Date | null }> {
+    return this.accountDeletionService.cancelDeletion({
+      userId: user.sub,
+      actorId: user.sub,
+    });
+  }
+
+  // ─── Issue #959 — GDPR Personal Data Export (self-service) ──────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/request-export')
+  async requestPersonalDataExport(@CurrentUser() user: AuthUserPayload): Promise<ExportResult> {
+    return this.dataExportService.exportPersonalData({
+      userId: user.sub,
+      actorId: user.sub,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me/exports/:jobId/stream')
+  async streamExportArchive(
+    @Param('jobId') jobId: string,
+    @CurrentUser() _user: AuthUserPayload,
+  ): Promise<StreamableFile> {
+    const stream = await this.dataExportService.streamExportArchive(jobId);
+    return new StreamableFile(stream, {
+      type: 'application/zip',
+      disposition: `attachment; filename="propchain-export-${jobId}.zip"`,
+    });
+  }
 
   // ─── Admin Endpoints ─────────────────────────────────────────────
 
@@ -338,8 +400,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('delete-scheduled')
-  deleteScheduledUsers() {
-    return this.usersService.deleteDeactivatedUsers();
+  deleteScheduledUsers(): Promise<DeletionJobResult> {
+    return this.accountDeletionService.performScheduledDeletion();
   }
 
   private extractExportOwnerId(filename: string) {

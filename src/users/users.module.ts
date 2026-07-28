@@ -15,8 +15,12 @@ import { EmailVerificationService } from './email-verification.service';
 import { EmailService } from '../email/email.service';
 import { RateLimitService } from '../auth/rate-limit.service';
 
+import { AccountDeletionService } from './account-deletion.service';
+import { DataExportService } from './data-export.service';
+import { I18nModule } from '../i18n/i18n.module';
+
 @Module({
-  imports: [PrismaModule, SessionsModule],
+  imports: [PrismaModule, SessionsModule, I18nModule],
   controllers: [
     UsersController,
     UserPreferencesController,
@@ -31,7 +35,16 @@ import { RateLimitService } from '../auth/rate-limit.service';
     EmailVerificationService,
     EmailService,
     RateLimitService,
+    AccountDeletionService,
+    DataExportService,
   ],
-  exports: [UsersService, UserPreferencesService, ActivityLogService, EmailVerificationService],
+  exports: [
+    UsersService,
+    UserPreferencesService,
+    ActivityLogService,
+    EmailVerificationService,
+    AccountDeletionService,
+    DataExportService,
+  ],
 })
 export class UsersModule {}

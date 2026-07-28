@@ -98,6 +98,10 @@ enum FraudPattern {
   DUPLICATE_PROPERTY_ADDRESS
   HIGH_VALUE_NEW_ACCOUNT_LISTING
   DUPLICATE_PROPERTY_IMAGES
+  // #961 — fraud detection enhancements
+  VELOCITY_EXCEEDED
+  IMPOSSIBLE_TRAVEL
+  DEVICE_FINGERPRINT_MISMATCH
 }
 
 enum BackupStatus {
@@ -196,6 +200,9 @@ model User {
   contactHours             Json?     @map("contact_hours")
   referralCode             String?   @unique @map("referral_code")
   referredById             String?   @map("referred_by_id")
+  // #960 — account deletion workflow
+  deletionReason           String?   @map("deletion_reason") @db.Text
+  legalHold                Boolean   @default(false) @map("legal_hold")
 
   // Relations
   properties              Property[]
@@ -253,12 +260,32 @@ model User {
   deletedDocuments        Document[]               @relation("DeletedDocuments")
   priceChanges            PropertyPriceHistory[]    @relation("PriceChangeAuthor")
   comparisonShares        ComparisonShare[]
+  // #960 — account deletion audit trail
+  deletionAuditEntries    AccountDeletionAudit[]   @relation("AccountDeletionAuditUser")
 
   @@index([email])
   @@index([isDeactivated])
   @@index([scheduledDeletionAt])
   @@index([referralCode])
+  @@index([legalHold])
   @@map("users")
+}
+
+// #960 — audit logs for account deletion events
+model AccountDeletionAudit {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String // REQUESTED, CANCELLED, PERFORMED, RESTORED, LEGAL_HOLD_BLOCKED
+  actorId    String?  @map("actor_id") // Nullable for self-service actions
+  reason     String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation("AccountDeletionAuditUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@map("account_deletion_audit")
 }
 
 model DatabaseBackup {
@@ -809,7 +836,7 @@ model UserPreferences {
   perEventSettings       Json?    @map("per_event_settings") // fine-grained per-event channel overrides
   optOutReminders        Boolean  @default(false) @map("opt_out_reminders") // #563
   createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -850,6 +877,10 @@ model Session {
   displayName     String?   @map("display_name")
   deviceInfo      Json?     @map("device_info")
   geoLocation     Json?     @map("geo_location")
+  // #961 — fraud detection enhancements
+  deviceFingerprint String? @map("device_fingerprint")
+  geoCountryCode    String? @map("geo_country_code")
+  geoCity           String? @map("geo_city")
   isRevoked       Boolean   @default(false) @map("is_revoked")
   revokedAt       DateTime? @map("revoked_at")
   expiresAt       DateTime  @map("expires_at")
@@ -863,6 +894,8 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@index([isRevoked])
+  @@index([deviceFingerprint])
+  @@index([geoCountryCode])
   @@map("sessions")
 }
 
@@ -1202,7 +1235,7 @@ model PropertyAgent {
   contactPhone   String?  @map("contact_phone")
   contactEmail   String?  @map("contact_email")
   createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   agent    User     @relation(fields: [agentId], references: [id], onDelete: Cascade)
@@ -1223,8 +1256,8 @@ model Commission {
   updatedAt     DateTime          @updatedAt @map("updated_at")
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  agent       User        @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agent       User       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([transactionId, agentId])
   @@map("commissions")
@@ -1238,7 +1271,7 @@ model PropertyAmenity {
   description String?
   isAvailable Boolean  @default(true) @map("is_available")
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
@@ -1291,7 +1324,7 @@ model TransactionNote {
   @@index([authorId])
   @@map("transaction_notes")
  }
- 
+
 enum RsvpStatus {
   ATTENDING
   DECLINED
@@ -1398,197 +1431,3 @@ model ApiKeyUsageDaily {
   @@map("api_key_usage_daily")
 }
 
-// ─── Webhook Event System (#958) ──────────────────────────────────────────────
-
-enum WebhookStatus {
-  ACTIVE
-  INACTIVE
-  VERIFYING
-}
-
-enum WebhookDeliveryStatus {
-  PENDING
-  SUCCESS
-  FAILED
-  RETRYING
-}
-
-model Webhook {
-  id          String         @id @default(uuid())
-  userId      String         @map("user_id")
-  url         String
-  secret      String
-  events      String[]
-  description String?
-  status      WebhookStatus  @default(ACTIVE)
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-
-  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deliveries WebhookDeliveryLog[]
-
-  @@index([userId])
-  @@index([status])
-  @@map("webhooks")
-}
-
-model WebhookDeliveryLog {
-  id          String                 @id @default(uuid())
-  webhookId   String                 @map("webhook_id")
-  eventType   String                 @map("event_type")
-  payload     Json
-  status      WebhookDeliveryStatus  @default(PENDING)
-  responseCode Int?                  @map("response_code")
-  responseBody String?               @map("response_body") @db.Text
-  attempts    Int                    @default(0)
-  maxAttempts Int                    @default(5)
-  nextRetryAt DateTime?              @map("next_retry_at")
-  error       String?                @db.Text
-  deliveredAt DateTime?              @map("delivered_at")
-  createdAt   DateTime               @default(now()) @map("created_at")
-  updatedAt   DateTime               @updatedAt @map("updated_at")
-
-  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
-
-  @@index([webhookId, status])
-  @@index([status, nextRetryAt])
-  @@index([eventType])
-  @@map("webhook_delivery_logs")
-}
-
-// ─── Property Tour Scheduling (#957) ──────────────────────────────────────────
-
-enum TourRequestStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  DECLINED
-}
-
-enum TourType {
-  PRIVATE
-  OPEN_HOUSE
-}
-
-model TourRequest {
-  id          String            @id @default(uuid())
-  propertyId  String            @map("property_id")
-  requesterId String            @map("requester_id")
-  agentId     String?           @map("agent_id")
-  tourType    TourType          @default(PRIVATE) @map("tour_type")
-  status      TourRequestStatus @default(PENDING)
-  requestedAt DateTime          @map("requested_at")
-  confirmedAt DateTime?         @map("confirmed_at")
-  notes       String?           @db.Text
-  timezone    String            @default("UTC")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  requester User    @relation("TourRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  agent     User?   @relation("TourRequestAgent", fields: [agentId], references: [id], onDelete: SetNull)
-
-  @@index([propertyId])
-  @@index([requesterId])
-  @@index([agentId])
-  @@index([status])
-  @@index([requestedAt])
-  @@map("tour_requests")
-}
-
-model AgentAvailability {
-  id        String   @id @default(uuid())
-  agentId   String   @map("agent_id")
-  dayOfWeek Int      @map("day_of_week") // 0=Sun, 6=Sat
-  startTime String   @map("start_time") // "HH:MM"
-  endTime   String   @map("end_time")   // "HH:MM"
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  agent User @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  @@index([agentId, dayOfWeek])
-  @@map("agent_availabilities")
-}
-
-// ─── Support Tickets with SLAs (#955) ────────────────────────────────────────
-
-enum TicketCategory {
-  GENERAL
-  BILLING
-  TECHNICAL
-  PROPERTY_LISTING
-  TRANSACTION
-  ACCOUNT
-  FRAUD_REPORT
-  OTHER
-}
-
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum TicketStatus {
-  NEW
-  IN_PROGRESS
-  WAITING_ON_CUSTOMER
-  RESOLVED
-  CLOSED
-}
-
-model SupportTicket {
-  id              String         @id @default(uuid())
-  userId          String         @map("user_id")
-  assignedToId    String?        @map("assigned_to_id")
-  category        TicketCategory @default(GENERAL)
-  priority        TicketPriority @default(MEDIUM)
-  status          TicketStatus   @default(NEW)
-  subject         String
-  description     String         @db.Text
-  transactionId   String?        @map("transaction_id")
-  propertyId      String?        @map("property_id")
-  slaDeadline     DateTime?      @map("sla_deadline")
-  slaBreached     Boolean        @default(false) @map("sla_breached")
-  firstResponseAt DateTime?      @map("first_response_at")
-  resolvedAt      DateTime?      @map("resolved_at")
-  closedAt        DateTime?      @map("closed_at")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-
-  user       User?              @relation("SupportTicketUser", fields: [userId], references: [id], onDelete: Cascade)
-  assignedTo User?              @relation("SupportTicketAgent", fields: [assignedToId], references: [id], onDelete: SetNull)
-  notes      SupportTicketNote[]
-
-  @@index([userId])
-  @@index([assignedToId])
-  @@index([status])
-  @@index([priority, status])
-  @@index([slaDeadline, slaBreached])
-  @@map("support_tickets")
-}
-
-model SupportTicketNote {
-  id        String   @id @default(uuid())
-  ticketId  String   @map("ticket_id")
-  authorId  String   @map("author_id")
-  content   String   @db.Text
-  isPublic  Boolean  @default(false) @map("is_public")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([ticketId, createdAt])
-  @@map("support_ticket_notes")
-}
-
-// ─── User relation additions ──────────────────────────────────────────────────
-
-// Note: Webhook, TourRequest, AgentAvailability, SupportTicket relations
-// are defined on the User model through @relation directives above.
-// Additional User relations needed:
