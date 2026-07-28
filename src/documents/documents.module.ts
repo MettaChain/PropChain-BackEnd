@@ -3,6 +3,7 @@
 import { Module } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
+import { DocumentUploadService } from './document-upload.service';
 import { PrismaModule } from '../database/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { SignedUrlService } from './signed-url/signed-url.service';
@@ -44,12 +45,13 @@ function signedUrlProviderFactory(): new (...args: any[]) => SignedUrlProvider {
   controllers: [DocumentsController, DocumentsDownloadController],
   providers: [
     DocumentsService,
+    DocumentUploadService,
     SignedUrlService,
     {
       provide: SIGNED_URL_PROVIDER_TOKEN,
       useClass: signedUrlProviderFactory(),
     },
   ],
-  exports: [DocumentsService],
+  exports: [DocumentsService, DocumentUploadService],
 })
 export class DocumentsModule {}

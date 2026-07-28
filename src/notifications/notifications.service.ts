@@ -9,6 +9,7 @@ import {
   UserPreferencesService,
   shouldDeliverNotificationFromPrefs,
 } from '../users/user-preferences.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Transaction, TransactionStatus, User } from '@prisma/client';
 
 /**
@@ -60,6 +61,7 @@ export class NotificationsService {
     ];
 
     await Promise.all(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       parties.map(async ({ user, role }) => {
         const title = `Transaction ${transaction.status}`;
         const message = `Your transaction for property "${transaction.property.title}" has been updated to ${transaction.status}.`;

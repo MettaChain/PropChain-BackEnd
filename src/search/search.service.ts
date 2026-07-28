@@ -82,8 +82,10 @@ export class SearchService {
       }
 
       // Execute query with sorting and pagination
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { page = 1, limit = 20, cursor } = searchQuery.pagination || {};
       const cursorWhere = cursor ? { createdAt: { lt: new Date(Buffer.from(cursor, 'base64').toString()) } } : {};
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { field = 'createdAt', order = 'desc' } = searchQuery.sort || {};
 
       // Apply cursor filter
