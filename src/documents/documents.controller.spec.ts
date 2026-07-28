@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { UserRole } from '../types/prisma.types';
+import { UserRole, UserTier } from '../types/prisma.types';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -28,7 +28,13 @@ describe('DocumentsController', () => {
     bulkDownload: jest.fn(),
   };
 
-  const mockUser: AuthUserPayload = { sub: 'user-1', role: UserRole.USER, email: 'test@test.com', type: 'access' };
+  const mockUser: AuthUserPayload = {
+    sub: 'user-1',
+    role: UserRole.USER,
+    tier: UserTier.FREE,
+    email: 'test@test.com',
+    type: 'access',
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

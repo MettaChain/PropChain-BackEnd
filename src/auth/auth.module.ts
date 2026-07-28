@@ -18,6 +18,7 @@ import { RateLimitGuard } from './guards/rate-limit.guard';
 import { RateLimitHeadersInterceptor } from './interceptors/rate-limit-headers.interceptor';
 import { RateLimitAdminController } from './controllers/rate-limit-admin.controller';
 import { FraudModule } from '../fraud/fraud.module';
+import { GraphqlComplexityPlugin } from './graphql-complexity.plugin';
 
 @Module({
   imports: [PrismaModule, UsersModule, SessionsModule, EmailModule, FraudModule, PassportModule],
@@ -32,6 +33,7 @@ import { FraudModule } from '../fraud/fraud.module';
     RateLimitGuard,
     RateLimitHeadersInterceptor,
     GoogleStrategy,
+    GraphqlComplexityPlugin,
   ],
   exports: [
     AuthService,

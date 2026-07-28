@@ -182,3 +182,18 @@ export function getEndpointRateLimit(endpoint: string): RateLimitConfig | null {
     message: `Too many requests to ${endpoint}. Please try again later.`,
   };
 }
+
+/**
+ * Max GraphQL query complexity per tier. Unauthenticated (anonymous) requests
+ * get the lowest ceiling; API-key traffic gets the same allowance as its
+ * equivalent REST rate-limit tier.
+ */
+export type GraphqlComplexityTier = 'anonymous' | 'free' | 'premium' | 'enterprise' | 'apiKey';
+
+export const GRAPHQL_COMPLEXITY_LIMITS: Record<GraphqlComplexityTier, number> = {
+  anonymous: 50,
+  free: 200,
+  premium: 1000,
+  enterprise: 5000,
+  apiKey: 2000,
+};

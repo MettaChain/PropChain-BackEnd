@@ -17,6 +17,12 @@ enum UserRole {
   ADMIN
 }
 
+enum UserTier {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
 enum TokenType {
   ACCESS
   REFRESH
@@ -179,6 +185,7 @@ model User {
   twoFactorBackupCodes     String[]  @default([]) @map("two_factor_backup_codes")
   // NOTE: added to satisfy code references; CI-prone strict mode workaround
   role                     UserRole  @default(USER) @map("role")
+  tier                     UserTier  @default(FREE) @map("tier")
   avatar                   String?
   pendingEmail             String?   @map("pending_email")
   emailVerificationToken   String?   @map("email_verification_token")

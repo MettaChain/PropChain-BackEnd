@@ -46,13 +46,14 @@ import { AuthUserPayload } from './types/auth-user.type';
 import { GoogleProfile } from './strategies/google.strategy';
 
 import { LoginRateLimitService } from './login-rate-limit.service';
-import { UserRole } from '../types/prisma.types';
+import { UserRole, UserTier } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 
 type JwtPayload = {
   sub: string;
   email: string;
   role: UserRole;
+  tier: UserTier;
   type: 'access' | 'refresh';
   jti: string;
   family?: string;
@@ -1141,6 +1142,7 @@ export class AuthService {
       select: {
         email: true,
         role: true,
+        tier: true,
         lastActivityAt: true,
       },
     });
@@ -1169,6 +1171,7 @@ export class AuthService {
       sub: payload.sub,
       email: user.email,
       role: user.role,
+      tier: user.tier,
       type: 'access',
       jti: payload.jti,
     };
@@ -1206,6 +1209,7 @@ export class AuthService {
       sub: apiKey.userId,
       email: apiKey.user.email,
       role: apiKey.user.role as UserRole,
+      tier: apiKey.user.tier as UserTier,
       type: 'api-key',
       apiKeyId: apiKey.id,
       apiKeyPermissions: apiKey.permissions,
@@ -1227,6 +1231,7 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role as UserRole,
+        tier: user.tier as UserTier,
         type: 'access',
         jti: accessJti,
         family: family,
@@ -1240,6 +1245,7 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role as UserRole,
+        tier: user.tier as UserTier,
         type: 'refresh',
         jti: refreshJti,
         family: family,

@@ -55,6 +55,10 @@ import { PropertyTaxModule } from './properties/tax/property-tax.module';
       subscriptions: {
         'graphql-ws': true,
       },
+      // Exposes the raw request on the Apollo context so plugins (e.g. the
+      // query-complexity plugin) and field-level auth guards can read/set
+      // request-scoped data such as request.authUser.
+      context: ({ req }) => ({ req }),
     }),
     ScheduleModule.forRoot(),
     CacheModuleConfig,
