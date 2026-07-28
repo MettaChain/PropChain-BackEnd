@@ -112,9 +112,12 @@ export class TransactionsService {
         this.prisma.transaction.count({ where }),
       ]);
 
-      const nextCursor = transactions.length === limit
-        ? Buffer.from((transactions[transactions.length - 1] as any).createdAt.toISOString()).toString('base64')
-        : null;
+      const nextCursor =
+        transactions.length === limit
+          ? Buffer.from(
+              (transactions[transactions.length - 1] as any).createdAt.toISOString(),
+            ).toString('base64')
+          : null;
 
       return {
         total,
@@ -125,7 +128,10 @@ export class TransactionsService {
         previousCursor: cursor || null,
       };
     } catch (error) {
-      this.logger.error(`Failed to list transactions: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Failed to list transactions: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       throw error;
     }
   }

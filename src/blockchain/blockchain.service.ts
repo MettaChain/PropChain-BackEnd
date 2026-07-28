@@ -530,10 +530,7 @@ export class BlockchainService {
         throw error;
       }
       const err = error as Error;
-      this.logger.error(
-        `Failed to record transaction on blockchain: ${err.message}`,
-        err.stack,
-      );
+      this.logger.error(`Failed to record transaction on blockchain: ${err.message}`, err.stack);
       throw new InternalServerErrorException('Failed to record transaction on blockchain');
     }
   }

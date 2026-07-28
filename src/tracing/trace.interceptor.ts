@@ -7,7 +7,6 @@ export class TraceInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const traceId = request.headers['x-trace-id'] || `trace-${Date.now()}`;
     request.traceId = traceId;
-    const now = Date.now();
     return next.handle().pipe(
       tap(() => {
         const response = context.switchToHttp().getResponse();

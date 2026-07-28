@@ -546,7 +546,9 @@ export class AuthService {
         });
       } catch (error: unknown) {
         // Token might already be expired or invalid, continue with logout
-        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`);
+        this.logger.warn(
+          `Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`,
+        );
       }
     }
 
@@ -610,7 +612,9 @@ export class AuthService {
           userId: user.sub,
         });
       } catch (error: unknown) {
-        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`);
+        this.logger.warn(
+          `Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`,
+        );
       }
     }
 
@@ -1621,12 +1625,16 @@ export class AuthService {
     const bypass = this.configService.get<string>('CAPTCHA_BYPASS') === 'true';
 
     if (bypass) {
-      this.logger.warn('CAPTCHA bypass is enabled via CAPTCHA_BYPASS=true. This should only be used in development.');
+      this.logger.warn(
+        'CAPTCHA bypass is enabled via CAPTCHA_BYPASS=true. This should only be used in development.',
+      );
       return true;
     }
 
     if (!secret) {
-      throw new Error('RECAPTCHA_SECRET is not configured. Set CAPTCHA_BYPASS=true for development environments.');
+      throw new Error(
+        'RECAPTCHA_SECRET is not configured. Set CAPTCHA_BYPASS=true for development environments.',
+      );
     }
 
     try {

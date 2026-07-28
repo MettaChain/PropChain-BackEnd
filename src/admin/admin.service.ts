@@ -109,9 +109,7 @@ export class AdminService {
   async listUsers(query: AdminUsersQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (query as any).cursor
-      ? undefined
-      : (page - 1) * limit;
+    const skip = (query as any).cursor ? undefined : (page - 1) * limit;
 
     const where: any = {
       role: query.role,
@@ -148,9 +146,10 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    const nextCursor = items.length === limit
-      ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
-      : null;
+    const nextCursor =
+      items.length === limit
+        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+        : null;
 
     return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
   }
@@ -241,9 +240,7 @@ export class AdminService {
   async getModerationQueue(query: ModerationQueueQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (query as any).cursor
-      ? undefined
-      : (page - 1) * limit;
+    const skip = (query as any).cursor ? undefined : (page - 1) * limit;
 
     const where: any = {
       status: query.status ?? PropertyStatus.PENDING,
@@ -273,9 +270,10 @@ export class AdminService {
       this.prisma.property.count({ where }),
     ]);
 
-    const nextCursor = items.length === limit
-      ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
-      : null;
+    const nextCursor =
+      items.length === limit
+        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+        : null;
 
     return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
   }
@@ -350,9 +348,7 @@ export class AdminService {
   async monitorTransactions(query: TransactionMonitoringQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (query as any).cursor
-      ? undefined
-      : (page - 1) * limit;
+    const skip = (query as any).cursor ? undefined : (page - 1) * limit;
 
     const where: any = {
       status: query.status,
@@ -385,9 +381,10 @@ export class AdminService {
       this.prisma.transaction.count({ where }),
     ]);
 
-    const nextCursor = items.length === limit
-      ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
-      : null;
+    const nextCursor =
+      items.length === limit
+        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+        : null;
 
     return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
   }
