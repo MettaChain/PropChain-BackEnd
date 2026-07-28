@@ -5,6 +5,7 @@ import { EmailService } from './email.service';
 import { EmailWebhookController } from './email-webhook.controller';
 import { PrismaModule } from '../database/prisma.module';
 import { TrackingModule } from '../tracking/tracking.module';
+import { I18nModule } from '../i18n/i18n.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +17,7 @@ import { EmailProcessor } from './email.processor';
   imports: [
     PrismaModule,
     TrackingModule,
+    I18nModule,
     BullModule.registerQueue({
       name: 'mail',
       defaultJobOptions: {

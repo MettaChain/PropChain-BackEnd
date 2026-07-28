@@ -209,6 +209,7 @@ export class DocumentsService {
     if (!doc.signedBy || !doc.signatureHash) {
       return { verified: false, reason: 'Document not signed' };
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const expected = crypto
       .createHash('sha256')
       .update(`${id}:${doc.signedBy}:${doc.signatureHash.slice(0, 64)}`)

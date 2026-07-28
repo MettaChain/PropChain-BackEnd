@@ -5,6 +5,7 @@
  * This demonstrates how to implement versioning in controllers
  */
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
 import { ApiVersion } from '../versioning/api-version.decorator';
 import { GetVersion } from '../versioning/get-version.decorator';

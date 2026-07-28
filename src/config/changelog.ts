@@ -166,6 +166,7 @@ export function getBreakingChangesSince(version: string): string[] {
 /**
  * Check if there are critical updates between versions
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function hasCriticalUpdates(fromVersion: string, toVersion: string): boolean {
   const hasBreakingChanges = getBreakingChangesSince(fromVersion).length > 0;
   return hasBreakingChanges;

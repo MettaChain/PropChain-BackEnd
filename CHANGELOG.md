@@ -44,6 +44,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **GraphQL API**: Full GraphQL schema for flexible querying
 - **Swagger Documentation**: Auto-generated API documentation
 
+#### Database Migrations
+
+| Feature | Migration |
+|---------|-----------|
+| Location & search logs | [`20260222084710_location`](prisma/migrations/20260222084710_location), [`20260222091519_add_search_logs`](prisma/migrations/20260222091519_add_search_logs) |
+| Password history | [`20260324073730_add_password_history`](prisma/migrations/20260324073730_add_password_history) |
+| API key rotation analytics | [`20260324084550_add_api_key_rotation_analytics`](prisma/migrations/20260324084550_add_api_key_rotation_analytics) |
+| Composite indexes | [`20260325120000_composite_indexes`](prisma/migrations/20260325120000_composite_indexes) |
+| SEO & soft delete | [`20260330000000_add_seo_and_soft_delete_fields`](prisma/migrations/20260330000000_add_seo_and_soft_delete_fields.sql) |
+| Auth security foundation | [`20260422000000_add_auth_security_foundation`](prisma/migrations/20260422000000_add_auth_security_foundation.sql) |
+| Google OAuth | [`20260422000001_add_google_oauth`](prisma/migrations/20260422000001_add_google_oauth) |
+| User preferences & verification docs | [`20260422000001_add_user_preferences_and_verification_documents`](prisma/migrations/20260422000001_add_user_preferences_and_verification_documents) |
+| Session management | [`20260422170000_add_session_management`](prisma/migrations/20260422170000_add_session_management.sql) |
+| Trust score | [`20260422180000_add_trust_score`](prisma/migrations/20260422180000_add_trust_score.sql) |
+| API key permissions & usage | [`20260423000000_add_api_key_permissions_and_usage`](prisma/migrations/20260423000000_add_api_key_permissions_and_usage.sql) |
+| Document features | [`20260424000000_add_document_features`](prisma/migrations/20260424000000_add_document_features.sql) |
+| Fraud detection | [`20260424010000_add_fraud_detection`](prisma/migrations/20260424010000_add_fraud_detection) |
+| Database backup management | [`20260425093000_add_database_backup_management`](prisma/migrations/20260425093000_add_database_backup_management) |
+| Email digest & transaction audit | [`20260429000000_add_email_digest`](prisma/migrations/20260429000000_add_email_digest), [`20260429000000_add_transaction_audit_log`](prisma/migrations/20260429000000_add_transaction_audit_log) |
+| Transaction lifecycle enforcement | [`20260429000000_enforce_transaction_status_lifecycle`](prisma/migrations/20260429000000_enforce_transaction_status_lifecycle) |
+| Transaction documents | [`20260429001000_add_transaction_documents`](prisma/migrations/20260429001000_add_transaction_documents) |
+
 ### Fixed
 - Race condition in concurrent document uploads
 - Memory leak in WebSocket connection handling

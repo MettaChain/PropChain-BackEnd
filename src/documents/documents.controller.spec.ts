@@ -9,6 +9,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 
 describe('DocumentsController', () => {
   let controller: DocumentsController;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let service: DocumentsService;
 
   const mockDocumentsService = {
@@ -28,7 +29,12 @@ describe('DocumentsController', () => {
     bulkDownload: jest.fn(),
   };
 
-  const mockUser: AuthUserPayload = { sub: 'user-1', role: UserRole.USER, email: 'test@test.com', type: 'access' };
+  const mockUser: AuthUserPayload = {
+    sub: 'user-1',
+    role: UserRole.USER,
+    email: 'test@test.com',
+    type: 'access',
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
