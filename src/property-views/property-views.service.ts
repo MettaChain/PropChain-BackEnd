@@ -9,7 +9,8 @@ export interface RecordViewInput {
   sessionId?: string | null;
 }
 
-const BOT_USER_AGENT_PATTERNS = /bot|crawler|spider|scraper|curl|wget|python-requests|headless|phantom|selenium|puppeteer/i;
+const BOT_USER_AGENT_PATTERNS =
+  /bot|crawler|spider|scraper|curl|wget|python-requests|headless|phantom|selenium|puppeteer/i;
 
 const DEDUP_IP_WINDOW_MINUTES = 30;
 const DEDUP_USER_WINDOW_HOURS = 24;
@@ -43,10 +44,7 @@ export class PropertyViewsService {
    * Check if a duplicate view was recorded recently from the same IP
    * within the deduplication window.
    */
-  private async isDuplicateByIp(
-    propertyId: string,
-    ipAddress: string | null,
-  ): Promise<boolean> {
+  private async isDuplicateByIp(propertyId: string, ipAddress: string | null): Promise<boolean> {
     if (!ipAddress) return false;
     const cutoff = new Date(Date.now() - DEDUP_IP_WINDOW_MINUTES * 60 * 1000);
     const recent = await this.prisma.propertyView.findFirst({
@@ -64,10 +62,7 @@ export class PropertyViewsService {
    * Check if a duplicate view was recorded recently by the same user
    * within the deduplication window.
    */
-  private async isDuplicateByUser(
-    propertyId: string,
-    userId: string | null,
-  ): Promise<boolean> {
+  private async isDuplicateByUser(propertyId: string, userId: string | null): Promise<boolean> {
     if (!userId) return false;
     const cutoff = new Date(Date.now() - DEDUP_USER_WINDOW_HOURS * 60 * 60 * 1000);
     const recent = await this.prisma.propertyView.findFirst({
@@ -102,13 +97,13 @@ export class PropertyViewsService {
     }
 
     // Dedup: same IP within 30 minutes
-    if (await this.isDuplicateByIp(propertyId, input.ipAddress)) {
+    if (await this.isDuplicateByIp(propertyId, input.ipAddress ?? null)) {
       this.logger.debug(`View suppressed: duplicate IP for property ${propertyId}`);
       return { view: null, deduplicated: true, reason: 'duplicate_ip' };
     }
 
     // Dedup: same user within 24 hours
-    if (await this.isDuplicateByUser(propertyId, input.userId)) {
+    if (await this.isDuplicateByUser(propertyId, input.userId ?? null)) {
       this.logger.debug(`View suppressed: duplicate user for property ${propertyId}`);
       return { view: null, deduplicated: true, reason: 'duplicate_user' };
     }

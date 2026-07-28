@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   Body,
   Controller,
@@ -109,7 +111,7 @@ export class AdminController {
     @Body() payload: AdminUpdateUserDto,
     @CurrentUser() user: AuthUserPayload,
   ) {
-    return this.adminService.updateUser(userId, payload, user.sub);
+    return this.adminService.updateUser(userId, payload);
   }
 
   @Post('users/:id/block')
