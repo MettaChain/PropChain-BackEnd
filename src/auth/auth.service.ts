@@ -1,10 +1,9 @@
-// @ts-nocheck
-
 import {
   BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -36,6 +35,7 @@ import {
   parseDuration,
   randomBase32Secret,
   randomToken,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   redactEmail,
   sanitizeUser,
   verifyBackupCode,
@@ -48,6 +48,9 @@ import { GoogleProfile } from './strategies/google.strategy';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { UserRole } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
+
+const MIN_JWT_SECRET_LENGTH = 32;
 
 type JwtPayload = {
   sub: string;
@@ -88,10 +91,23 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly rateLimitService: LoginRateLimitService,
     private readonly fraudService: FraudService,
+    @Optional() private readonly apiKeyAnalyticsService?: ApiKeyAnalyticsService,
   ) {
-    this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'propchain-access-secret';
-    this.jwtRefreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ?? 'propchain-refresh-secret';
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    if (!jwtSecret || jwtSecret.length < MIN_JWT_SECRET_LENGTH) {
+      throw new Error(
+        `JWT_SECRET must be set and at least ${MIN_JWT_SECRET_LENGTH} characters (256 bits) long`,
+      );
+    }
+    this.jwtSecret = jwtSecret;
+
+    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    if (!jwtRefreshSecret || jwtRefreshSecret.length < MIN_JWT_SECRET_LENGTH) {
+      throw new Error(
+        `JWT_REFRESH_SECRET must be set and at least ${MIN_JWT_SECRET_LENGTH} characters (256 bits) long`,
+      );
+    }
+    this.jwtRefreshSecret = jwtRefreshSecret;
     this.accessTokenTtlSeconds = parseDuration(
       this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m',
       15 * 60,
@@ -374,6 +390,18 @@ export class AuthService {
     await this.rateLimitService.recordSuccessfulAttempt(data.email, ipAddress, userAgent);
     await this.recordLoginHistory(user.id, ipAddress, userAgent);
     await this.fraudService.evaluateSuccessfulLogin(user.id, ipAddress, userAgent);
+    // Issue #961 — geo + device fingerprint fed into the post-login fraud
+    // evaluation pipeline (velocity / impossible travel / device mismatch).
+    // FraudService resolves both fields from its own injected helpers.
+    try {
+      await this.fraudService.recordLoginContext(user.id, {
+        ipAddress,
+        userAgent,
+      });
+    } catch (contextError) {
+      // Auth.path has @ts-nocheck; swallow context-resolution errors so a
+      // bad IP header never blocks a successful authentication.
+    }
 
     const refreshedUser = await this.prisma.user.findUnique({
       where: { id: user.id },
@@ -516,9 +544,9 @@ export class AuthService {
           userId: user.sub,
           tokenFamily: accessPayload.family,
         });
-      } catch (error) {
+      } catch (error: unknown) {
         // Token might already be expired or invalid, continue with logout
-        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${error.message}`);
+        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`);
       }
     }
 
@@ -537,13 +565,13 @@ export class AuthService {
           userId: user.sub,
           tokenFamily: refreshPayload.family,
         });
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof UnauthorizedException) {
           throw error;
         }
         // Token might already be expired or invalid, continue with logout
         this.logger.warn(
-          `Failed to blacklist refresh token for user ${user.sub}: ${error.message}`,
+          `Failed to blacklist refresh token for user ${user.sub}: ${(error as Error).message}`,
         );
       }
     }
@@ -581,8 +609,8 @@ export class AuthService {
           expiresAt: new Date((accessPayload.exp ?? 0) * 1000),
           userId: user.sub,
         });
-      } catch (error) {
-        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${error.message}`);
+      } catch (error: unknown) {
+        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`);
       }
     }
 
@@ -636,6 +664,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [properties, buyerTransactions, sellerTransactions, documents, apiKeys] =
       await Promise.all([
         this.prisma.property.findMany({
@@ -862,6 +891,21 @@ export class AuthService {
       }
     });
 
+    // Audit log password change (#886)
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'PASSWORD_CHANGED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User changed their password',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log password change: ${err}`);
+      });
+
     await this.sessionsService.revokeAllSessions(existingUser.id);
 
     return { message: 'Password updated successfully' };
@@ -924,6 +968,21 @@ export class AuthService {
       },
     });
 
+    // Audit log 2FA enable (#886)
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'TWO_FACTOR_ENABLED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User enabled two-factor authentication',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log 2FA enable: ${err}`);
+      });
+
     return { message: 'Two-factor authentication enabled successfully' };
   }
 
@@ -952,6 +1011,21 @@ export class AuthService {
       },
     });
 
+    // Audit log 2FA disable (#886)
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'TWO_FACTOR_DISABLED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User disabled two-factor authentication',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log 2FA disable: ${err}`);
+      });
+
     return { message: 'Two-factor authentication disabled successfully' };
   }
 
@@ -965,6 +1039,7 @@ export class AuthService {
         keyPrefix: apiKeyValue.slice(0, 12),
         keyHash: createSha256(apiKeyValue),
         permissions,
+        monthlyQuota: data.monthlyQuota ?? null,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
       },
     });
@@ -1192,6 +1267,8 @@ export class AuthService {
       throw new UnauthorizedException('User account is blocked');
     }
 
+    await this.apiKeyAnalyticsService?.checkQuota(apiKey.id);
+
     await this.prisma.apiKey.update({
       where: { id: apiKey.id },
       data: {
@@ -1200,6 +1277,10 @@ export class AuthService {
           increment: 1,
         },
       },
+    });
+
+    await this.apiKeyAnalyticsService?.recordUsage(apiKey.id).catch((err: unknown) => {
+      this.logger.error(`Failed to record API key usage: ${(err as Error).message}`);
     });
 
     return {
@@ -1213,7 +1294,7 @@ export class AuthService {
   }
 
   async issueTokenPair(
-    user: Prisma.User,
+    user: { id: string; email: string; role: string },
     tokenFamily?: string,
     ipAddress?: string,
     userAgent?: string,
@@ -1328,8 +1409,13 @@ export class AuthService {
   }
 
   /**
-   * Generate a new API key value with 'pc_' prefix and 24 random characters.
-   * Format: pc_<24-char-random-hex>
+   * Generate an API key value in the format `pc_<48-hex-chars>`.
+   *
+   * - Prefix `pc_` identifies PropChain-issued keys (51 chars total).
+   * - The 24-byte random payload provides 192 bits of entropy via
+   *   `crypto.randomBytes` (hex-encoded, 48 characters).
+   * - Keys are stored hashed (SHA-256) in the database; the raw value
+   *   is shown to the user only once at creation time.
    */
   private generateApiKeyValue() {
     return `pc_${randomToken(24)}`;
@@ -1342,6 +1428,7 @@ export class AuthService {
       keyPrefix: apiKey.keyPrefix,
       permissions: apiKey.permissions,
       usageCount: apiKey.usageCount,
+      monthlyQuota: apiKey.monthlyQuota,
       lastUsedAt: apiKey.lastUsedAt,
       expiresAt: apiKey.expiresAt,
       revokedAt: apiKey.revokedAt,
@@ -1531,12 +1618,15 @@ export class AuthService {
 
   private async verifyCaptcha(token: string): Promise<boolean> {
     const secret = this.configService.get<string>('RECAPTCHA_SECRET');
+    const bypass = this.configService.get<string>('CAPTCHA_BYPASS') === 'true';
+
+    if (bypass) {
+      this.logger.warn('CAPTCHA bypass is enabled via CAPTCHA_BYPASS=true. This should only be used in development.');
+      return true;
+    }
+
     if (!secret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('RECAPTCHA_SECRET is not configured in production');
-      }
-      this.logger.warn('RECAPTCHA_SECRET is not configured, skipping CAPTCHA verification');
-      return true; // Bypass only in non-production
+      throw new Error('RECAPTCHA_SECRET is not configured. Set CAPTCHA_BYPASS=true for development environments.');
     }
 
     try {
@@ -1562,8 +1652,8 @@ export class AuthService {
 
       this.logger.warn(`CAPTCHA verification failed: ${JSON.stringify(data['error-codes'])}`);
       return false;
-    } catch (error) {
-      this.logger.error(`Error verifying CAPTCHA: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error verifying CAPTCHA: ${(error as Error).message}`);
       return false;
     }
   }
@@ -1618,6 +1708,7 @@ export class AuthService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async resendEmailVerification(email: string, ipAddress?: string, userAgent?: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {

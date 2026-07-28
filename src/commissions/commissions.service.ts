@@ -4,10 +4,12 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Decimal } from '@prisma/client/runtime/library';
 import { CommissionListQueryDto } from './dto/commission.dto';
 import { AuthUserPayload } from '../auth/types/auth-user.type';

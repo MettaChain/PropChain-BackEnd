@@ -7,14 +7,10 @@ export class ScoreFactor {
 }
 
 export class TrustScoreBreakdownDto {
-  accountAge: ScoreFactor;
-  emailVerification: ScoreFactor;
-  twoFactorAuth: ScoreFactor;
-  profileCompleteness: ScoreFactor;
-  transactionHistory: ScoreFactor;
-  propertyListings: ScoreFactor;
-  apiKeyUsage: ScoreFactor;
-  passwordSecurity: ScoreFactor;
+  emailVerified: ScoreFactor;
+  idVerified: ScoreFactor;
+  completedTransactions: ScoreFactor;
+  activityDecay: ScoreFactor;
   totalScore: number;
   totalMaxScore: number;
 }

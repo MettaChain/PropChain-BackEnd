@@ -12,6 +12,7 @@ import {
   Query,
   UseGuards,
   Res,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   HttpStatus,
   NotFoundException,
   InternalServerErrorException,
@@ -181,6 +182,7 @@ export class PropertiesController {
   @Post('bulk/status')
   async bulkUpdatePropertyStatus(
     @Body() body: BulkPropertyStatusUpdateDto,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @CurrentUser() user: AuthUserPayload,
   ) {
     return this.propertiesService.bulkUpdatePropertyStatus(body.propertyIds, body.status);
@@ -192,6 +194,7 @@ export class PropertiesController {
   @Post('bulk/delete')
   async bulkDeleteProperties(
     @Body() body: BulkPropertyDeleteDto,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @CurrentUser() user: AuthUserPayload,
   ) {
     return this.propertiesService.bulkDeleteProperties(body.propertyIds);
@@ -203,6 +206,7 @@ export class PropertiesController {
   @Post('bulk/export')
   async bulkExportProperties(
     @Body() body: BulkPropertyExportDto,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @CurrentUser() user: AuthUserPayload,
   ) {
     return this.propertiesService.bulkExportProperties(body.propertyIds, body.filter);

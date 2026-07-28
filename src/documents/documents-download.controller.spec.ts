@@ -10,7 +10,9 @@ import { Response } from 'express';
 
 describe('DocumentsDownloadController', () => {
   let controller: DocumentsDownloadController;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let documentsService: DocumentsService;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let signedUrlService: SignedUrlService;
 
   const mockDocumentsService = {
@@ -25,11 +27,11 @@ describe('DocumentsDownloadController', () => {
     getSignedUrl: jest.fn(),
   };
 
-  const mockUser: AuthUserPayload = { 
-    sub: 'user-1', 
-    role: UserRole.USER, 
-    email: 'test@test.com', 
-    type: 'access' 
+  const mockUser: AuthUserPayload = {
+    sub: 'user-1',
+    role: UserRole.USER,
+    email: 'test@test.com',
+    type: 'access',
   };
 
   const mockResponse = {
@@ -44,8 +46,10 @@ describe('DocumentsDownloadController', () => {
         { provide: SignedUrlService, useValue: mockSignedUrlService },
       ],
     })
-      .overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<DocumentsDownloadController>(DocumentsDownloadController);
@@ -68,7 +72,11 @@ describe('DocumentsDownloadController', () => {
 
       await controller.download('doc-1', {}, mockUser, mockResponse);
 
-      expect(mockDocumentsService.findAuthorizedById).toHaveBeenCalledWith('doc-1', mockUser.sub, mockUser.role);
+      expect(mockDocumentsService.findAuthorizedById).toHaveBeenCalledWith(
+        'doc-1',
+        mockUser.sub,
+        mockUser.role,
+      );
       expect(mockDocumentsService.getVersion).not.toHaveBeenCalled();
       expect(mockDocumentsService.toObjectKey).toHaveBeenCalledWith('http://example.com/doc.pdf');
       expect(mockSignedUrlService.getSignedUrl).toHaveBeenCalledWith({
@@ -83,7 +91,7 @@ describe('DocumentsDownloadController', () => {
     it('should fetch a specific document version and redirect to signed URL when versionId is provided', async () => {
       const mockDoc = { fileUrl: 'http://example.com/doc.pdf', mimeType: 'application/pdf' };
       const mockVersion = { fileUrl: 'http://example.com/doc_v2.pdf' };
-      
+
       mockDocumentsService.findAuthorizedById.mockResolvedValue(mockDoc);
       mockDocumentsService.getVersion.mockResolvedValue(mockVersion);
       mockDocumentsService.toObjectKey.mockReturnValue('doc_v2.pdf');
@@ -91,9 +99,20 @@ describe('DocumentsDownloadController', () => {
 
       await controller.download('doc-1', { versionId: 'v2' }, mockUser, mockResponse);
 
-      expect(mockDocumentsService.findAuthorizedById).toHaveBeenCalledWith('doc-1', mockUser.sub, mockUser.role);
-      expect(mockDocumentsService.getVersion).toHaveBeenCalledWith('doc-1', 'v2', mockUser.sub, mockUser.role);
-      expect(mockDocumentsService.toObjectKey).toHaveBeenCalledWith('http://example.com/doc_v2.pdf');
+      expect(mockDocumentsService.findAuthorizedById).toHaveBeenCalledWith(
+        'doc-1',
+        mockUser.sub,
+        mockUser.role,
+      );
+      expect(mockDocumentsService.getVersion).toHaveBeenCalledWith(
+        'doc-1',
+        'v2',
+        mockUser.sub,
+        mockUser.role,
+      );
+      expect(mockDocumentsService.toObjectKey).toHaveBeenCalledWith(
+        'http://example.com/doc_v2.pdf',
+      );
       expect(mockSignedUrlService.getSignedUrl).toHaveBeenCalledWith({
         operation: 'download',
         objectKey: 'doc_v2.pdf',
@@ -105,10 +124,10 @@ describe('DocumentsDownloadController', () => {
   });
 
   describe('Upload URL Endpoints', () => {
-    const uploadDto = { 
-      fileName: 'test.pdf', 
-      mimeType: 'application/pdf', 
-      fileSizeBytes: 1024 
+    const uploadDto = {
+      fileName: 'test.pdf',
+      mimeType: 'application/pdf',
+      fileSizeBytes: 1024,
     } as any;
 
     const mockSignedUrlResponse = {

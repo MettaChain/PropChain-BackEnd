@@ -309,23 +309,27 @@ export class SearchFiltersService {
     return savedFilter;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getSavedFilters(userId: string): Promise<SavedFilter[]> {
     // This would typically query database
     // For now, return empty array
     return [];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getQuickFilters(userId: string): Promise<SavedFilter[]> {
     // This would typically query database
     // For now, return empty array
     return [];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async updateFilterUsage(filterId: string): Promise<void> {
     // This would typically update database
     // For now, do nothing
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async deleteFilter(userId: string, filterId: string): Promise<void> {
     // This would typically delete from database
     // For now, do nothing

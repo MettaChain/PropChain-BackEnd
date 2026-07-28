@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    environment:
+      DATABASE_URL: postgresql://propchain:${POSTGRES_PASSWORD:-propchain}@pgbouncer:6432/propchain?pgbouncer=true
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      CACHE_WARMING_ENABLED: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - propchain
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: propchain
+      POSTGRES_USER: propchain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-propchain}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U propchain']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - propchain
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.23.1
+    environment:
+      DATABASE_URL: postgresql://propchain:${POSTGRES_PASSWORD:-propchain}@postgres:5432/propchain
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: ${PGBOUNCER_POOL_SIZE:-20}
+      MIN_POOL_SIZE: ${PGBOUNCER_MIN_POOL_SIZE:-5}
+      MAX_DB_CONNECTIONS: ${PGBOUNCER_MAX_DB_CONNECTIONS:-40}
+      MAX_USER_CONNECTIONS: ${PGBOUNCER_MAX_USER_CONNECTIONS:-40}
+      SERVER_IDLE_TIMEOUT: '300'
+      CLIENT_IDLE_TIMEOUT: '0'
+      LOG_CONNECTIONS: 1
+      LOG_DISCONNECTIONS: 1
+      LOG_POOLER_ERRORS: 1
+    ports:
+      - '${PGBOUNCER_PORT:-6432}:6432'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -p 6432']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - propchain
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - propchain
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  propchain:
+    driver: bridge

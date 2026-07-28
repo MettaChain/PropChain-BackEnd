@@ -7,6 +7,7 @@
  * in the PropChain API
  */
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
