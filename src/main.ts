@@ -112,7 +112,7 @@ async function bootstrap() {
   // Register global guards
   const reflector = app.get(Reflector);
   const rateLimitService = app.get(RateLimitService);
-  app.useGlobalGuards(new RateLimitGuard(rateLimitService, reflector));
+  app.useGlobalGuards(new RateLimitGuard(reflector, rateLimitService));
 
   // Setup Swagger documentation
   setupSwagger(app);
