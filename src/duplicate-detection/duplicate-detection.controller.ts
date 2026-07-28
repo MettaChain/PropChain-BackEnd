@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { DuplicateDetectionService } from './duplicate-detection.service';
 import { CheckDuplicateDto, FlagForReviewDto, MergeDuplicateDto } from './dto/duplicate.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -49,5 +49,27 @@ export class DuplicateDetectionController {
   @Patch(':id/resolve')
   async resolveFlag(@Param('id') flagId: string) {
     return this.duplicateDetectionService.resolveFlag(flagId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('batch')
+  async detectBatchDuplicates(@Body() body: { propertyIds: string[] }) {
+    return this.duplicateDetectionService.detectBatchDuplicates(body.propertyIds);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('stats')
+  async getDuplicateStats() {
+    return this.duplicateDetectionService.getDuplicateStats();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':propertyId/nearby')
+  async findNearbyDuplicates(
+    @Param('propertyId') propertyId: string,
+    @Query('radius') radius?: string,
+  ) {
+    const radiusMeters = radius ? parseInt(radius, 10) : 500;
+    return this.duplicateDetectionService.findNearbyDuplicates(propertyId, radiusMeters);
   }
 }

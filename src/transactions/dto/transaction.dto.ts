@@ -13,9 +13,10 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { TransactionTypeDto, TransactionStatusDto } from '../../common/common.types';
-
-export { TransactionTypeDto, TransactionStatusDto };
+import {
+  TransactionTypeDto,
+  TransactionStatusDto,
+} from '../../common/common.types';
 
 export interface FeeBreakdown {
   transactionAmount: number;
@@ -28,8 +29,6 @@ export interface FeeBreakdown {
   totalFees: number;
   totalAmount: number;
 }
-
-
 
 export class CreateTransactionDto {
   @ApiProperty({ description: 'Property ID' })
@@ -310,3 +309,6 @@ export class UpdateEscrowDto {
   @IsIn(['PENDING', 'PARTIAL', 'COMPLETE'])
   paymentStatus?: string;
 }
+
+// Re-exports for backward compatibility during migration (#770)
+export { TransactionTypeDto, TransactionStatusDto } from '../../common/common.types';

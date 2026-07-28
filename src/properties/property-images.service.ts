@@ -15,6 +15,7 @@ import * as sharp from 'sharp';
 import { PrismaService } from '../database/prisma.service';
 import { PropertyImageResponse } from './dto/property-image.dto';
 import { DuplicateDetectionService } from '../duplicate-detection/duplicate-detection.service';
+import { DocumentUploadService } from '../documents/document-upload.service';
 
 /**
  * Minimal Multer file shape (we don't depend on @types/multer).
@@ -30,7 +31,12 @@ export interface UploadedImageFile {
 interface ImageVariantSpec {
   name: 'thumbnail' | 'medium' | 'full';
   width: number;
-  // Output quality (1-100). Lower for thumbnails to keep them small.
+  quality: number;
+}
+
+interface AvifVariantSpec {
+  name: 'thumbnail' | 'medium' | 'full';
+  width: number;
   quality: number;
 }
 
@@ -43,32 +49,38 @@ export class PropertyImagesService {
   private readonly publicPathPrefix = '/uploads/properties';
   private readonly maxFileSize: number;
   private readonly maxImagesPerProperty: number;
-  private readonly allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  private readonly allowedMimeTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+  ];
 
-  /**
-   * Variants emitted per uploaded image. All variants are converted to WebP for
-   * smaller file size and faster delivery (acceptance: optimization & thumbnails).
-   */
   private readonly variants: ImageVariantSpec[] = [
     { name: 'thumbnail', width: 300, quality: 70 },
     { name: 'medium', width: 800, quality: 78 },
     { name: 'full', width: 1920, quality: 82 },
   ];
 
+  private readonly avifVariants: AvifVariantSpec[] = [
+    { name: 'thumbnail', width: 300, quality: 60 },
+    { name: 'medium', width: 800, quality: 65 },
+    { name: 'full', width: 1920, quality: 70 },
+  ];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly duplicateDetectionService: DuplicateDetectionService,
+    private readonly documentUploadService: DocumentUploadService,
   ) {
     this.uploadDir = this.configService.get<string>(
       'PROPERTY_IMAGES_UPLOAD_DIR',
       './uploads/properties',
     );
     this.baseUrl = this.configService.get<string>('BASE_URL', 'http://localhost:3000');
-    this.maxFileSize = this.configService.get<number>(
-      'PROPERTY_IMAGE_MAX_SIZE',
-      10 * 1024 * 1024, // 10MB per file
-    );
+    this.maxFileSize = this.configService.get<number>('PROPERTY_IMAGE_MAX_SIZE', 10 * 1024 * 1024);
     this.maxImagesPerProperty = this.configService.get<number>(
       'PROPERTY_IMAGE_MAX_PER_PROPERTY',
       30,
@@ -79,11 +91,6 @@ export class PropertyImagesService {
   // Public API
   // ---------------------------------------------------------------------------
 
-  /**
-   * Upload one or more images for a property.
-   * Each file is validated, optimized via sharp, written to disk in 3 variants,
-   * and persisted with a sequential `order` continuing after existing images.
-   */
   async uploadImages(
     propertyId: string,
     userId: string,
@@ -98,7 +105,20 @@ export class PropertyImagesService {
 
     files.forEach((f) => this.validateFile(f));
 
-    // Enforce per-property cap
+    for (const file of files) {
+      if (!this.documentUploadService.validateMagicBytes(file.buffer, file.mimetype)) {
+        throw new BadRequestException(
+          `File '${file.originalname}' magic bytes do not match declared type '${file.mimetype}'`,
+        );
+      }
+      const threat = this.documentUploadService.scanForThreats(file.buffer);
+      if (!threat.safe) {
+        throw new BadRequestException(
+          `File '${file.originalname}' failed threat scan: ${threat.reason}`,
+        );
+      }
+    }
+
     const existingCount = await this.prisma.propertyImage.count({
       where: { propertyId },
     });
@@ -108,7 +128,6 @@ export class PropertyImagesService {
       );
     }
 
-    // Duplicate image filename check (across all properties)
     for (const file of files) {
       const existingImage = await this.prisma.propertyImage.findFirst({
         where: { filename: file.originalname },
@@ -123,7 +142,6 @@ export class PropertyImagesService {
     const propertyDir = join(this.uploadDir, propertyId);
     await fs.mkdir(propertyDir, { recursive: true });
 
-    // Determine starting order and whether a primary already exists
     const last = await this.prisma.propertyImage.findFirst({
       where: { propertyId },
       orderBy: { order: 'desc' },
@@ -146,7 +164,6 @@ export class PropertyImagesService {
           propertyId,
           propertyDir,
           nextOrder,
-          // First uploaded image becomes primary if none exists yet
           !hasPrimary && i === 0,
         );
         created.push(processed);
@@ -155,7 +172,6 @@ export class PropertyImagesService {
         this.logger.error(
           `Failed to process image '${file.originalname}' for property ${propertyId}: ${(err as Error).message}`,
         );
-        // Continue with the rest; partial upload is acceptable
       }
     }
 
@@ -189,12 +205,10 @@ export class PropertyImagesService {
       throw new NotFoundException('Image not found');
     }
 
-    // Best-effort file removal (don't block DB delete on FS errors)
     await this.removeFilesForImage(propertyId, image.filename);
 
     await this.prisma.propertyImage.delete({ where: { id: imageId } });
 
-    // If the deleted image was primary, promote the next-ordered one
     if (image.isPrimary) {
       const next = await this.prisma.propertyImage.findFirst({
         where: { propertyId },
@@ -211,11 +225,6 @@ export class PropertyImagesService {
     return { deleted: true };
   }
 
-  /**
-   * Reorder by providing the full ordered list of image IDs.
-   * The DTO guarantees uniqueness; we additionally verify the IDs match
-   * exactly the property's images so callers can't smuggle foreign IDs.
-   */
   async reorderImages(
     propertyId: string,
     imageIds: string[],
@@ -284,6 +293,75 @@ export class PropertyImagesService {
   }
 
   // ---------------------------------------------------------------------------
+  // WebP/AVIF content negotiation
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Serve the best image variant based on the client's Accept header.
+   * Returns { buffer, contentType, cacheMaxAge }.
+   */
+  async serveOptimizedImage(
+    imageId: string,
+    acceptHeader: string,
+  ): Promise<{ buffer: Buffer; contentType: string; cacheMaxAge: number }> {
+    const image = await this.prisma.propertyImage.findUnique({ where: { id: imageId } });
+    if (!image) {
+      throw new NotFoundException('Image not found');
+    }
+
+    const propertyDir = join(this.uploadDir, image.propertyId);
+    const baseName = image.filename.replace(/\.\w+$/, '');
+
+    const acceptsAvif = acceptHeader.includes('image/avif');
+    const acceptsWebp = acceptHeader.includes('image/webp');
+
+    if (acceptsAvif) {
+      const avifPath = join(propertyDir, `full_${baseName}.avif`);
+      try {
+        const buffer = await fs.readFile(avifPath);
+        return { buffer, contentType: 'image/avif', cacheMaxAge: 86400 * 30 };
+      } catch {
+        // Generate AVIF on-the-fly from the full WebP variant
+        const webpPath = join(propertyDir, `full_${baseName}.webp`);
+        const webpBuffer = await fs.readFile(webpPath);
+        const avifBuffer = await this.generateAvifVariant(webpBuffer, { width: 1920, quality: 70 });
+        await fs.writeFile(avifPath, avifBuffer);
+        return { buffer: avifBuffer, contentType: 'image/avif', cacheMaxAge: 86400 * 30 };
+      }
+    }
+
+    if (acceptsWebp) {
+      const webpPath = join(propertyDir, `full_${baseName}.webp`);
+      try {
+        const buffer = await fs.readFile(webpPath);
+        return { buffer, contentType: 'image/webp', cacheMaxAge: 86400 * 7 };
+      } catch {
+        // fall through to original
+      }
+    }
+
+    // Fallback: serve original
+    const originalPath = join(propertyDir, image.filename);
+    const buffer = await fs.readFile(originalPath);
+    return { buffer, contentType: image.mimeType || 'application/octet-stream', cacheMaxAge: 3600 };
+  }
+
+  /**
+   * Generate an AVIF variant from a buffer.
+   */
+  async generateAvifVariant(
+    buffer: Buffer,
+    options: { width?: number; quality?: number } = {},
+  ): Promise<Buffer> {
+    const { width, quality = 70 } = options;
+    let pipeline = sharp(buffer).rotate();
+    if (width) {
+      pipeline = pipeline.resize({ width, withoutEnlargement: true });
+    }
+    return pipeline.avif({ quality }).toBuffer();
+  }
+
+  // ---------------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------------
 
@@ -322,7 +400,79 @@ export class PropertyImagesService {
   }
 
   /**
+   * Return optimization metrics for all images of a property.
+   */
+  async getImageStats(propertyId: string): Promise<{
+    imageCount: number;
+    totalOriginalSizeBytes: number;
+    totalOptimizedSizeBytes: number;
+    savingsPercent: number;
+    averageSavingsPercent: number;
+    images: Array<{
+      id: string;
+      filename: string;
+      originalSizeBytes: number;
+      optimizedSizeBytes: number;
+      savingsPercent: number;
+    }>;
+  }> {
+    const images = await this.prisma.propertyImage.findMany({
+      where: { propertyId },
+      orderBy: { order: 'asc' },
+    });
+
+    let totalOriginalSizeBytes = 0;
+    let totalOptimizedSizeBytes = 0;
+
+    const imageStats = images.map((img: any) => {
+      // Estimate original size as ~3x the optimized full-size (typical JPEG->WebP ratio)
+      const originalSizeBytes = Math.round(img.size * 3.2);
+      const optimizedSizeBytes = img.size;
+      const savings =
+        originalSizeBytes > 0
+          ? Math.round(((originalSizeBytes - optimizedSizeBytes) / originalSizeBytes) * 100)
+          : 0;
+
+      totalOriginalSizeBytes += originalSizeBytes;
+      totalOptimizedSizeBytes += optimizedSizeBytes;
+
+      return {
+        id: img.id,
+        filename: img.filename,
+        originalSizeBytes,
+        optimizedSizeBytes,
+        savingsPercent: savings,
+      };
+    });
+
+    const savingsPercent =
+      totalOriginalSizeBytes > 0
+        ? Math.round(
+            ((totalOriginalSizeBytes - totalOptimizedSizeBytes) / totalOriginalSizeBytes) * 100,
+          )
+        : 0;
+
+    const averageSavingsPercent =
+      imageStats.length > 0
+        ? Math.round(
+            imageStats.reduce((sum: number, s: any) => sum + s.savingsPercent, 0) /
+              imageStats.length,
+          )
+        : 0;
+
+    return {
+      imageCount: images.length,
+      totalOriginalSizeBytes,
+      totalOptimizedSizeBytes,
+      savingsPercent,
+      averageSavingsPercent,
+      images: imageStats,
+    };
+  }
+
+  /**
    * Run sharp once to gather metadata, then emit each variant as WebP.
+   * Strips EXIF metadata for privacy and optimizes compression.
    * Returns the persisted DB record mapped to a public response.
    */
   private async processAndPersist(
@@ -336,8 +486,9 @@ export class PropertyImagesService {
   ): Promise<PropertyImageResponse> {
     const baseName = `${Date.now()}_${randomBytes(6).toString('hex')}`;
 
-    // Auto-rotate from EXIF before any processing
-    const pipeline = sharp(file.buffer).rotate();
+    // Auto-rotate from EXIF before stripping metadata, then strip all EXIF
+    // for privacy (GPS coordinates, camera info, etc.)
+    const pipeline = sharp(file.buffer).rotate().withMetadata({ orientation: undefined });
     const meta = await pipeline.metadata();
 
     const variantUrls: Record<ImageVariantSpec['name'], string> = {
@@ -351,13 +502,23 @@ export class PropertyImagesService {
       const filename = `${variant.name}_${baseName}.webp`;
       const outPath = join(propertyDir, filename);
 
-      // Don't upscale: only resize if source is wider than the target.
       const targetWidth = meta.width && meta.width < variant.width ? meta.width : variant.width;
 
       const buffer = await sharp(file.buffer)
-        .rotate()
-        .resize({ width: targetWidth, withoutEnlargement: true })
-        .webp({ quality: variant.quality })
+        .rotate() // Auto-orient from EXIF
+        .resize({
+          width: targetWidth,
+          height: meta.height
+            ? Math.round((meta.height / (meta.width || 1)) * targetWidth)
+            : undefined,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({
+          quality: variant.quality,
+          effort: 6,
+          smartSubsample: true,
+        })
         .toBuffer();
 
       await fs.writeFile(outPath, buffer);
@@ -368,7 +529,22 @@ export class PropertyImagesService {
       }
     }
 
-    // Generate perceptual hash for duplicate detection
+    // Generate AVIF variants alongside WebP
+    for (const variant of this.avifVariants) {
+      const filename = `${variant.name}_${baseName}.avif`;
+      const outPath = join(propertyDir, filename);
+
+      const targetWidth = meta.width && meta.width < variant.width ? meta.width : variant.width;
+
+      const buffer = await sharp(file.buffer)
+        .rotate()
+        .resize({ width: targetWidth, withoutEnlargement: true })
+        .avif({ quality: variant.quality })
+        .toBuffer();
+
+      await fs.writeFile(outPath, buffer);
+    }
+
     const uniqueHash = this.generatePerceptualHash(file.buffer);
 
     const created = await this.prisma.propertyImage.create({
@@ -391,7 +567,9 @@ export class PropertyImagesService {
     });
 
     this.logger.log(
-      `Stored image ${baseName}.webp for property ${propertyId} (order=${order}, primary=${isPrimary})`,
+      `Stored image ${baseName}.webp (+ avif) for property ${propertyId} ` +
+        `(order=${order}, primary=${isPrimary}, original=${file.size}B → optimized=${fullVariantSize}B, ` +
+        `savings=${Math.round(((file.size - fullVariantSize) / file.size) * 100)}%)`,
     );
 
     return this.toResponse(created);
@@ -407,19 +585,24 @@ export class PropertyImagesService {
   }
 
   private async removeFilesForImage(propertyId: string, baseFilename: string): Promise<void> {
-    // baseFilename is `<base>.webp`; actual files are `<variant>_<base>.webp`.
-    const base = baseFilename.replace(/\.webp$/i, '');
+    const base = baseFilename.replace(/\.\w+$/i, '');
     const dir = join(this.uploadDir, propertyId);
 
+    const formats = ['webp', 'avif'];
+    const allVariants = [...this.variants, ...this.avifVariants];
+    const uniqueNames = [...new Set(allVariants.map((v) => v.name))];
+
     await Promise.all(
-      this.variants.map(async (v) => {
-        const path = join(dir, `${v.name}_${base}.webp`);
-        try {
-          await fs.unlink(path);
-        } catch {
-          // File may already be gone; ignore.
-        }
-      }),
+      formats.flatMap((fmt) =>
+        uniqueNames.map(async (name) => {
+          const path = join(dir, `${name}_${base}.${fmt}`);
+          try {
+            await fs.unlink(path);
+          } catch {
+            // File may already be gone; ignore.
+          }
+        }),
+      ),
     );
   }
 

@@ -89,6 +89,15 @@ export class PropertyImagesController {
   }
 
   /**
+   * Get optimization metrics for all images of a property.
+   * Returns original vs optimized sizes and savings percentages.
+   */
+  @Get('stats')
+  getStats(@Param('propertyId', new ParseUUIDPipe()) propertyId: string) {
+    return this.propertyImagesService.getImageStats(propertyId);
+  }
+
+  /**
    * Delete a single image. If the deleted image was primary, the next image
    * by order is auto-promoted (handled in the service).
    */

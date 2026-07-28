@@ -8,6 +8,7 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { EmailModule } from '../email/email.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { RateLimitService } from './rate-limit.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -24,6 +25,7 @@ import { FraudModule } from '../fraud/fraud.module';
   controllers: [AuthController, RateLimitAdminController],
   providers: [
     AuthService,
+    ApiKeyAnalyticsService,
     LoginRateLimitService,
     RateLimitService,
     JwtAuthGuard,
@@ -35,6 +37,7 @@ import { FraudModule } from '../fraud/fraud.module';
   ],
   exports: [
     AuthService,
+    ApiKeyAnalyticsService,
     RolesGuard,
     LoginRateLimitService,
     RateLimitService,

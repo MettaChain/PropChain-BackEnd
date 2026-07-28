@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { FraudService } from './fraud.service';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SmsService } from '../notifications/sms.service';
 import { FraudPattern, FraudSeverity } from '../types/prisma.types';
 
 describe('FraudService', () => {
@@ -67,6 +68,7 @@ describe('FraudService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: SmsService, useValue: { sendSms: jest.fn().mockResolvedValue(true) } },
       ],
     }).compile();
 

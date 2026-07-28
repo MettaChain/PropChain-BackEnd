@@ -156,6 +156,7 @@ export class SearchGeographicService {
   async getNearbyProperties(
     centerPoint: Point,
     radius: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     limit: number = 20,
   ): Promise<any[]> {
     // This would typically use a spatial database query

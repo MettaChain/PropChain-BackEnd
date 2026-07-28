@@ -33,6 +33,7 @@ import {
   SearchUsersDto,
   UpdatePreferencesDto,
   UpdateUserDto,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   UpdateUserProfileDto,
 } from './dto/user.dto';
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';

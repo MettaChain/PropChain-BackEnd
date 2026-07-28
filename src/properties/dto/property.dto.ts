@@ -3,10 +3,10 @@
 import { IsString, IsNumber, IsOptional, IsArray, IsIn, IsUrl, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InputType, Field, Float } from '@nestjs/graphql';
-
-import { PropertyStatusDto } from '../../common/common.types';
-
-export { PropertyStatusDto };
+import {
+  PROPERTY_STATUS_ENUM,
+  PropertyStatusLiteral,
+} from '../../common/common.types';
 
 @InputType()
 export class CreatePropertyDto {
@@ -136,7 +136,6 @@ export class CreatePropertyDto {
   @Type(() => Date)
   expiryDate?: Date;
 }
-import { PropertyStatus } from '../../common/common.types';
 
 @InputType()
 export class UpdatePropertyDto {
@@ -210,10 +209,10 @@ export class UpdatePropertyDto {
   @IsNumber()
   yearBuilt?: number;
 
-  @Field(() => PropertyStatusDto, { nullable: true })
+  @Field(() => PropertyStatusLiteral, { nullable: true })
   @IsOptional()
-  @IsEnum(PropertyStatusDto)
-  status?: PropertyStatusDto;
+  @IsIn(PROPERTY_STATUS_ENUM)
+  status?: PropertyStatusLiteral;
 
   @Field(() => [String], { nullable: true })
   @IsOptional()

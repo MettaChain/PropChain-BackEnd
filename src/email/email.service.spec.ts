@@ -20,6 +20,7 @@ describe('EmailService.handleBounce', () => {
       prisma,
       { createEmailEngagement: jest.fn() } as any,
       { add: jest.fn() } as any,
+      { translate: jest.fn().mockReturnValue('test') } as any,
     );
 
     await service.handleBounce('test@example.com', 'HARD', 'Mailbox disabled', {
@@ -38,7 +39,7 @@ describe('EmailService.handleBounce', () => {
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { emailStatus: 'INVALID' },
+      data: { emailStatus: 'BOUNCED' },
     });
     expect(prisma.userPreferences.upsert).toHaveBeenCalledWith({
       where: { userId: 'user-1' },

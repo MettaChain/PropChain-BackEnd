@@ -116,6 +116,7 @@ export class UsersService implements OnModuleInit {
     if (data.company !== undefined) updateData.company = data.company;
 
     // Update user
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
@@ -503,6 +504,7 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException('Account is not deactivated');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { token, hash } = generateReactivationToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
