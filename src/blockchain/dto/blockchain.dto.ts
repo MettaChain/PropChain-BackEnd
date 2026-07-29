@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { IsString, IsNumber, IsOptional, IsEthereumAddress, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 

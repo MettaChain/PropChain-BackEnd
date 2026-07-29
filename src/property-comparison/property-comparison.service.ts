@@ -37,10 +37,10 @@ const NUMERIC_FIELDS: ReadonlySet<ComparableField> = new Set<ComparableField>([
 ]);
 
 const SCORE_WEIGHTS = {
-  pricePerSqft: 0.30,
+  pricePerSqft: 0.3,
   locationScore: 0.25,
   condition: 0.25,
-  age: 0.20,
+  age: 0.2,
 };
 
 export interface FieldRow {
@@ -100,8 +100,8 @@ export class PropertyComparisonService {
     const currentYear = new Date().getFullYear();
 
     const scores = properties.map((property) => {
-      const price = this.normalize(property.price) as number || 0;
-      const sqft = this.normalize(property.squareFeet) as number || 0;
+      const price = (this.normalize(property.price) as number) || 0;
+      const sqft = (this.normalize(property.squareFeet) as number) || 0;
       const pricePerSqft = sqft > 0 ? price / sqft : 0;
 
       const yearBuilt = property.yearBuilt || currentYear;
@@ -109,10 +109,7 @@ export class PropertyComparisonService {
 
       let locationScore = 50;
       if (property.latitude && property.longitude) {
-        locationScore = this.calculateLocationScore(
-          property.latitude,
-          property.longitude,
-        );
+        locationScore = this.calculateLocationScore(property.latitude, property.longitude);
       }
 
       let conditionScore = 50;
@@ -121,9 +118,7 @@ export class PropertyComparisonService {
         conditionScore = Math.min(100, 30 + featureCount * 5);
       }
 
-      const normalizedPricePerSqft = pricePerSqft > 0
-        ? Math.max(0, 100 - (pricePerSqft / 10))
-        : 50;
+      const normalizedPricePerSqft = pricePerSqft > 0 ? Math.max(0, 100 - pricePerSqft / 10) : 50;
       const normalizedAge = Math.max(0, 100 - age);
       const normalizedCondition = conditionScore;
 

@@ -3,9 +3,12 @@ import { Logger } from '@nestjs/common';
 const logger = new Logger('EnvValidation');
 
 const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
+const JWT_SECRET_VARS = ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
+const MIN_JWT_SECRET_LENGTH = 32;
 
 export function validateEnvironment(): void {
   const MISSING: string[] = [];
+  const WEAK: string[] = [];
 
   for (const key of REQUIRED_ENV_VARS) {
     if (!process.env[key]) {

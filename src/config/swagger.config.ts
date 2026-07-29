@@ -15,6 +15,7 @@ export function setupSwagger(app: INestApplication): void {
     .setTitle('PropChain API')
     .setDescription('Blockchain-Powered Real Estate Platform API Documentation')
     .setVersion('2.0.0')
+    .setOpenAPI('3.1.0')
     .addBearerAuth(
       {
         type: 'http',
@@ -58,6 +59,12 @@ export function setupSwagger(app: INestApplication): void {
       'Fraud detection and investigation endpoints — admin role only (role-restricted). ' +
         'Currently routed through the Admin module; a future change may extract these into a dedicated controller.',
     )
+    .addTag('Transactions', 'Transaction management endpoints')
+    .addTag('Blockchain', 'Blockchain integration endpoints')
+    .addTag('Search', 'Property search endpoints')
+    .addTag('Documents', 'Document management endpoints')
+    .addTag('Notifications', 'Notification endpoints')
+    .addTag('Analytics', 'Analytics and reporting endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -126,6 +133,7 @@ export function setupOpenAPIEndpoint(app: INestApplication): void {
     .setTitle('PropChain API')
     .setDescription('Blockchain-Powered Real Estate Platform API')
     .setVersion('2.0.0')
+    .setOpenAPI('3.1.0')
     .addBearerAuth(
       {
         type: 'http',

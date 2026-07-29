@@ -54,9 +54,10 @@ describe('CacheStatsController', () => {
 describe('CacheHeadersInterceptor', () => {
   it('sets cache headers on response', (done) => {
     const interceptor = new CacheHeadersInterceptor();
-    const mockRes = { setHeader: jest.fn() };
+    const mockRes = { setHeader: jest.fn(), getHeader: jest.fn() };
+    const mockReq = { path: '/' };
     const ctx = {
-      switchToHttp: () => ({ getResponse: () => mockRes }),
+      switchToHttp: () => ({ getResponse: () => mockRes, getRequest: () => mockReq }),
     } as unknown as ExecutionContext;
     const next: CallHandler = { handle: () => of('data') };
 

@@ -45,7 +45,8 @@ describe('Prisma migration rollback safety', () => {
     for (const dir of migrationDirs) {
       const sql = readSql(dir);
       const dropMatches = sql.match(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?/gi) || [];
-      const createMatches = sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)"?/gi) || [];
+      const createMatches =
+        sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)"?/gi) || [];
 
       for (const m of dropMatches) {
         const table = m.replace(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?/i, '').replace(/"?$/i, '');
@@ -53,7 +54,9 @@ describe('Prisma migration rollback safety', () => {
         drops.get(table)!.push(dir);
       }
       for (const m of createMatches) {
-        const table = m.replace(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?/i, '').replace(/"?$/i, '');
+        const table = m
+          .replace(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?/i, '')
+          .replace(/"?$/i, '');
         if (!creates.has(table)) creates.set(table, []);
         creates.get(table)!.push(dir);
       }

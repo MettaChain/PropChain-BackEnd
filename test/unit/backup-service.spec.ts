@@ -97,22 +97,32 @@ describe('BackupService - PG dump & checksum', () => {
     service = module.get(BackupService);
 
     mockPrismaService.backupScheduleConfig.upsert.mockResolvedValue({
-      id: 'default', enabled: false, cronExpression: '0 2 * * *',
-      retentionCount: 10, lastRunAt: null, createdAt: new Date(), updatedAt: new Date(),
+      id: 'default',
+      enabled: false,
+      cronExpression: '0 2 * * *',
+      retentionCount: 10,
+      lastRunAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
     mockPrismaService.backupScheduleConfig.findUnique.mockResolvedValue({
-      id: 'default', enabled: false, cronExpression: '0 2 * * *',
-      retentionCount: 10, lastRunAt: null, createdAt: new Date(), updatedAt: new Date(),
+      id: 'default',
+      enabled: false,
+      cronExpression: '0 2 * * *',
+      retentionCount: 10,
+      lastRunAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   });
 
   it('should execute pg_dump with correct arguments', async () => {
-    const mockExecFile = jest.spyOn(childProcess, 'execFile').mockImplementation(
-      (_cmd: any, _args: any, cb: any) => {
+    const mockExecFile = jest
+      .spyOn(childProcess, 'execFile')
+      .mockImplementation((_cmd: any, _args: any, cb: any) => {
         cb!(null, '', '');
         return {} as any;
-      },
-    );
+      });
 
     mockPrismaService.databaseBackup.count.mockResolvedValue(0);
     mockPrismaService.databaseBackup.create.mockResolvedValue(backupRecord());
@@ -151,12 +161,10 @@ describe('BackupService - PG dump & checksum', () => {
   });
 
   it('should compute SHA-256 checksum of the dump file', async () => {
-    jest.spyOn(childProcess, 'execFile').mockImplementation(
-      (_cmd: any, _args: any, cb: any) => {
-        cb!(null, '', '');
-        return {} as any;
-      },
-    );
+    jest.spyOn(childProcess, 'execFile').mockImplementation((_cmd: any, _args: any, cb: any) => {
+      cb!(null, '', '');
+      return {} as any;
+    });
 
     mockPrismaService.databaseBackup.count.mockResolvedValue(0);
     mockPrismaService.databaseBackup.create.mockResolvedValue(backupRecord());
@@ -189,12 +197,10 @@ describe('BackupService - PG dump & checksum', () => {
 
   it('should report failed status when pg_dump errors', async () => {
     const error = new Error('pg_dump: connection refused');
-    jest.spyOn(childProcess, 'execFile').mockImplementation(
-      (_cmd: any, _args: any, cb: any) => {
-        cb!(error, '', '');
-        return {} as any;
-      },
-    );
+    jest.spyOn(childProcess, 'execFile').mockImplementation((_cmd: any, _args: any, cb: any) => {
+      cb!(error, '', '');
+      return {} as any;
+    });
 
     mockPrismaService.databaseBackup.count.mockResolvedValue(0);
     mockPrismaService.databaseBackup.create.mockResolvedValue(backupRecord());

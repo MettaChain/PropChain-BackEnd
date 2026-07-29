@@ -6,16 +6,23 @@
  */
 
 import { CacheModuleOptions } from '@nestjs/cache-manager';
-import * as redisStore from 'cache-manager-redis-store';
+import { Keyv } from 'keyv';
+import KeyvRedis from '@keyv/redis';
 
+// cache-manager v7 (used via @nestjs/cache-manager v3) is Keyv-based; the old
+// cache-manager-redis-store package targeted cache-manager v3/v4's store
+// interface and is not compatible with this version. @keyv/redis is the
+// maintained adapter for the current API.
 export const REDIS_CONFIG: CacheModuleOptions = {
   isGlobal: true,
-  store: redisStore as any,
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  password: process.env.REDIS_PASSWORD,
-  db: parseInt(process.env.REDIS_DB || '0', 10),
-  ttl: 600, // Default TTL: 10 minutes
+  stores: [
+    new Keyv({
+      store: new KeyvRedis({
+        url: getRedisConnectionString(),
+      }),
+    }),
+  ],
+  ttl: 600 * 1000, // Default TTL: 10 minutes (Keyv TTLs are in milliseconds)
 };
 
 /**

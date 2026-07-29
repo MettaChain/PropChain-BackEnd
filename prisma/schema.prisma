@@ -17,6 +17,12 @@ enum UserRole {
   ADMIN
 }
 
+enum UserTier {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
 enum TokenType {
   ACCESS
   REFRESH
@@ -98,6 +104,10 @@ enum FraudPattern {
   DUPLICATE_PROPERTY_ADDRESS
   HIGH_VALUE_NEW_ACCOUNT_LISTING
   DUPLICATE_PROPERTY_IMAGES
+  // #961 — fraud detection enhancements
+  VELOCITY_EXCEEDED
+  IMPOSSIBLE_TRAVEL
+  DEVICE_FINGERPRINT_MISMATCH
 }
 
 enum BackupStatus {
@@ -179,6 +189,7 @@ model User {
   twoFactorBackupCodes     String[]  @default([]) @map("two_factor_backup_codes")
   // NOTE: added to satisfy code references; CI-prone strict mode workaround
   role                     UserRole  @default(USER) @map("role")
+  tier                     UserTier  @default(FREE) @map("tier")
   avatar                   String?
   pendingEmail             String?   @map("pending_email")
   emailVerificationToken   String?   @map("email_verification_token")
@@ -196,6 +207,9 @@ model User {
   contactHours             Json?     @map("contact_hours")
   referralCode             String?   @unique @map("referral_code")
   referredById             String?   @map("referred_by_id")
+  // #960 — account deletion workflow
+  deletionReason           String?   @map("deletion_reason") @db.Text
+  legalHold                Boolean   @default(false) @map("legal_hold")
 
   // Relations
   properties              Property[]
@@ -249,14 +263,36 @@ model User {
   supportTicketNotes      SupportTicketNote[]
   transactionNotes        TransactionNote[]            @relation("TransactionNoteAuthor")
   deletedProperties       Property[]               @relation("DeletedProperties")
+  deletedTransactions     Transaction[]            @relation("DeletedTransactions")
+  deletedDocuments        Document[]               @relation("DeletedDocuments")
   priceChanges            PropertyPriceHistory[]    @relation("PriceChangeAuthor")
   comparisonShares        ComparisonShare[]
+  // #960 — account deletion audit trail
+  deletionAuditEntries    AccountDeletionAudit[]   @relation("AccountDeletionAuditUser")
 
   @@index([email])
   @@index([isDeactivated])
   @@index([scheduledDeletionAt])
   @@index([referralCode])
+  @@index([legalHold])
   @@map("users")
+}
+
+// #960 — audit logs for account deletion events
+model AccountDeletionAudit {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String // REQUESTED, CANCELLED, PERFORMED, RESTORED, LEGAL_HOLD_BLOCKED
+  actorId    String?  @map("actor_id") // Nullable for self-service actions
+  reason     String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation("AccountDeletionAuditUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@map("account_deletion_audit")
 }
 
 model DatabaseBackup {
@@ -300,20 +336,22 @@ model BackupScheduleConfig {
 }
 
 model ApiKey {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  name        String
-  keyPrefix   String    @map("key_prefix")
-  keyHash     String    @unique @map("key_hash")
-  permissions String[]  @default([])
-  usageCount  Int       @default(0) @map("usage_count")
-  lastUsedAt  DateTime? @map("last_used_at")
-  expiresAt   DateTime? @map("expires_at")
-  revokedAt   DateTime? @map("revoked_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  name          String
+  keyPrefix     String    @map("key_prefix")
+  keyHash       String    @unique @map("key_hash")
+  permissions   String[]  @default([])
+  usageCount    Int       @default(0) @map("usage_count")
+  monthlyQuota  Int?      @map("monthly_quota")
+  lastUsedAt    DateTime? @map("last_used_at")
+  expiresAt     DateTime? @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageDaily ApiKeyUsageDaily[]
 
   @@index([userId])
   @@index([keyPrefix])
@@ -652,6 +690,10 @@ model Transaction {
   cancelledAt        DateTime?         @map("cancelled_at")
   refundAmount       Decimal?          @map("refund_amount")
   refundStatus       RefundStatus      @default(NONE) @map("refund_status")
+  // Soft-delete (#918)
+  deleted            Boolean           @default(false)
+  deletedAt          DateTime?         @map("deleted_at")
+  deletedById        String?           @map("deleted_by_id")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -661,6 +703,7 @@ model Transaction {
   buyer                 User                     @relation("BuyerTransactions", fields: [buyerId], references: [id])
   seller                User                     @relation("SellerTransactions", fields: [sellerId], references: [id])
   cancelledBy           User?                    @relation("CancelledTransactions", fields: [cancelledById], references: [id])
+  deletedBy             User?                    @relation("DeletedTransactions", fields: [deletedById], references: [id], onDelete: SetNull)
   fraudAlerts           FraudAlert[]
   taxStrategies         TransactionTaxStrategy[]
   disputes              Dispute[]
@@ -671,6 +714,7 @@ model Transaction {
   @@index([buyerId])
   @@index([sellerId])
   @@index([status])
+  @@index([deleted])
   @@index([blockchainHash])
   @@map("transactions")
 }
@@ -725,6 +769,10 @@ model Document {
   // Archival Workflow (#573)
   status         DocumentStatus @default(ACTIVE)
   archivedAt     DateTime?    @map("archived_at")
+  // Soft-delete (#918)
+  deleted        Boolean      @default(false)
+  deletedAt      DateTime?    @map("deleted_at")
+  deletedById    String?      @map("deleted_by_id")
   // eSignature (#403)
   signedBy       String?      @map("signed_by")
   signedAt       DateTime?    @map("signed_at")
@@ -738,6 +786,7 @@ model Document {
   property Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   dispute  Dispute?        @relation(fields: [disputeId], references: [id], onDelete: SetNull)
+  deletedBy User?          @relation("DeletedDocuments", fields: [deletedById], references: [id], onDelete: SetNull)
   versions DocumentVersion[]
 
   @@index([propertyId])
@@ -747,6 +796,7 @@ model Document {
   @@index([category])
   @@index([isExpired])
   @@index([expiresAt])
+  @@index([deleted])
   @@map("documents")
 }
 
@@ -793,7 +843,7 @@ model UserPreferences {
   perEventSettings       Json?    @map("per_event_settings") // fine-grained per-event channel overrides
   optOutReminders        Boolean  @default(false) @map("opt_out_reminders") // #563
   createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -834,6 +884,10 @@ model Session {
   displayName     String?   @map("display_name")
   deviceInfo      Json?     @map("device_info")
   geoLocation     Json?     @map("geo_location")
+  // #961 — fraud detection enhancements
+  deviceFingerprint String? @map("device_fingerprint")
+  geoCountryCode    String? @map("geo_country_code")
+  geoCity           String? @map("geo_city")
   isRevoked       Boolean   @default(false) @map("is_revoked")
   revokedAt       DateTime? @map("revoked_at")
   expiresAt       DateTime  @map("expires_at")
@@ -847,6 +901,8 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@index([isRevoked])
+  @@index([deviceFingerprint])
+  @@index([geoCountryCode])
   @@map("sessions")
 }
 
@@ -1149,6 +1205,7 @@ model EmailBounce {
   bounceType BounceType @map("bounce_type")
   reason     String?
   rawEvent   Json?      @map("raw_event")
+  spamAction SpamAction @default(NONE) @map("spam_action")
   createdAt  DateTime   @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1156,6 +1213,7 @@ model EmailBounce {
   @@index([userId])
   @@index([email])
   @@index([bounceType])
+  @@index([spamAction])
   @@map("email_bounces")
 }
 
@@ -1184,7 +1242,7 @@ model PropertyAgent {
   contactPhone   String?  @map("contact_phone")
   contactEmail   String?  @map("contact_email")
   createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   agent    User     @relation(fields: [agentId], references: [id], onDelete: Cascade)
@@ -1205,8 +1263,8 @@ model Commission {
   updatedAt     DateTime          @updatedAt @map("updated_at")
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  agent       User        @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agent       User       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([transactionId, agentId])
   @@map("commissions")
@@ -1220,7 +1278,7 @@ model PropertyAmenity {
   description String?
   isAvailable Boolean  @default(true) @map("is_available")
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
@@ -1273,7 +1331,7 @@ model TransactionNote {
   @@index([authorId])
   @@map("transaction_notes")
  }
- 
+
 enum RsvpStatus {
   ATTENDING
   DECLINED
@@ -1356,6 +1414,30 @@ enum JobStatus {
   COMPLETED
   FAILED
 }
+
+enum SpamAction {
+  NONE
+  COMPLAINED
+  UNSUBSCRIBED
+}
+
+// Daily API key usage aggregation for analytics (#945)
+model ApiKeyUsageDaily {
+  id            String   @id @default(uuid())
+  apiKeyId      String   @map("api_key_id")
+  date          DateTime @db.Date
+  requestCount  Int      @default(0) @map("request_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, date])
+  @@index([apiKeyId, date])
+  @@index([date])
+  @@map("api_key_usage_daily")
+}
+
 
 // ─── Webhook Event System (#958) ──────────────────────────────────────────────
 

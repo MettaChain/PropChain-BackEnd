@@ -9,7 +9,7 @@ import {
   Matches,
   IsBoolean,
 } from 'class-validator';
-import { TourType } from '../open-house.service';
+import { TourType } from '@prisma/client';
 
 export class CreateTourRequestDto {
   @IsString()

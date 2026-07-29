@@ -1,6 +1,15 @@
 // @ts-nocheck
 
-import { IsNumber, IsPositive, Min, Max, IsArray, IsOptional, ValidateNested } from 'class-validator';
+import {
+  IsNumber,
+  IsPositive,
+  Min,
+  Max,
+  IsArray,
+  IsOptional,
+  ValidateNested,
+  IsString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class MortgageCalculatorDto {
@@ -99,8 +108,6 @@ export class MortgageScenarioDto {
   @IsOptional()
   label?: string;
 }
-
-import { IsString } from 'class-validator';
 
 export class CompareScenariosDto {
   @IsArray()
