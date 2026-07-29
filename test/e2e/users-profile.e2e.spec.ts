@@ -8,6 +8,8 @@ import { UsersService } from '../../src/users/users.service';
 import { ActivityLogService } from '../../src/users/activity-log.service';
 import { SessionsService } from '../../src/sessions/sessions.service';
 import { AuthService } from '../../src/auth/auth.service';
+import { AccountDeletionService } from '../../src/users/account-deletion.service';
+import { DataExportService } from '../../src/users/data-export.service';
 
 class FakePrismaService {
   users = new Map<string, any>();
@@ -134,6 +136,21 @@ describe('User profile e2e', () => {
               role: 'USER' as any,
               type: 'access',
             }),
+          } as any,
+        },
+        {
+          provide: AccountDeletionService,
+          useValue: {
+            requestDeletion: async () => ({}),
+            cancelDeletion: async () => ({}),
+            performScheduledDeletion: async () => ({ deletedCount: 0 }),
+          } as any,
+        },
+        {
+          provide: DataExportService,
+          useValue: {
+            exportPersonalData: async () => ({}),
+            streamExportArchive: async () => ({}) as any,
           } as any,
         },
       ],

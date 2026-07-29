@@ -50,7 +50,9 @@ function scrubSensitive(obj: unknown, depth = 0): unknown {
 
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-    result[key] = SENSITIVE_KEYS.has(key.toLowerCase()) ? '[REDACTED]' : scrubSensitive(value, depth + 1);
+    result[key] = SENSITIVE_KEYS.has(key.toLowerCase())
+      ? '[REDACTED]'
+      : scrubSensitive(value, depth + 1);
   }
   return result;
 }

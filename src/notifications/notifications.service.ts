@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { EmailService } from '../email/email.service';
@@ -35,6 +35,8 @@ const NOTIFICATION_PREFERENCES_DEFAULTS = {
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private prisma: PrismaService,
     private gateway: NotificationsGateway,
@@ -133,7 +135,7 @@ export class NotificationsService {
       select: { fcmToken: true },
     });
     if (user?.fcmToken) {
-      console.log(`Sending FCM notification to token: ${user.fcmToken}`);
+      this.logger.log(`Sending FCM notification to token: ${user.fcmToken}`);
       // In production, use admin.messaging().send() here
     }
     const delivered = this.gateway.sendToUser(userId, 'notification', notification);

@@ -102,16 +102,76 @@ async function runBenchmark(): Promise<BenchmarkReport> {
   console.log(`  Iterations: ${ITERATIONS} (warmup: ${WARMUP_ROUNDS})\n`);
 
   const endpoints = [
-    { name: 'Properties List', method: 'GET', path: '/properties?limit=20', category: 'list' as const, budget: 500 },
-    { name: 'Property Detail', method: 'GET', path: '/properties/test-id', category: 'detail' as const, budget: 200 },
-    { name: 'Transactions List', method: 'GET', path: '/transactions?limit=20', category: 'list' as const, budget: 500 },
-    { name: 'Transaction Detail', method: 'GET', path: '/transactions/test-id', category: 'detail' as const, budget: 200 },
-    { name: 'Search Properties', method: 'GET', path: '/search?q=apartment', category: 'search' as const, budget: 500 },
-    { name: 'User Profile (me)', method: 'GET', path: '/auth/me', category: 'detail' as const, budget: 200 },
-    { name: 'List API Keys', method: 'GET', path: '/auth/api-keys', category: 'list' as const, budget: 500 },
-    { name: 'Dashboard Stats', method: 'GET', path: '/admin/dashboard', category: 'detail' as const, budget: 200 },
-    { name: 'Email Reputation', method: 'GET', path: '/email/reputation', category: 'detail' as const, budget: 200 },
-    { name: 'Queue Metrics', method: 'GET', path: '/admin/queues/metrics', category: 'detail' as const, budget: 200 },
+    {
+      name: 'Properties List',
+      method: 'GET',
+      path: '/properties?limit=20',
+      category: 'list' as const,
+      budget: 500,
+    },
+    {
+      name: 'Property Detail',
+      method: 'GET',
+      path: '/properties/test-id',
+      category: 'detail' as const,
+      budget: 200,
+    },
+    {
+      name: 'Transactions List',
+      method: 'GET',
+      path: '/transactions?limit=20',
+      category: 'list' as const,
+      budget: 500,
+    },
+    {
+      name: 'Transaction Detail',
+      method: 'GET',
+      path: '/transactions/test-id',
+      category: 'detail' as const,
+      budget: 200,
+    },
+    {
+      name: 'Search Properties',
+      method: 'GET',
+      path: '/search?q=apartment',
+      category: 'search' as const,
+      budget: 500,
+    },
+    {
+      name: 'User Profile (me)',
+      method: 'GET',
+      path: '/auth/me',
+      category: 'detail' as const,
+      budget: 200,
+    },
+    {
+      name: 'List API Keys',
+      method: 'GET',
+      path: '/auth/api-keys',
+      category: 'list' as const,
+      budget: 500,
+    },
+    {
+      name: 'Dashboard Stats',
+      method: 'GET',
+      path: '/admin/dashboard',
+      category: 'detail' as const,
+      budget: 200,
+    },
+    {
+      name: 'Email Reputation',
+      method: 'GET',
+      path: '/email/reputation',
+      category: 'detail' as const,
+      budget: 200,
+    },
+    {
+      name: 'Queue Metrics',
+      method: 'GET',
+      path: '/admin/queues/metrics',
+      category: 'detail' as const,
+      budget: 200,
+    },
   ];
 
   const results: BenchmarkResult[] = [];

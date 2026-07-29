@@ -1,3 +1,7 @@
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('EnvValidation');
+
 const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
 const JWT_SECRET_VARS = ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
 const MIN_JWT_SECRET_LENGTH = 32;
@@ -32,7 +36,7 @@ export function validateEnvironment(): void {
           WEAK.map((k) => `    - ${k}`).join('\n'),
       );
     }
-    console.error(
+    logger.error(
       `\n  Fatal:\n  ` +
         sections.join('\n\n  ') +
         `\n\n  Please set them in .env or .env.local before starting the application.\n`,

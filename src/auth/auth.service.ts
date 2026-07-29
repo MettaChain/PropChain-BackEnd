@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   BadRequestException,
   Injectable,
@@ -48,7 +46,7 @@ import { AuthUserPayload } from './types/auth-user.type';
 import { GoogleProfile } from './strategies/google.strategy';
 
 import { LoginRateLimitService } from './login-rate-limit.service';
-import { UserRole } from '../types/prisma.types';
+import { UserRole, UserTier } from '../types/prisma.types';
 import { FraudService } from '../fraud/fraud.service';
 import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 
@@ -58,6 +56,7 @@ type JwtPayload = {
   sub: string;
   email: string;
   role: UserRole;
+  tier: UserTier;
   type: 'access' | 'refresh';
   jti: string;
   family?: string;
@@ -392,6 +391,18 @@ export class AuthService {
     await this.rateLimitService.recordSuccessfulAttempt(data.email, ipAddress, userAgent);
     await this.recordLoginHistory(user.id, ipAddress, userAgent);
     await this.fraudService.evaluateSuccessfulLogin(user.id, ipAddress, userAgent);
+    // Issue #961 — geo + device fingerprint fed into the post-login fraud
+    // evaluation pipeline (velocity / impossible travel / device mismatch).
+    // FraudService resolves both fields from its own injected helpers.
+    try {
+      await this.fraudService.recordLoginContext(user.id, {
+        ipAddress,
+        userAgent,
+      });
+    } catch (contextError) {
+      // Auth.path has @ts-nocheck; swallow context-resolution errors so a
+      // bad IP header never blocks a successful authentication.
+    }
 
     const refreshedUser = await this.prisma.user.findUnique({
       where: { id: user.id },
@@ -534,9 +545,11 @@ export class AuthService {
           userId: user.sub,
           tokenFamily: accessPayload.family,
         });
-      } catch (error) {
+      } catch (error: unknown) {
         // Token might already be expired or invalid, continue with logout
-        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${error.message}`);
+        this.logger.warn(
+          `Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`,
+        );
       }
     }
 
@@ -555,13 +568,13 @@ export class AuthService {
           userId: user.sub,
           tokenFamily: refreshPayload.family,
         });
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof UnauthorizedException) {
           throw error;
         }
         // Token might already be expired or invalid, continue with logout
         this.logger.warn(
-          `Failed to blacklist refresh token for user ${user.sub}: ${error.message}`,
+          `Failed to blacklist refresh token for user ${user.sub}: ${(error as Error).message}`,
         );
       }
     }
@@ -599,8 +612,10 @@ export class AuthService {
           expiresAt: new Date((accessPayload.exp ?? 0) * 1000),
           userId: user.sub,
         });
-      } catch (error) {
-        this.logger.warn(`Failed to blacklist access token for user ${user.sub}: ${error.message}`);
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Failed to blacklist access token for user ${user.sub}: ${(error as Error).message}`,
+        );
       }
     }
 
@@ -881,6 +896,21 @@ export class AuthService {
       }
     });
 
+    // Audit log password change (#886)
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'PASSWORD_CHANGED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User changed their password',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log password change: ${err}`);
+      });
+
     await this.sessionsService.revokeAllSessions(existingUser.id);
 
     return { message: 'Password updated successfully' };
@@ -943,6 +973,21 @@ export class AuthService {
       },
     });
 
+    // Audit log 2FA enable (#886)
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'TWO_FACTOR_ENABLED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User enabled two-factor authentication',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log 2FA enable: ${err}`);
+      });
+
     return { message: 'Two-factor authentication enabled successfully' };
   }
 
@@ -970,6 +1015,21 @@ export class AuthService {
         },
       },
     });
+
+    // Audit log 2FA disable (#886)
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'TWO_FACTOR_DISABLED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User disabled two-factor authentication',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log 2FA disable: ${err}`);
+      });
 
     return { message: 'Two-factor authentication disabled successfully' };
   }
@@ -1161,6 +1221,7 @@ export class AuthService {
       select: {
         email: true,
         role: true,
+        tier: true,
         lastActivityAt: true,
       },
     });
@@ -1189,6 +1250,7 @@ export class AuthService {
       sub: payload.sub,
       email: user.email,
       role: user.role,
+      tier: user.tier,
       type: 'access',
       jti: payload.jti,
     };
@@ -1212,7 +1274,7 @@ export class AuthService {
       throw new UnauthorizedException('User account is blocked');
     }
 
-    await this.apiKeyAnalyticsService.checkQuota(apiKey.id);
+    await this.apiKeyAnalyticsService?.checkQuota(apiKey.id);
 
     await this.prisma.apiKey.update({
       where: { id: apiKey.id },
@@ -1224,14 +1286,15 @@ export class AuthService {
       },
     });
 
-    await this.apiKeyAnalyticsService.recordUsage(apiKey.id).catch((err) => {
-      this.logger.error(`Failed to record API key usage: ${err.message}`);
+    await this.apiKeyAnalyticsService?.recordUsage(apiKey.id).catch((err: unknown) => {
+      this.logger.error(`Failed to record API key usage: ${(err as Error).message}`);
     });
 
     return {
       sub: apiKey.userId,
       email: apiKey.user.email,
       role: apiKey.user.role as UserRole,
+      tier: apiKey.user.tier as UserTier,
       type: 'api-key',
       apiKeyId: apiKey.id,
       apiKeyPermissions: apiKey.permissions,
@@ -1239,7 +1302,7 @@ export class AuthService {
   }
 
   async issueTokenPair(
-    user: Prisma.User,
+    user: { id: string; email: string; role: string; tier: string },
     tokenFamily?: string,
     ipAddress?: string,
     userAgent?: string,
@@ -1253,6 +1316,7 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role as UserRole,
+        tier: user.tier as UserTier,
         type: 'access',
         jti: accessJti,
         family: family,
@@ -1266,6 +1330,7 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role as UserRole,
+        tier: user.tier as UserTier,
         type: 'refresh',
         jti: refreshJti,
         family: family,
@@ -1563,12 +1628,19 @@ export class AuthService {
 
   private async verifyCaptcha(token: string): Promise<boolean> {
     const secret = this.configService.get<string>('RECAPTCHA_SECRET');
+    const bypass = this.configService.get<string>('CAPTCHA_BYPASS') === 'true';
+
+    if (bypass) {
+      this.logger.warn(
+        'CAPTCHA bypass is enabled via CAPTCHA_BYPASS=true. This should only be used in development.',
+      );
+      return true;
+    }
+
     if (!secret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('RECAPTCHA_SECRET is not configured in production');
-      }
-      this.logger.warn('RECAPTCHA_SECRET is not configured, skipping CAPTCHA verification');
-      return true; // Bypass only in non-production
+      throw new Error(
+        'RECAPTCHA_SECRET is not configured. Set CAPTCHA_BYPASS=true for development environments.',
+      );
     }
 
     try {
@@ -1594,8 +1666,8 @@ export class AuthService {
 
       this.logger.warn(`CAPTCHA verification failed: ${JSON.stringify(data['error-codes'])}`);
       return false;
-    } catch (error) {
-      this.logger.error(`Error verifying CAPTCHA: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Error verifying CAPTCHA: ${(error as Error).message}`);
       return false;
     }
   }

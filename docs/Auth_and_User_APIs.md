@@ -38,6 +38,7 @@ Success response (201 Created):
 ```
 
 Errors:
+
 - 400 Bad Request — validation failure (missing/weak password, invalid email)
 - 400 Bad Request — email already exists
 - 400 Bad Request — registration already pending from this IP
@@ -56,11 +57,13 @@ The user receives an email containing a verification link that points to the
 `POST /auth/verify-email` endpoint:
 
 **Request:**
+
 ```json
 { "token": "62-char-random-token" }
 ```
 
 **Success response (200 OK):**
+
 ```json
 {
   "message": "Email verified successfully",
@@ -71,6 +74,7 @@ The user receives an email containing a verification link that points to the
 ```
 
 Errors:
+
 - 400 Bad Request — invalid or expired verification token
 - 400 Bad Request — email already verified
 
@@ -109,13 +113,14 @@ Success response (200 OK):
 
 ```json
 {
-  "user": { "id": "user_abc123", "email": "user@example.com", "firstName":"Jane" },
+  "user": { "id": "user_abc123", "email": "user@example.com", "firstName": "Jane" },
   "accessToken": "ey...",
   "refreshToken": "ey..."
 }
 ```
 
 Errors:
+
 - 401 Unauthorized — invalid credentials
 - 401 Unauthorized — account locked (after failed attempts)
 - 401 Unauthorized — 2FA required or invalid 2FA code
@@ -133,6 +138,7 @@ Request payload:
 Success (200): returns a new access + refresh token pair.
 
 Errors:
+
 - 401 Unauthorized — invalid or reused refresh token
 
 ---
@@ -174,6 +180,7 @@ Request payload:
 ```
 
 Success: 200 OK. Errors:
+
 - 400 Bad Request — invalid/expired token
 - 400 Bad Request — password doesn't meet complexity
 
@@ -192,6 +199,7 @@ Delete user — DELETE /api/users/:id
 Typical responses mirror the `user` object shape and return 200 or 201 where appropriate. Authorization: endpoints that modify or list users require admin privileges.
 
 Errors (common):
+
 - 401 Unauthorized — missing/invalid token
 - 403 Forbidden — insufficient role
 - 404 Not Found — user not found
@@ -221,7 +229,7 @@ If a **blacklisted refresh token** is presented (i.e., a token that was already 
 1. The server detects the reuse attempt
 2. **All tokens in the same family are immediately invalidated** (mass logout)
 3. A fraud alert is created via `FraudService`
-4. The user receives a `401` response with message: *"Token reuse detected. All sessions have been invalidated for security. Please login again."*
+4. The user receives a `401` response with message: _"Token reuse detected. All sessions have been invalidated for security. Please login again."_
 
 ### What Triggers Mass Logout
 
@@ -239,11 +247,11 @@ When a token-reuse fraud alert fires:
 
 ### Event Details
 
-| Event | Description |
-|-------|-------------|
-| `Token reuse detected` | A previously-used refresh token was presented |
-| `Invalidating N tokens in family X` | All tokens in the family are being cleaned up |
-| `Refresh token reuse detected` (fraud alert) | FraudService created a BLOCK-level alert |
+| Event                                        | Description                                   |
+| -------------------------------------------- | --------------------------------------------- |
+| `Token reuse detected`                       | A previously-used refresh token was presented |
+| `Invalidating N tokens in family X`          | All tokens in the family are being cleaned up |
+| `Refresh token reuse detected` (fraud alert) | FraudService created a BLOCK-level alert      |
 
 ---
 
@@ -258,7 +266,11 @@ The API generally returns errors in the form:
 or for validation errors:
 
 ```json
-{ "statusCode": 400, "message": ["field must be an email", "password is too weak"], "error": "Bad Request" }
+{
+  "statusCode": 400,
+  "message": ["field must be an email", "password is too weak"],
+  "error": "Bad Request"
+}
 ```
 
 ---

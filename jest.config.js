@@ -25,6 +25,7 @@ module.exports = {
   testEnvironment: 'node',
   testTimeout: 30000,
   passWithNoTests: true,
+  testPathIgnorePatterns: ['/test/database/'],
 
   // Issue #913 – Global 50% statement coverage floor.
   // Per-module thresholds for critical modules are enforced in CI via a

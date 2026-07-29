@@ -3,10 +3,7 @@
 import { IsString, IsNumber, IsOptional, IsArray, IsIn, IsUrl } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InputType, Field, Float } from '@nestjs/graphql';
-import {
-  PROPERTY_STATUS_ENUM,
-  PropertyStatusLiteral,
-} from '../../common/common.types';
+import { PROPERTY_STATUS_ENUM, PropertyStatusLiteral } from '../../common/common.types';
 
 @InputType()
 export class CreatePropertyDto {

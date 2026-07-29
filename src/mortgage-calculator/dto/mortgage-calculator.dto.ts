@@ -8,6 +8,7 @@ import {
   IsArray,
   IsOptional,
   ValidateNested,
+  IsString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -107,8 +108,6 @@ export class MortgageScenarioDto {
   @IsOptional()
   label?: string;
 }
-
-import { IsString } from 'class-validator';
 
 export class CompareScenariosDto {
   @IsArray()

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { SearchGeographicService } from './search-geographic.service';
@@ -22,8 +20,9 @@ export interface SearchQuery {
     order: 'asc' | 'desc';
   };
   pagination?: {
-    page: number;
-    limit: number;
+    page?: number;
+    limit?: number;
+    cursor?: string;
   };
 }
 
@@ -84,13 +83,26 @@ export class SearchService {
 
       // Execute query with sorting and pagination
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { page = 1, limit = 20 } = searchQuery.pagination || {};
+      const { page = 1, limit = 20, cursor } = searchQuery.pagination || {};
+      const cursorWhere = cursor
+        ? { createdAt: { lt: new Date(Buffer.from(cursor, 'base64').toString()) } }
+        : {};
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { field = 'createdAt', order = 'desc' } = searchQuery.sort || {};
+
+      // Apply cursor filter
+      if (cursor) {
+        Object.assign(whereClause, cursorWhere);
+      }
 
       // Mock data for now - this would typically query the database
       const items: any[] = [];
       const total = 0;
+
+      const nextCursor =
+        items.length === limit && items.length > 0
+          ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+          : null;
 
       // Generate facets
       const facets = await this.facetsService.buildFacets(items, [
@@ -110,11 +122,13 @@ export class SearchService {
         this.historyService.record(userId, searchQuery.query);
       }
 
-      const result: SearchResult<any> = {
+      const result: any = {
         items,
         total,
         facets,
         suggestions,
+        nextCursor,
+        previousCursor: cursor || null,
         analytics: {
           queryId,
           took: Date.now() - startTime,
@@ -129,7 +143,7 @@ export class SearchService {
   }
 
   async getSuggestions(query: string): Promise<string[]> {
-    return this.autocompleteService.getSuggestions(query);
+    return this.autocompleteService.getSuggestions(query) as unknown as Promise<string[]>;
   }
 
   async getSavedFilters(userId: string): Promise<any[]> {

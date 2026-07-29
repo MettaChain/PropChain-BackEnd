@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Injectable,
   Logger,
@@ -214,13 +212,13 @@ export class BlockchainService {
       provider.consecutiveFailures = 0;
       provider.lastBlockNumber = blockNumber;
       provider.lastGasPrice = gasPrice;
-    } catch (error) {
+    } catch (error: unknown) {
       provider.consecutiveFailures++;
       provider.isHealthy = provider.consecutiveFailures < this.MAX_CONSECUTIVE_FAILURES;
       provider.lastCheckAt = new Date();
       provider.latencyMs = null;
       this.logger.warn(
-        `RPC health check failed for ${provider.url}: ${error.message} (failures: ${provider.consecutiveFailures})`,
+        `RPC health check failed for ${provider.url}: ${(error as Error).message} (failures: ${provider.consecutiveFailures})`,
       );
     }
   }
@@ -279,8 +277,8 @@ export class BlockchainService {
         high: (basePrice * 1.5).toFixed(2) + ' gwei',
         timestamp: new Date(),
       };
-    } catch (error) {
-      this.logger.warn(`Gas price fetch failed: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.warn(`Gas price fetch failed: ${(error as Error).message}`);
       return { low: 'N/A', medium: 'N/A', high: 'N/A', timestamp: new Date() };
     }
   }
@@ -435,8 +433,8 @@ export class BlockchainService {
           },
         },
       });
-    } catch (error) {
-      this.logger.error(`Failed to log blockchain interaction: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to log blockchain interaction: ${(error as Error).message}`);
       // Non-blocking: don't fail the main operation if audit logging fails
     }
   }
@@ -527,14 +525,12 @@ export class BlockchainService {
       });
 
       return response;
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(
-        `Failed to record transaction on blockchain: ${error.message}`,
-        error.stack,
-      );
+      const err = error as Error;
+      this.logger.error(`Failed to record transaction on blockchain: ${err.message}`, err.stack);
       throw new InternalServerErrorException('Failed to record transaction on blockchain');
     }
   }
@@ -630,11 +626,12 @@ export class BlockchainService {
       const result = await this.simulateTransactionVerification(dto.transactionHash, network);
 
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`Failed to verify transaction: ${error.message}`, error.stack);
+      const err = error as Error;
+      this.logger.error(`Failed to verify transaction: ${err.message}`, err.stack);
       throw new InternalServerErrorException('Failed to verify transaction on blockchain');
     }
   }
@@ -685,7 +682,7 @@ export class BlockchainService {
       verified: tx.status === 'confirmed',
       transactionHash: tx.transactionHash,
       blockNumber: tx.blockNumber || 0,
-      from: tx.id.substring(0, 42),
+      from: tx.blockchainHash || '0x0000000000000000000000000000000000000000',
       to: tx.contractAddress,
       value: '0',
       status: tx.status === 'confirmed' ? 'success' : 'pending',
@@ -725,8 +722,9 @@ export class BlockchainService {
         averageGasUsed: '0', // Would be calculated from actual on-chain data
         lastUpdated: new Date(),
       };
-    } catch (error) {
-      this.logger.error(`Failed to get blockchain stats: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Failed to get blockchain stats: ${err.message}`, err.stack);
       throw new InternalServerErrorException('Failed to retrieve blockchain statistics');
     }
   }

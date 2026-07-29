@@ -6,12 +6,12 @@ Two-factor authentication is fully implemented using TOTP (Time-based One-Time P
 
 ### Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `POST /api/auth/2fa/setup` | POST | Initialize 2FA — returns secret + QR code URL |
-| `POST /api/auth/2fa/verify` | POST | Verify a TOTP code and activate 2FA |
-| `POST /api/auth/2fa/disable` | POST | Disable 2FA (requires current TOTP code) |
-| `POST /api/auth/2fa/backup-codes` | POST | Regenerate backup codes |
+| Endpoint                          | Method | Description                                   |
+| --------------------------------- | ------ | --------------------------------------------- |
+| `POST /api/auth/2fa/setup`        | POST   | Initialize 2FA — returns secret + QR code URL |
+| `POST /api/auth/2fa/verify`       | POST   | Verify a TOTP code and activate 2FA           |
+| `POST /api/auth/2fa/disable`      | POST   | Disable 2FA (requires current TOTP code)      |
+| `POST /api/auth/2fa/backup-codes` | POST   | Regenerate backup codes                       |
 
 ### DTOs
 

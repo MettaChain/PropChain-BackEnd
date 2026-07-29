@@ -71,6 +71,12 @@ export enum UserRole {
   AGENT = 'AGENT',
 }
 
+export enum UserTier {
+  FREE = 'FREE',
+  PREMIUM = 'PREMIUM',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
 export enum PropertyStatus {
   DRAFT = 'DRAFT',
   PENDING = 'PENDING',

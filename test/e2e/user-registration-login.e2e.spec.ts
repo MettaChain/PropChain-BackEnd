@@ -21,6 +21,8 @@ import { ConfigService } from '@nestjs/config';
 import { UsersController } from '../../src/users/users.controller';
 import { UsersService } from '../../src/users/users.service';
 import { ActivityLogService } from '../../src/users/activity-log.service';
+import { AccountDeletionService } from '../../src/users/account-deletion.service';
+import { DataExportService } from '../../src/users/data-export.service';
 import { SessionsService } from '../../src/sessions/sessions.service';
 import { AuthService } from '../../src/auth/auth.service';
 import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
@@ -176,6 +178,19 @@ describe('User profile management (e2e)', () => {
               role: 'USER',
               type: 'access',
             }),
+          },
+        },
+        {
+          provide: AccountDeletionService,
+          useValue: {
+            requestDeletion: async () => ({}),
+            cancelDeletion: async () => ({}),
+          },
+        },
+        {
+          provide: DataExportService,
+          useValue: {
+            exportPersonalData: async () => ({}),
           },
         },
       ],

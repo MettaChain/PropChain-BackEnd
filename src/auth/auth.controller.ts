@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 import {
@@ -28,6 +29,7 @@ import { UserRole } from '../types/prisma.types';
 import { Request } from 'express';
 import { VerifyEmailDto } from '../users/dto/email-change.dto';
 
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -67,6 +69,7 @@ export class AuthController {
     return this.authService.refreshToken(refreshTokenDto, ipAddress, userAgent);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   logout(
@@ -77,18 +80,21 @@ export class AuthController {
     return this.authService.logout(user, logoutDto.refreshToken, request.accessToken);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   logoutAllDevices(@CurrentUser() user: AuthUserPayload, @Req() request: { accessToken?: string }) {
     return this.authService.logoutAllDevices(user, request.accessToken);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@CurrentUser() user: AuthUserPayload) {
     return this.authService.me(user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
   changePassword(
@@ -98,12 +104,14 @@ export class AuthController {
     return this.authService.changePassword(user, changePasswordDto);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('2fa/setup')
   setupTwoFactor(@CurrentUser() user: AuthUserPayload) {
     return this.authService.setupTwoFactor(user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('2fa/verify')
   verifyTwoFactor(
@@ -113,6 +121,7 @@ export class AuthController {
     return this.authService.verifyTwoFactor(user, verifyTwoFactorDto);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('2fa/disable')
   disableTwoFactor(
@@ -133,30 +142,35 @@ export class AuthController {
     };
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('api-keys')
   createApiKey(@CurrentUser() user: AuthUserPayload, @Body() createApiKeyDto: CreateApiKeyDto) {
     return this.authService.createApiKey(user, createApiKeyDto);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get('api-keys')
   listApiKeys(@CurrentUser() user: AuthUserPayload) {
     return this.authService.listApiKeys(user);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('api-keys/:id/rotate')
   rotateApiKey(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
     return this.authService.rotateApiKey(user, id);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('api-keys/:id/revoke')
   revokeApiKey(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
     return this.authService.revokeApiKey(user, id);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Patch('api-keys/:id/permissions')
   updateApiKeyPermissions(
@@ -167,6 +181,7 @@ export class AuthController {
     return this.authService.updateApiKeyPermissions(user, id, updateApiKeyPermissionsDto);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get('api-keys/:id/usage')
   getApiKeyUsage(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
@@ -183,6 +198,7 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('unlock-account')

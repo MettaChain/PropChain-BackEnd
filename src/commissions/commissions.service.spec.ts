@@ -104,7 +104,7 @@ describe('CommissionsService', () => {
 
       await service.findAll(
         { page: 1, limit: 10 },
-        { sub: 'agent-1', email: 'agent@test.com', role: 'AGENT', type: 'access' },
+        { sub: 'agent-1', email: 'agent@test.com', role: 'AGENT', tier: 'FREE', type: 'access' },
       );
 
       expect((prisma as any).commission.findMany).toHaveBeenCalledWith(
@@ -131,6 +131,7 @@ describe('CommissionsService', () => {
           sub: 'agent-2',
           email: 'agent2@test.com',
           role: 'AGENT',
+          tier: 'FREE',
           type: 'access',
         }),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -165,6 +166,7 @@ describe('CommissionsService', () => {
         sub: 'admin-1',
         email: 'admin@test.com',
         role: 'ADMIN',
+        tier: 'FREE',
         type: 'access',
       });
 

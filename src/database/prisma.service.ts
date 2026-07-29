@@ -148,9 +148,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         if (tableMatch) {
           const table = tableMatch[1];
           const now = Date.now();
-          const timestamps = (queryWindow.get(table) ?? []).filter(
-            (t) => now - t < N1_WINDOW_MS,
-          );
+          const timestamps = (queryWindow.get(table) ?? []).filter((t) => now - t < N1_WINDOW_MS);
           timestamps.push(now);
           queryWindow.set(table, timestamps);
 

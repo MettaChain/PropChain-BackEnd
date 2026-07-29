@@ -5,7 +5,7 @@ import { SignedUrlService } from './signed-url/signed-url.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { UserRole } from '../types/prisma.types';
+import { UserRole, UserTier } from '../types/prisma.types';
 import { Response } from 'express';
 
 describe('DocumentsDownloadController', () => {
@@ -30,6 +30,7 @@ describe('DocumentsDownloadController', () => {
   const mockUser: AuthUserPayload = {
     sub: 'user-1',
     role: UserRole.USER,
+    tier: UserTier.FREE,
     email: 'test@test.com',
     type: 'access',
   };

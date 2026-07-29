@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { Controller, Delete, Get, Param, Patch, Body, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,6 +13,8 @@ import {
   UpdateSessionDto,
 } from './dto/session.dto';
 
+@ApiTags('Sessions')
+@ApiBearerAuth('access-token')
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
 export class SessionsController {

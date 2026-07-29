@@ -56,17 +56,20 @@ export class RateLimitGuard implements CanActivate {
     const endpoint = `${request.method} ${request.route?.path || request.url}`;
 
     try {
-      // Check by user if authenticated
-      // Tier defaults to 'free' as it is not included in the current JWT payload.
-      // When 'tier' is added to JwtPayload, this logic will use the actual value.
+      // Check by user if authenticated. Auth guards (JwtAuthGuard, ApiKeyAuthGuard)
+      // attach the authenticated payload as `request.authUser`, keyed by `sub`.
       const ip = this.getClientIp(request);
+      const authUser = request.authUser;
 
-      if (request.user?.id) {
-        const userTier = request.user.tier || 'free';
+      if (authUser?.sub) {
+        // API keys get their own dedicated bucket regardless of the owning user's
+        // tier; JWT-authenticated requests use the user's real tier from the DB.
+        const userTier =
+          authUser.type === 'api-key' ? 'apiKey' : (authUser.tier || 'FREE').toLowerCase();
 
         const [userStatus, userIpStatus] = await Promise.all([
-          this.rateLimitService.checkUserRateLimit(request.user.id, userTier),
-          this.rateLimitService.checkUserIpRateLimit(request.user.id, ip),
+          this.rateLimitService.checkUserRateLimit(authUser.sub, userTier),
+          this.rateLimitService.checkUserIpRateLimit(authUser.sub, ip),
         ]);
 
         Object.entries(this.rateLimitService.getHeaders(userStatus)).forEach(([key, value]) => {
