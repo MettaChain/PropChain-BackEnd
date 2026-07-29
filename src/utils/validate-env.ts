@@ -16,10 +16,29 @@ export function validateEnvironment(): void {
     }
   }
 
-  if (MISSING.length > 0) {
+  for (const key of JWT_SECRET_VARS) {
+    const value = process.env[key];
+    if (value && value.length < MIN_JWT_SECRET_LENGTH) {
+      WEAK.push(`${key} (found ${value.length} chars, need at least ${MIN_JWT_SECRET_LENGTH})`);
+    }
+  }
+
+  if (MISSING.length > 0 || WEAK.length > 0) {
+    const sections: string[] = [];
+    if (MISSING.length > 0) {
+      sections.push(
+        `Missing required environment variables:\n` + MISSING.map((k) => `    - ${k}`).join('\n'),
+      );
+    }
+    if (WEAK.length > 0) {
+      sections.push(
+        `Environment variables below the minimum required length (256 bits / ${MIN_JWT_SECRET_LENGTH} chars):\n` +
+          WEAK.map((k) => `    - ${k}`).join('\n'),
+      );
+    }
     logger.error(
-      `\n  Fatal: Missing required environment variables:\n` +
-        MISSING.map((k) => `    - ${k}`).join('\n') +
+      `\n  Fatal:\n  ` +
+        sections.join('\n\n  ') +
         `\n\n  Please set them in .env or .env.local before starting the application.\n`,
     );
     process.exit(1);

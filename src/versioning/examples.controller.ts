@@ -5,18 +5,7 @@
  * This demonstrates how to implement versioning in controllers
  */
 
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Put,
-  Delete,
-  UseGuards,
-  Query,
-  Logger,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, Logger } from '@nestjs/common';
 import { ApiVersion } from '../versioning/api-version.decorator';
 import { GetVersion } from '../versioning/get-version.decorator';
 import { ApiVersionEnum } from '../versioning/api-version.constants';
