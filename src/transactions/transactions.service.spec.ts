@@ -5,7 +5,7 @@ import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../database/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { TransactionAnalyticsGranularity, TransactionStatusDto, TransactionTypeDto } from './dto/transaction.dto';
+import { TransactionAnalyticsGranularity, TransactionTypeDto } from './dto/transaction.dto';
 import { CommissionsService } from '../commissions/commissions.service';
 import { TransactionFeesService } from './transaction-fees.service';
 import { TimelineService } from './timeline.service';
@@ -286,15 +286,18 @@ describe('TransactionsService', () => {
       const result = await service.update('t-1', { status: 'COMPLETED' as any });
 
       expect(result.status).toBe('COMPLETED');
-      expect(mockCommissionsService.updateCommissionsStatus).toHaveBeenCalledWith('t-1', 'COMPLETED');
+      expect(mockCommissionsService.updateCommissionsStatus).toHaveBeenCalledWith(
+        't-1',
+        'COMPLETED',
+      );
     });
 
     it('should throw NotFoundException if transaction not found', async () => {
       mockPrismaService.transaction.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.update('nonexistent', { status: 'COMPLETED' as any }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update('nonexistent', { status: 'COMPLETED' as any })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -319,17 +322,17 @@ describe('TransactionsService', () => {
         status: 'COMPLETED',
       });
 
-      await expect(
-        service.updateTransactionStatus('t-1', 'PENDING', 'admin-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.updateTransactionStatus('t-1', 'PENDING', 'admin-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException if transaction not found', async () => {
       mockPrismaService.transaction.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.updateTransactionStatus('nonexistent', 'COMPLETED'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.updateTransactionStatus('nonexistent', 'COMPLETED')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -370,7 +373,10 @@ describe('TransactionsService', () => {
       mockPrismaService.transaction.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.recordOnBlockchain('nonexistent', { buyerAddress: '0xbuyer', sellerAddress: '0xseller' }),
+        service.recordOnBlockchain('nonexistent', {
+          buyerAddress: '0xbuyer',
+          sellerAddress: '0xseller',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });

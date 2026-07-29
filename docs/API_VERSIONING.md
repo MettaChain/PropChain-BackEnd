@@ -29,10 +29,10 @@ If no version is specified, the request defaults to **v2**.
 
 ## Version Status
 
-| Version | Status | Released | Sunset Date |
-|---------|--------|----------|-------------|
-| v1 | Deprecated | 2026-01-01 | 2026-12-31 |
-| v2 | Active | 2026-04-01 | — |
+| Version | Status     | Released   | Sunset Date |
+| ------- | ---------- | ---------- | ----------- |
+| v1      | Deprecated | 2026-01-01 | 2026-12-31  |
+| v2      | Active     | 2026-04-01 | —           |
 
 ## Deprecation Policy
 

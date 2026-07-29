@@ -46,6 +46,7 @@ INFO memory
 ### 3. Verify Guard Configuration
 
 Check `src/auth/rate-limit.config.ts` for:
+
 - Window size (should match `RATE_LIMIT_WINDOW_MS`)
 - Max requests per window
 - Whether endpoint-specific overrides are misconfigured

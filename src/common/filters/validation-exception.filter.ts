@@ -1,10 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, BadRequestException, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { I18nService, SupportedLanguage } from '../../i18n/i18n.service';
 
@@ -72,7 +66,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       const message =
         typeof exceptionResponse === 'string'
           ? exceptionResponse
-          : (exceptionResponse as { message?: string }).message ?? 'Bad Request';
+          : ((exceptionResponse as { message?: string }).message ?? 'Bad Request');
 
       response.status(status).json({
         success: false,
@@ -141,10 +135,8 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const lower = message.toLowerCase();
     if (lower.includes('must be a valid email') || lower.includes('must be an email'))
       return 'IS_EMAIL';
-    if (lower.includes('must be longer') || lower.includes('must be at least'))
-      return 'MIN_LENGTH';
-    if (lower.includes('must be shorter') || lower.includes('must be at most'))
-      return 'MAX_LENGTH';
+    if (lower.includes('must be longer') || lower.includes('must be at least')) return 'MIN_LENGTH';
+    if (lower.includes('must be shorter') || lower.includes('must be at most')) return 'MAX_LENGTH';
     if (lower.includes('should not be empty') || lower.includes('must not be empty'))
       return 'IS_NOT_EMPTY';
     if (lower.includes('must be a string')) return 'IS_STRING';
@@ -166,8 +158,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     if (lower.includes('must contain')) return 'CONTAINS';
     if (lower.includes('must not contain')) return 'NOT_CONTAINS';
     if (lower.includes('must be defined')) return 'IS_DEFINED';
-    if (lower.includes('should not exist') || lower.includes('must not exist'))
-      return 'NOT_EXISTS';
+    if (lower.includes('should not exist') || lower.includes('must not exist')) return 'NOT_EXISTS';
     if (lower.includes('must be a valid phone')) return 'IS_PHONE_NUMBER';
     if (lower.includes('must be a valid postal')) return 'IS_POSTAL_CODE';
     if (lower.includes('must be a valid credit card')) return 'IS_CREDIT_CARD';
