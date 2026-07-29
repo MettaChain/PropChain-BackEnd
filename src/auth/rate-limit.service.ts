@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import {
@@ -26,6 +26,8 @@ export interface RateLimitRecord {
 
 @Injectable()
 export class RateLimitService {
+  private readonly logger = new Logger(RateLimitService.name);
+
   constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
 
   /**
@@ -127,7 +129,7 @@ export class RateLimitService {
       };
     } catch (error) {
       // If cache is unavailable, allow the request
-      console.error('Rate limit check failed:', error);
+      this.logger.error('Rate limit check failed:', error instanceof Error ? error.stack : error);
       return {
         limit,
         remaining: limit - 1,

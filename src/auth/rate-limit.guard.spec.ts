@@ -38,6 +38,7 @@ describe('RateLimitGuard - auth/signup endpoints', () => {
     rateLimitService = {
       checkIpRateLimit: jest.fn().mockResolvedValue(notExceeded),
       checkUserRateLimit: jest.fn().mockResolvedValue(notExceeded),
+      checkUserIpRateLimit: jest.fn().mockResolvedValue(notExceeded),
       checkEndpointRateLimit: jest.fn().mockResolvedValue({ ...notExceeded, limit: 0 }),
       getHeaders: jest.fn().mockReturnValue({}),
     } as any;
@@ -89,6 +90,83 @@ describe('RateLimitGuard - auth/signup endpoints', () => {
       limit: 5,
     });
     const ctx = makeContext();
+    await expect(guard.canActivate(ctx)).rejects.toThrow(HttpException);
+  });
+});
+
+describe('RateLimitGuard - authenticated tier-based limiting', () => {
+  let guard: RateLimitGuard;
+  let rateLimitService: jest.Mocked<RateLimitService>;
+  let reflector: Reflector;
+
+  const notExceeded = { limit: 5, remaining: 4, reset: 9999999999, isExceeded: false };
+  const exceeded = { limit: 5, remaining: 0, reset: 9999999999, isExceeded: true, retryAfter: 60 };
+
+  beforeEach(() => {
+    reflector = new Reflector();
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+
+    rateLimitService = {
+      checkIpRateLimit: jest.fn().mockResolvedValue(notExceeded),
+      checkUserRateLimit: jest.fn().mockResolvedValue(notExceeded),
+      checkUserIpRateLimit: jest.fn().mockResolvedValue(notExceeded),
+      checkEndpointRateLimit: jest.fn().mockResolvedValue({ ...notExceeded, limit: 0 }),
+      getHeaders: jest.fn().mockReturnValue({}),
+    } as any;
+
+    guard = new RateLimitGuard(reflector, rateLimitService);
+  });
+
+  it('checks per-user limits using request.authUser, not request.user', async () => {
+    const ctx = makeContext({
+      authUser: { sub: 'user-1', tier: 'PREMIUM', type: 'access' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(rateLimitService.checkUserRateLimit).toHaveBeenCalledWith('user-1', 'premium');
+    expect(rateLimitService.checkUserIpRateLimit).toHaveBeenCalledWith('user-1', '1.2.3.4');
+    expect(rateLimitService.checkIpRateLimit).not.toHaveBeenCalled();
+  });
+
+  it('ignores a stray request.user field and treats the request as anonymous', async () => {
+    // Regression test: the guard used to read request.user.id (which nothing in this
+    // codebase ever sets), silently bucketing every authenticated request as anonymous.
+    const ctx = makeContext({
+      user: { id: 'user-1', tier: 'enterprise' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(rateLimitService.checkUserRateLimit).not.toHaveBeenCalled();
+    expect(rateLimitService.checkIpRateLimit).toHaveBeenCalledWith('1.2.3.4');
+  });
+
+  it('defaults to the free tier when authUser.tier is missing', async () => {
+    const ctx = makeContext({
+      authUser: { sub: 'user-1', type: 'access' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(rateLimitService.checkUserRateLimit).toHaveBeenCalledWith('user-1', 'free');
+  });
+
+  it('buckets api-key requests under apiKey regardless of the owning user tier', async () => {
+    const ctx = makeContext({
+      authUser: { sub: 'user-1', tier: 'FREE', type: 'api-key', apiKeyId: 'key-1' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(rateLimitService.checkUserRateLimit).toHaveBeenCalledWith('user-1', 'apiKey');
+  });
+
+  it('blocks when the per-user limit is exceeded', async () => {
+    rateLimitService.checkUserRateLimit.mockResolvedValue(exceeded);
+    const ctx = makeContext({
+      authUser: { sub: 'user-1', tier: 'FREE', type: 'access' },
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(HttpException);
+  });
+
+  it('blocks when the per-user-per-IP limit is exceeded', async () => {
+    rateLimitService.checkUserIpRateLimit.mockResolvedValue(exceeded);
+    const ctx = makeContext({
+      authUser: { sub: 'user-1', tier: 'FREE', type: 'access' },
+    });
     await expect(guard.canActivate(ctx)).rejects.toThrow(HttpException);
   });
 });

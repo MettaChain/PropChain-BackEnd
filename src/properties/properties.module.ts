@@ -10,26 +10,37 @@ import { GeocodingService } from './geocoding.service';
 import { PropertyExpiryService } from './property-expiry.service';
 import { PrismaModule } from '../database/prisma.module';
 import { AuthModule } from '../auth/auth.module';
-import { PropertiesResolver } from './properties.resolver';
-import { PubSub } from 'graphql-subscriptions';
+import { NotificationsModule } from '../notifications/notifications.module';
+
 import { FraudModule } from '../fraud/fraud.module';
+import { DocumentsModule } from '../documents/documents.module';
 import { PropertyReportService } from './report/property-report.service';
 import { CacheModuleConfig } from '../cache/cache.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, FraudModule, ConfigModule, CacheModuleConfig],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    FraudModule,
+    ConfigModule,
+    CacheModuleConfig,
+    DocumentsModule,
+    NotificationsModule,
+  ],
   controllers: [PropertiesController, PropertyImagesController],
   providers: [
     PropertiesService,
     PropertyImagesService,
     GeocodingService,
-    PropertiesResolver,
+    PropertyExpiryService,
     PropertyReportService,
-    {
-      provide: 'PUB_SUB',
-      useValue: new PubSub(),
-    },
   ],
-  exports: [PropertiesService, PropertyReportService, PropertyImagesService, GeocodingService],
+  exports: [
+    PropertiesService,
+    PropertyReportService,
+    PropertyImagesService,
+    GeocodingService,
+    PropertyExpiryService,
+  ],
 })
 export class PropertiesModule {}

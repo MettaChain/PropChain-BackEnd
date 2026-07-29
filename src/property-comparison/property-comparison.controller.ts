@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PropertyComparisonService } from './property-comparison.service';
 import { CompareBodyDto, CompareQueryDto } from './dto/comparison.dto';
 
@@ -8,21 +8,33 @@ import { CompareBodyDto, CompareQueryDto } from './dto/comparison.dto';
 export class PropertyComparisonController {
   constructor(private readonly comparisonService: PropertyComparisonService) {}
 
-  /**
-   * Compare 2-4 properties via query string:
-   *   GET /property-comparison?ids=uuid1,uuid2,uuid3
-   */
   @Get()
   compareGet(@Query() query: CompareQueryDto) {
     return this.comparisonService.compare(query.ids);
   }
 
-  /**
-   * Compare 2-4 properties via JSON body:
-   *   POST /property-comparison  { "ids": ["uuid1", "uuid2", ...] }
-   */
   @Post()
   comparePost(@Body() body: CompareBodyDto) {
     return this.comparisonService.compare(body.ids);
+  }
+
+  @Post('score')
+  calculateScore(@Body() body: { properties: any[] }) {
+    return this.comparisonService.calculateScore(body.properties);
+  }
+
+  @Post('share')
+  createShareableLink(@Body() body: { propertyIds: string[]; userId?: string }) {
+    return this.comparisonService.createShareableLink(body.propertyIds, body.userId);
+  }
+
+  @Get('shared/:shareToken')
+  getSharedComparison(@Param('shareToken') shareToken: string) {
+    return this.comparisonService.getSharedComparison(shareToken);
+  }
+
+  @Post('export')
+  exportComparison(@Body() body: { propertyIds: string[] }) {
+    return this.comparisonService.exportComparison(body.propertyIds);
   }
 }

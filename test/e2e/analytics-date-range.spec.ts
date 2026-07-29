@@ -8,7 +8,9 @@ import { CommissionsService } from '../../src/commissions/commissions.service';
 import { TransactionFeesService } from '../../src/transactions/transaction-fees.service';
 import { TimelineService } from '../../src/transactions/timeline.service';
 import { TransactionAuditService } from '../../src/transactions/transaction-audit.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TransactionAnalyticsGranularity } from '../../src/transactions/dto/transaction.dto';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Logger } from '@nestjs/common';
 
 describe('Analytics date range boundary (e2e)', () => {

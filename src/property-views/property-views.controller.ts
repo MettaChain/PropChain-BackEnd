@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PropertyViewsService } from './property-views.service';
 import {
   PopularPropertiesQueryDto,
@@ -24,10 +25,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 
-interface RequestWithAuth extends Request {
-  authUser?: AuthUserPayload;
-}
-
+@ApiTags('Properties')
 @Controller('property-views')
 export class PropertyViewsController {
   constructor(private readonly propertyViewsService: PropertyViewsService) {}
@@ -81,6 +79,7 @@ export class PropertyViewsController {
   /**
    * Paginated view history for a property. Requires auth.
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get(':propertyId/history')
   history(

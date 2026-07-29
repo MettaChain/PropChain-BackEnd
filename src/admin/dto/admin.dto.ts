@@ -68,6 +68,9 @@ export class AdminUpdateUserDto {
 
   @IsOptional()
   isVerified?: boolean;
+
+  @IsOptional()
+  isBlocked?: boolean;
 }
 
 export class ModerationQueueQueryDto {
