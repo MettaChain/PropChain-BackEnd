@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PropertiesService } from './properties.service';
 import { PrismaService } from '../database/prisma.service';
 import { FraudService } from '../fraud/fraud.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { GeocodingService } from './geocoding.service';

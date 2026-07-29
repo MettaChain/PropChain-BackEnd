@@ -42,7 +42,11 @@ export class WebhooksController {
   }
 
   @Post(':id/verify')
-  verifyChallenge(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: VerifyWebhookDto) {
+  verifyChallenge(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: VerifyWebhookDto,
+  ) {
     return this.webhooksService.verifyChallenge(id, user.id, dto.challenge);
   }
 }

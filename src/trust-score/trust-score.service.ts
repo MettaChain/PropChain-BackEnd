@@ -2,6 +2,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { UserData } from './types/user-data.interface';
 
 export interface TrustScoreBreakdown {
@@ -25,7 +26,7 @@ export interface TrustScoreResult {
 export class TrustScoreService {
   private readonly logger = new Logger(TrustScoreService.name);
   private readonly updateIntervalHours = 24;
-  private readonly DECAY_RATE_PER_MONTH = 0.10;
+  private readonly DECAY_RATE_PER_MONTH = 0.1;
 
   constructor(private prisma: PrismaService) {}
 
@@ -146,8 +147,10 @@ export class TrustScoreService {
     });
     const idVerifiedScore = idVerified ? 20 : 0;
 
-    const completedBuyer = user.buyerTransactions?.filter((t: any) => t.status === 'COMPLETED') || [];
-    const completedSeller = user.sellerTransactions?.filter((t: any) => t.status === 'COMPLETED') || [];
+    const completedBuyer =
+      user.buyerTransactions?.filter((t: any) => t.status === 'COMPLETED') || [];
+    const completedSeller =
+      user.sellerTransactions?.filter((t: any) => t.status === 'COMPLETED') || [];
     const totalCompleted = completedBuyer.length + completedSeller.length;
     const cappedCompleted = Math.min(totalCompleted, 3);
     const completedTransactionsScore = cappedCompleted * 15;
@@ -197,7 +200,7 @@ export class TrustScoreService {
 
     if (monthsInactive < 1) return 0;
 
-    const penalty = Math.min(monthsInactive * this.DECAY_RATE_PER_MONTH, 0.90);
+    const penalty = Math.min(monthsInactive * this.DECAY_RATE_PER_MONTH, 0.9);
     return penalty;
   }
 

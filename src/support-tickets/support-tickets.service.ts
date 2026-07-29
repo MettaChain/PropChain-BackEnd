@@ -53,7 +53,9 @@ export class SupportTicketsService {
       },
     });
 
-    this.logger.log(`Support ticket created: ${ticket.id} (priority: ${priority}, SLA: ${slaDeadline.toISOString()})`);
+    this.logger.log(
+      `Support ticket created: ${ticket.id} (priority: ${priority}, SLA: ${slaDeadline.toISOString()})`,
+    );
     return ticket;
   }
 
@@ -192,10 +194,7 @@ export class SupportTicketsService {
           user: { select: { id: true, firstName: true, lastName: true, email: true } },
           assignedTo: { select: { id: true, firstName: true, lastName: true } },
         },
-        orderBy: [
-          { priority: 'asc' },
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
       }),

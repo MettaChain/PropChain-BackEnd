@@ -8,6 +8,7 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { EmailModule } from '../email/email.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { RateLimitService } from './rate-limit.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -18,13 +19,13 @@ import { RateLimitGuard } from './guards/rate-limit.guard';
 import { RateLimitHeadersInterceptor } from './interceptors/rate-limit-headers.interceptor';
 import { RateLimitAdminController } from './controllers/rate-limit-admin.controller';
 import { FraudModule } from '../fraud/fraud.module';
-import { GraphqlComplexityPlugin } from './graphql-complexity.plugin';
 
 @Module({
   imports: [PrismaModule, UsersModule, SessionsModule, EmailModule, FraudModule, PassportModule],
   controllers: [AuthController, RateLimitAdminController],
   providers: [
     AuthService,
+    ApiKeyAnalyticsService,
     LoginRateLimitService,
     RateLimitService,
     JwtAuthGuard,
@@ -33,10 +34,10 @@ import { GraphqlComplexityPlugin } from './graphql-complexity.plugin';
     RateLimitGuard,
     RateLimitHeadersInterceptor,
     GoogleStrategy,
-    GraphqlComplexityPlugin,
   ],
   exports: [
     AuthService,
+    ApiKeyAnalyticsService,
     RolesGuard,
     LoginRateLimitService,
     RateLimitService,

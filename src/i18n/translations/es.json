@@ -1,0 +1,81 @@
+{
+  "common": {
+    "validation_failed": "Error de validación",
+    "unexpected_error": "Se produjo un error inesperado",
+    "internal_server_error": "Error interno del servidor",
+    "bad_request": "Solicitud inválida",
+    "unauthorized": "No autorizado",
+    "forbidden": "Acceso denegado",
+    "not_found": "Recurso no encontrado",
+    "conflict": "Conflicto con el recurso",
+    "rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo más tarde.",
+    "service_unavailable": "Servicio no disponible. Inténtalo de nuevo más tarde."
+  },
+  "validation": {
+    "required": "{field} es obligatorio",
+    "email_invalid": "{field} debe ser una dirección de correo válida",
+    "min_length": "{field} debe tener al menos {min} caracteres",
+    "max_length": "{field} debe tener como máximo {max} caracteres",
+    "must_be_string": "{field} debe ser una cadena de texto",
+    "must_be_number": "{field} debe ser un número",
+    "must_be_int": "{field} debe ser un número entero",
+    "must_be_boolean": "{field} debe ser un valor booleano",
+    "must_be_uuid": "{field} debe ser un UUID",
+    "must_be_enum": "{field} debe ser uno de: {options}",
+    "must_be_date": "{field} debe ser una fecha válida",
+    "is_in": "{field} debe ser uno de: {options}",
+    "is_not_in": "{field} no debe ser uno de: {options}",
+    "matches": "El formato de {field} es inválido"
+  },
+  "auth": {
+    "invalid_credentials": "Correo o contraseña inválidos",
+    "account_locked": "Tu cuenta está bloqueada temporalmente. Inténtalo más tarde.",
+    "account_blocked": "Tu cuenta ha sido bloqueada. Contacta con soporte.",
+    "email_not_verified": "Verifica tu correo electrónico antes de continuar.",
+    "two_factor_required": "Se requiere un código de autenticación de dos factores."
+  },
+  "users": {
+    "not_found": "Usuario no encontrado",
+    "email_taken": "Este correo ya está en uso",
+    "self_deletion_blocked_by_legal_hold": "Tu cuenta tiene una retención legal y no puede ser eliminada en este momento.",
+    "self_deletion_already_requested": "Ya hay una eliminación de cuenta programada.",
+    "self_deletion_not_requested": "No hay solicitud de eliminación activa para cancelar.",
+    "self_deletion_already_permanent": "La cuenta ya fue eliminada permanentemente.",
+    "self_deletion_retention_too_short": "El período de retención no puede ser menor a {min} días.",
+    "self_deletion_retention_too_long": "El período de retención no puede exceder {max} días."
+  },
+  "properties": {
+    "not_found": "Propiedad no encontrada",
+    "duplicate": "Se detectó un anuncio duplicado"
+  },
+  "transactions": {
+    "not_found": "Transacción no encontrada",
+    "invalid_state": "La transacción no puede pasar de {from} a {to}"
+  },
+  "documents": {
+    "not_found": "Documento no encontrado",
+    "expired": "Este documento ha caducado."
+  },
+  "fraud": {
+    "alert_created_subject": "Alerta de seguridad: {title}"
+  },
+  "http": {
+    "400": "La solicitud está mal formada o es inválida.",
+    "401": "Se requiere autenticación.",
+    "403": "No tienes permiso para realizar esta acción.",
+    "404": "No se encontró el recurso solicitado.",
+    "409": "La solicitud entra en conflicto con el estado actual del recurso.",
+    "422": "Los datos enviados no superaron la validación.",
+    "429": "Demasiadas solicitudes. Por favor reduce la velocidad.",
+    "500": "Error interno del servidor.",
+    "503": "Servicio temporalmente no disponible."
+  },
+  "prisma": {
+    "P2002": "Ya existe un registro con ese valor.",
+    "P2003": "Esta acción referencia un registro que no existe.",
+    "P2011": "Falta un campo obligatorio.",
+    "P2014": "Esta acción viola una relación existente.",
+    "P2025": "No se pudo encontrar el registro.",
+    "P2000": "Uno de los valores proporcionados es demasiado largo."
+  }
+}

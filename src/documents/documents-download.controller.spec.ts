@@ -10,7 +10,9 @@ import { Response } from 'express';
 
 describe('DocumentsDownloadController', () => {
   let controller: DocumentsDownloadController;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let documentsService: DocumentsService;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let signedUrlService: SignedUrlService;
 
   const mockDocumentsService = {

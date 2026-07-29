@@ -8,6 +8,7 @@ import { SessionsService } from '../sessions/sessions.service';
 import { EmailService } from '../email/email.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { FraudService } from '../fraud/fraud.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 
 describe('AuthService – CAPTCHA failure lockout', () => {
   let service: AuthService;
@@ -49,8 +50,8 @@ describe('AuthService – CAPTCHA failure lockout', () => {
   const configService = {
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
-        JWT_SECRET: 'test-secret',
-        JWT_REFRESH_SECRET: 'test-refresh-secret',
+        JWT_SECRET: 'test-secret-at-least-32-characters-long',
+        JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
         JWT_ACCESS_EXPIRES_IN: '15m',
         JWT_REFRESH_EXPIRES_IN: '7d',
         BCRYPT_ROUNDS: '10',
@@ -73,6 +74,10 @@ describe('AuthService – CAPTCHA failure lockout', () => {
         { provide: EmailService, useValue: emailService },
         { provide: LoginRateLimitService, useValue: rateLimitService },
         { provide: FraudService, useValue: fraudService },
+        {
+          provide: ApiKeyAnalyticsService,
+          useValue: { trackUsage: jest.fn(), getUsageStats: jest.fn() },
+        },
         { provide: ConfigService, useValue: configService },
       ],
     }).compile();
@@ -85,8 +90,8 @@ describe('AuthService – CAPTCHA failure lockout', () => {
     const captchaConfig: Record<string, string> = {
       RECAPTCHA_SECRET: 'some-secret',
       CAPTCHA_THRESHOLD: '3',
-      JWT_SECRET: 'test-secret',
-      JWT_REFRESH_SECRET: 'test-refresh-secret',
+      JWT_SECRET: 'test-secret-at-least-32-characters-long',
+      JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
       JWT_ACCESS_EXPIRES_IN: '15m',
       JWT_REFRESH_EXPIRES_IN: '7d',
       BCRYPT_ROUNDS: '10',

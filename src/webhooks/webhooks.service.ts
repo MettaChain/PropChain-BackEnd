@@ -1,12 +1,9 @@
 // @ts-nocheck
 
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { CreateWebhookDto, UpdateWebhookDto, WebhookEventType } from './webhook.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as crypto from 'crypto';
@@ -87,7 +84,10 @@ export class WebhooksService {
     try {
       const url = new URL(webhook.url);
       url.searchParams.set('challenge', challenge);
-      const response = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(10000) });
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        signal: AbortSignal.timeout(10000),
+      });
       const body = await response.json();
       if (body.challenge === challenge) {
         await this.prisma.webhook.update({
@@ -125,19 +125,11 @@ export class WebhooksService {
 
     for (const delivery of pendingRetries) {
       if (!delivery.webhook || delivery.webhook.status !== 'ACTIVE') continue;
-      await this.deliverWebhook(
-        delivery.webhook,
-        delivery.eventType,
-        delivery.payload as object,
-      );
+      await this.deliverWebhook(delivery.webhook, delivery.eventType, delivery.payload as object);
     }
   }
 
-  private async deliverWebhook(
-    webhook: any,
-    eventType: string,
-    payload: object,
-  ) {
+  private async deliverWebhook(webhook: any, eventType: string, payload: object) {
     let delivery = await this.prisma.webhookDeliveryLog.create({
       data: {
         webhookId: webhook.id,
@@ -193,7 +185,10 @@ export class WebhooksService {
           error: error.message,
           responseBody: error.message.substring(0, 2000),
           nextRetryAt: shouldRetry
-            ? new Date(Date.now() + this.RETRY_DELAYS_MS[nextAttempt] || this.RETRY_DELAYS_MS[this.RETRY_DELAYS_MS.length - 1])
+            ? new Date(
+                Date.now() + this.RETRY_DELAYS_MS[nextAttempt] ||
+                  this.RETRY_DELAYS_MS[this.RETRY_DELAYS_MS.length - 1],
+              )
             : null,
         },
       });

@@ -2,27 +2,30 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { UsersService } from '../users/users.service';
+import { AccountDeletionService } from './account-deletion.service';
 
 @Injectable()
 export class ScheduledDeletionService {
   private readonly logger = new Logger(ScheduledDeletionService.name);
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly accountDeletionService: AccountDeletionService) {}
 
   /**
    * Run daily at 2:00 AM to delete deactivated users
-   * whose scheduled deletion time has passed
+   * whose scheduled deletion time has passed (issue #960).
    */
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleScheduledDeletion() {
     this.logger.log('Running scheduled deletion job for deactivated users...');
 
     try {
-      const result = await this.usersService.deleteDeactivatedUsers();
+      const result = await this.accountDeletionService.performScheduledDeletion();
 
       if (result.deletedCount > 0) {
-        this.logger.log(`Successfully deleted ${result.deletedCount} deactivated users`);
+        this.logger.log(
+          `Successfully deleted ${result.deletedCount} deactivated users ` +
+            `(${result.blockedByLegalHold} blocked by legal hold).`,
+        );
       } else {
         this.logger.log('No users scheduled for deletion at this time');
       }
@@ -32,10 +35,10 @@ export class ScheduledDeletionService {
   }
 
   /**
-   * Manual trigger for testing or immediate deletion
+   * Manual trigger for testing or immediate deletion.
    */
   async triggerManualDeletion() {
     this.logger.log('Manual deletion triggered');
-    return this.usersService.deleteDeactivatedUsers();
+    return this.accountDeletionService.performScheduledDeletion();
   }
 }

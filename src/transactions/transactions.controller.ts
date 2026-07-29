@@ -11,6 +11,7 @@ import {
   Query,
   HttpStatus,
   HttpCode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Req,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,7 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Request } from 'express';
 import { TransactionsService } from './transactions.service';
 import { TransactionNotesService } from './transaction-notes.service';

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RateLimitService } from '../rate-limit.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { RATE_LIMIT_HEADERS } from '../rate-limit.config';
 
 export const RATE_LIMIT_SKIP_KEY = 'rate-limit-skip';

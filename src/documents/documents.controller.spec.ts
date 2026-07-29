@@ -9,6 +9,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 
 describe('DocumentsController', () => {
   let controller: DocumentsController;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let service: DocumentsService;
 
   const mockDocumentsService = {

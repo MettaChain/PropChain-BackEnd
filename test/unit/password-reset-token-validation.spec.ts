@@ -1,11 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../../src/auth/auth.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { PrismaService } from '../../src/database/prisma.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { UsersService } from '../../src/users/users.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SessionsService } from '../../src/sessions/sessions.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { EmailService } from '../../src/email/email.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LoginRateLimitService } from '../../src/auth/login-rate-limit.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { FraudService } from '../../src/fraud/fraud.service';
 import { createSha256 } from '../../src/auth/security.utils';
 
@@ -53,7 +59,11 @@ describe('AuthService.resetPassword – password-reset token validation', () => 
         return passwordHistory.filter((h) => h.userId === where.userId);
       }),
       create: jest.fn(async ({ data }: any) => {
-        const record = { id: Math.random().toString(36).slice(2, 8), ...data, createdAt: new Date() };
+        const record = {
+          id: Math.random().toString(36).slice(2, 8),
+          ...data,
+          createdAt: new Date(),
+        };
         passwordHistory.push(record);
         return record;
       }),
@@ -89,8 +99,8 @@ describe('AuthService.resetPassword – password-reset token validation', () => 
   const mockConfigService = {
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
-        JWT_SECRET: 'test-access-secret',
-        JWT_REFRESH_SECRET: 'test-refresh-secret',
+        JWT_SECRET: 'test-access-secret-at-least-32-characters-long',
+        JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
         JWT_ACCESS_EXPIRES_IN: '15m',
         JWT_REFRESH_EXPIRES_IN: '7d',
         BCRYPT_ROUNDS: '4',

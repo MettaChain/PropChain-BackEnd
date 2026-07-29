@@ -8,6 +8,7 @@ import { SessionsService } from '../sessions/sessions.service';
 import { EmailService } from '../email/email.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { FraudService } from '../fraud/fraud.service';
+import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 
 describe('AuthService - tier propagation', () => {
   let service: AuthService;
@@ -25,8 +26,8 @@ describe('AuthService - tier propagation', () => {
   const configService = {
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
-        JWT_SECRET: 'test-secret',
-        JWT_REFRESH_SECRET: 'test-refresh-secret',
+        JWT_SECRET: 'test-secret-at-least-32-characters-long',
+        JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
         JWT_ACCESS_EXPIRES_IN: '15m',
         JWT_REFRESH_EXPIRES_IN: '7d',
         BCRYPT_ROUNDS: '10',
@@ -51,6 +52,13 @@ describe('AuthService - tier propagation', () => {
         { provide: LoginRateLimitService, useValue: {} },
         { provide: FraudService, useValue: {} },
         { provide: ConfigService, useValue: configService },
+        {
+          provide: ApiKeyAnalyticsService,
+          useValue: {
+            checkQuota: jest.fn().mockResolvedValue(undefined),
+            recordUsage: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -88,7 +96,7 @@ describe('AuthService - tier propagation', () => {
           type: 'access',
           jti: 'jti-1',
         },
-        'test-secret',
+        'test-secret-at-least-32-characters-long',
         { expiresIn: '15m', issuer: 'PropChain' },
       );
 

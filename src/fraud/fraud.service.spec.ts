@@ -4,6 +4,8 @@ import { FraudService } from './fraud.service';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
 import { SmsService } from '../notifications/sms.service';
+import { GeoLocationService } from './geo-location.service';
+import { DeviceFingerprintService } from './device-fingerprint.service';
 import { FraudPattern, FraudSeverity } from '../types/prisma.types';
 
 describe('FraudService', () => {
@@ -61,6 +63,29 @@ describe('FraudService', () => {
     }),
   } as any;
 
+  const mockGeoLocationService = {
+    extractIp: jest.fn().mockReturnValue('203.0.113.42'),
+    lookup: jest.fn().mockReturnValue({
+      ipAddress: '203.0.113.42',
+      countryCode: 'US',
+      city: 'Mountain View',
+      source: 'lookup',
+    }),
+    resolveFromRequest: jest.fn().mockReturnValue({
+      ipAddress: '203.0.113.42',
+      countryCode: 'US',
+      city: 'Mountain View',
+      source: 'header',
+    }),
+  } as any;
+
+  const mockDeviceFingerprintService = {
+    compute: jest.fn().mockReturnValue({
+      fingerprint: 'fp-test-stable-hash',
+      derived: { browserFamily: 'Chrome', osFamily: 'Linux', isMobile: false, isBot: false },
+    }),
+  } as any;
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,6 +94,8 @@ describe('FraudService', () => {
         { provide: EmailService, useValue: mockEmailService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: SmsService, useValue: { sendSms: jest.fn().mockResolvedValue(true) } },
+        { provide: GeoLocationService, useValue: mockGeoLocationService },
+        { provide: DeviceFingerprintService, useValue: mockDeviceFingerprintService },
       ],
     }).compile();
 
