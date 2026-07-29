@@ -19,6 +19,7 @@ describe('TrustScoreService', () => {
     lastTrustScoreUpdate: new Date(),
     createdAt: new Date('2023-01-01'),
     updatedAt: new Date(),
+    lastActivityAt: new Date(),
     properties: [
       { id: 'prop-1', status: 'ACTIVE' },
       { id: 'prop-2', status: 'ACTIVE' },
@@ -50,6 +51,9 @@ describe('TrustScoreService', () => {
       update: jest.fn(),
       findMany: jest.fn(),
     },
+    verificationDocument: {
+      findFirst: jest.fn(),
+    },
   } as any;
 
   beforeEach(async () => {
@@ -78,6 +82,7 @@ describe('TrustScoreService', () => {
   describe('calculateTrustScore', () => {
     it('should calculate trust score for a user', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.verificationDocument.findFirst.mockResolvedValue(null);
       mockPrismaService.user.update.mockResolvedValue({
         ...mockUser,
         trustScore: 75,
@@ -90,48 +95,28 @@ describe('TrustScoreService', () => {
         userId: 'user-123',
         score: expect.any(Number),
         breakdown: expect.objectContaining({
-          accountAge: expect.objectContaining({
-            score: expect.any(Number),
+          emailVerified: expect.objectContaining({
+            score: 10,
             maxScore: 10,
-            percentage: expect.any(Number),
-          }),
-          emailVerification: expect.objectContaining({
-            score: 5,
-            maxScore: 5,
             percentage: 100,
           }),
-          twoFactorAuth: expect.objectContaining({
-            score: 5,
-            maxScore: 5,
-            percentage: 100,
-          }),
-          profileCompleteness: expect.objectContaining({
+          idVerified: expect.objectContaining({
             score: expect.any(Number),
-            maxScore: 15,
+            maxScore: 20,
             percentage: expect.any(Number),
           }),
-          transactionHistory: expect.objectContaining({
+          completedTransactions: expect.objectContaining({
             score: expect.any(Number),
-            maxScore: 25,
+            maxScore: 45,
             percentage: expect.any(Number),
           }),
-          propertyListings: expect.objectContaining({
+          activityDecay: expect.objectContaining({
             score: expect.any(Number),
-            maxScore: 15,
+            maxScore: expect.any(Number),
             percentage: expect.any(Number),
           }),
-          apiKeyUsage: expect.objectContaining({
-            score: expect.any(Number),
-            maxScore: 10,
-            percentage: expect.any(Number),
-          }),
-          passwordSecurity: expect.objectContaining({
-            score: expect.any(Number),
-            maxScore: 10,
-            percentage: expect.any(Number),
-          }),
-          totalScore: 0,
-          totalMaxScore: 95,
+          totalScore: expect.any(Number),
+          totalMaxScore: 75,
         }),
         lastUpdated: expect.any(Date),
         nextUpdateTime: expect.any(Date),
@@ -155,24 +140,21 @@ describe('TrustScoreService', () => {
 
   describe('getTrustScore', () => {
     it('should return cached score if no refresh needed', async () => {
-      const recentUpdate = new Date(Date.now() - 12 * 3600000); // 12 hours ago
+      const recentUpdate = new Date(Date.now() - 12 * 3600000);
       const userWithRecentUpdate = {
         ...mockUser,
         lastTrustScoreUpdate: recentUpdate,
       };
 
       mockPrismaService.user.findUnique.mockResolvedValue(userWithRecentUpdate);
+      mockPrismaService.verificationDocument.findFirst.mockResolvedValue(null);
       jest.spyOn(service, 'getScoreBreakdown').mockResolvedValue({
-        accountAge: { score: 8, maxScore: 10, percentage: 80 },
-        emailVerification: { score: 5, maxScore: 5, percentage: 100 },
-        twoFactorAuth: { score: 5, maxScore: 5, percentage: 100 },
-        profileCompleteness: { score: 12, maxScore: 15, percentage: 80 },
-        transactionHistory: { score: 10, maxScore: 25, percentage: 40 },
-        propertyListings: { score: 7, maxScore: 15, percentage: 47 },
-        apiKeyUsage: { score: 5, maxScore: 10, percentage: 50 },
-        passwordSecurity: { score: 10, maxScore: 10, percentage: 100 },
-        totalScore: 0,
-        totalMaxScore: 95,
+        emailVerified: { score: 10, maxScore: 10, percentage: 100 },
+        idVerified: { score: 0, maxScore: 20, percentage: 0 },
+        completedTransactions: { score: 45, maxScore: 45, percentage: 100 },
+        activityDecay: { score: 55, maxScore: 55, percentage: 100 },
+        totalScore: 55,
+        totalMaxScore: 75,
       });
 
       const result = await service.getTrustScore('user-123', false);
@@ -206,44 +188,25 @@ describe('TrustScoreService', () => {
   describe('getScoreBreakdown', () => {
     it('should return detailed breakdown', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.verificationDocument.findFirst.mockResolvedValue(null);
 
       const breakdown = await service.getScoreBreakdown('user-123');
 
       expect(breakdown).toEqual({
-        accountAge: expect.objectContaining({
+        emailVerified: { score: 10, maxScore: 10, percentage: 100 },
+        idVerified: { score: 0, maxScore: 20, percentage: 0 },
+        completedTransactions: expect.objectContaining({
           score: expect.any(Number),
-          maxScore: 10,
+          maxScore: 45,
           percentage: expect.any(Number),
         }),
-        emailVerification: { score: 5, maxScore: 5, percentage: 100 },
-        twoFactorAuth: { score: 5, maxScore: 5, percentage: 100 },
-        profileCompleteness: expect.objectContaining({
+        activityDecay: expect.objectContaining({
           score: expect.any(Number),
-          maxScore: 15,
+          maxScore: expect.any(Number),
           percentage: expect.any(Number),
         }),
-        transactionHistory: expect.objectContaining({
-          score: expect.any(Number),
-          maxScore: 25,
-          percentage: expect.any(Number),
-        }),
-        propertyListings: expect.objectContaining({
-          score: expect.any(Number),
-          maxScore: 15,
-          percentage: expect.any(Number),
-        }),
-        apiKeyUsage: expect.objectContaining({
-          score: expect.any(Number),
-          maxScore: 10,
-          percentage: expect.any(Number),
-        }),
-        passwordSecurity: expect.objectContaining({
-          score: expect.any(Number),
-          maxScore: 10,
-          percentage: expect.any(Number),
-        }),
-        totalScore: 0,
-        totalMaxScore: 95,
+        totalScore: expect.any(Number),
+        totalMaxScore: 75,
       });
     });
   });
@@ -282,41 +245,31 @@ describe('TrustScoreService', () => {
     });
   });
 
-  describe('calculateAccountAge', () => {
-    it('should calculate correct account age scores', async () => {
-      const oldUser = {
+  describe('decay algorithm', () => {
+    it('should apply decay for inactive users', async () => {
+      const inactiveUser = {
         ...mockUser,
-        createdAt: new Date('2022-01-01'), // Over 1 year old
+        lastActivityAt: new Date(Date.now() - 90 * 86400000), // 3 months inactive
       };
-      mockPrismaService.user.findUnique.mockResolvedValue(oldUser);
+      mockPrismaService.user.findUnique.mockResolvedValue(inactiveUser);
+      mockPrismaService.verificationDocument.findFirst.mockResolvedValue(null);
 
-      const breakdown = await service.getScoreBreakdown('user-123');
-      expect(breakdown.accountAge.score).toBe(10);
+      const result = await service.calculateTrustScore('user-123');
 
-      const newUser = {
-        ...mockUser,
-        createdAt: new Date(Date.now() - 30 * 86400000), // 30 days old
-      };
-      mockPrismaService.user.findUnique.mockResolvedValue(newUser);
-
-      const newBreakdown = await service.getScoreBreakdown('user-123');
-      expect(newBreakdown.accountAge.score).toBe(4);
+      expect(result.breakdown.activityDecay.percentage).toBeLessThan(100);
     });
   });
 
-  describe('calculateProfileCompleteness', () => {
-    it('should score profile completeness correctly', async () => {
-      const incompleteUser = {
-        ...mockUser,
-        firstName: 'John',
-        lastName: null,
-        phone: null,
-        avatar: null,
-      };
-      mockPrismaService.user.findUnique.mockResolvedValue(incompleteUser);
+  describe('recalculateOnEvent', () => {
+    it('should recalculate on transaction completion', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.verificationDocument.findFirst.mockResolvedValue(null);
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
 
-      const breakdown = await service.getScoreBreakdown('user-123');
-      expect(breakdown.profileCompleteness.score).toBe(6); // firstName + email
+      const result = await service.recalculateOnEvent('user-123', 'TRANSACTION_COMPLETED');
+
+      expect(result).toBeDefined();
+      expect(result.userId).toBe('user-123');
     });
   });
 });

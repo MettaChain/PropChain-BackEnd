@@ -7,10 +7,16 @@ import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { UserRole } from '../types/prisma.types';
+import { UserRole, UserTier } from '../types/prisma.types';
 
 function makeContext(role: UserRole, requiredRoles: UserRole[] | null) {
-  const user: AuthUserPayload = { sub: 'u1', email: 'u@test.com', role, type: 'access' };
+  const user: AuthUserPayload = {
+    sub: 'u1',
+    email: 'u@test.com',
+    role,
+    tier: UserTier.FREE,
+    type: 'access',
+  };
   const request = { authUser: user };
   return {
     switchToHttp: () => ({ getRequest: () => request }),
@@ -123,12 +129,14 @@ describe('PropertiesController - RBAC', () => {
     sub: 'admin-1',
     email: 'admin@test.com',
     role: UserRole.ADMIN,
+    tier: UserTier.FREE,
     type: 'access',
   };
   const regularUser: AuthUserPayload = {
     sub: 'user-1',
     email: 'user@test.com',
     role: UserRole.USER,
+    tier: UserTier.FREE,
     type: 'access',
   };
 

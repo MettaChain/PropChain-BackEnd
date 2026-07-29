@@ -4,7 +4,7 @@ import { Controller, Get, Post, Query, Body, UseGuards, Request } from '@nestjs/
 import { SearchService, SearchQuery } from './search.service';
 import { SearchAutocompleteService } from './search-autocomplete.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -14,7 +14,8 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-@ApiTags('search')
+@ApiTags('Search')
+@ApiBearerAuth('access-token')
 @Controller('search')
 @UseGuards(JwtAuthGuard)
 export class SearchController {
@@ -42,9 +43,14 @@ export class SearchController {
   @ApiOperation({ summary: 'Get live autocomplete suggestions for partial input' })
   @ApiQuery({ name: 'q', required: true, description: 'Partial search query' })
   @ApiQuery({ name: 'limit', required: false, description: 'Max number of suggestions' })
-  async autocomplete(@Query('q') query: string, @Query('limit') limit?: string) {
+  async autocomplete(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+    @Request() req?: AuthenticatedRequest,
+  ) {
     const parsedLimit = limit ? Math.max(1, Math.min(20, Number(limit))) : 10;
-    return this.searchAutocompleteService.getSuggestions(query || '', parsedLimit);
+    const userId = req?.user?.id;
+    return this.searchAutocompleteService.getSuggestions(query || '', parsedLimit, userId);
   }
 
   @Get('filters/saved')

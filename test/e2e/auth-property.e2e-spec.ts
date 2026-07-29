@@ -147,6 +147,7 @@ class FakePrismaService {
   } as any;
 
   blacklistedToken = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     findUnique: async ({ where }: any) => null,
     create: async (args: any) => args.data,
     findMany: async () => [],

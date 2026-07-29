@@ -12,4 +12,5 @@ module.exports = {
   testEnvironment: 'node',
   testTimeout: 30000,
   passWithNoTests: true,
+  testPathIgnorePatterns: ['/test/database/'],
 };

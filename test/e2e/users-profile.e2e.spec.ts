@@ -2,11 +2,14 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaService } from '../../src/database/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { UsersController } from '../../src/users/users.controller';
 import { UsersService } from '../../src/users/users.service';
 import { ActivityLogService } from '../../src/users/activity-log.service';
 import { SessionsService } from '../../src/sessions/sessions.service';
 import { AuthService } from '../../src/auth/auth.service';
+import { AccountDeletionService } from '../../src/users/account-deletion.service';
+import { DataExportService } from '../../src/users/data-export.service';
 
 class FakePrismaService {
   users = new Map<string, any>();
@@ -119,6 +122,12 @@ describe('User profile e2e', () => {
         SessionsService,
         { provide: PrismaService, useValue: fakePrisma as any },
         {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string, defaultValue?: any) => defaultValue,
+          },
+        },
+        {
           provide: AuthService,
           useValue: {
             validateAccessToken: async () => ({
@@ -127,6 +136,21 @@ describe('User profile e2e', () => {
               role: 'USER' as any,
               type: 'access',
             }),
+          } as any,
+        },
+        {
+          provide: AccountDeletionService,
+          useValue: {
+            requestDeletion: async () => ({}),
+            cancelDeletion: async () => ({}),
+            performScheduledDeletion: async () => ({ deletedCount: 0 }),
+          } as any,
+        },
+        {
+          provide: DataExportService,
+          useValue: {
+            exportPersonalData: async () => ({}),
+            streamExportArchive: async () => ({}) as any,
           } as any,
         },
       ],

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PropertiesService } from './properties.service';
 import { PrismaService } from '../database/prisma.service';
 import { FraudService } from '../fraud/fraud.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { GeocodingService } from './geocoding.service';
@@ -69,7 +70,7 @@ describe('PropertiesService - Agent Assignment', () => {
       const result = await service.assignAgent(
         'prop-1',
         { agentId: 'agent-1', commissionRate: 0.05, contactPhone: '12345' },
-        { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
+        { sub: 'owner-1', email: 'owner@test.com', role: 'USER', tier: 'FREE', type: 'access' },
       );
 
       expect((prisma as any).propertyAgent.create).toHaveBeenCalledWith({
@@ -92,7 +93,13 @@ describe('PropertiesService - Agent Assignment', () => {
         service.assignAgent(
           'prop-1',
           { agentId: 'agent-1' },
-          { sub: 'other-user', email: 'other@test.com', role: 'USER', type: 'access' },
+          {
+            sub: 'other-user',
+            email: 'other@test.com',
+            role: 'USER',
+            tier: 'FREE',
+            type: 'access',
+          },
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
@@ -105,7 +112,7 @@ describe('PropertiesService - Agent Assignment', () => {
         service.assignAgent(
           'prop-1',
           { agentId: 'user-1' },
-          { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
+          { sub: 'owner-1', email: 'owner@test.com', role: 'USER', tier: 'FREE', type: 'access' },
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
@@ -124,7 +131,7 @@ describe('PropertiesService - Agent Assignment', () => {
         'prop-1',
         'agent-1',
         { commissionRate: 0.04 },
-        { sub: 'owner-1', email: 'owner@test.com', role: 'USER', type: 'access' },
+        { sub: 'owner-1', email: 'owner@test.com', role: 'USER', tier: 'FREE', type: 'access' },
       );
 
       expect((prisma as any).propertyAgent.update).toHaveBeenCalledWith({
