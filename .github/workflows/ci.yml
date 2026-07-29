@@ -94,7 +94,7 @@ jobs:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
 
     - name: Run tests
-      run: npm test
+      run: npm run test:all
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
         JWT_SECRET: test-secret-key
