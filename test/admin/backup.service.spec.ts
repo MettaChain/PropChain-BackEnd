@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { BackupStatus, BackupTrigger } from '@prisma/client';
 import { BackupService } from '../../src/backup/backup.service';
 import { PrismaService } from '../../src/database/prisma.service';

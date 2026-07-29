@@ -1,0 +1,118 @@
+name: API Performance Benchmark
+
+on:
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 6 * * 1' # Weekly on Monday at 6am UTC
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Number of iterations per endpoint'
+        required: false
+        default: '50'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+
+      - name: Sync database schema
+        run: npx prisma db push --skip-generate --accept-data-loss
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start application
+        run: |
+          npm run start:dist &
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:3000/api > /dev/null 2>&1; then
+              echo "Server is up"
+              break
+            fi
+            echo "Waiting for server... ($i)"
+            sleep 2
+          done
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: bench-secret
+          JWT_REFRESH_SECRET: bench-refresh-secret
+          NODE_ENV: production
+
+      - name: Run benchmarks
+        run: npx ts-node scripts/benchmark.ts
+        env:
+          BENCHMARK_BASE_URL: http://localhost:3000/api
+          BENCHMARK_ITERATIONS: ${{ github.event.inputs.iterations || '100' }}
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const report = JSON.parse(fs.readFileSync('benchmark-results.json', 'utf8'));
+              const lines = ['## API Benchmark Results\n'];
+              lines.push(`| Endpoint | p50 (ms) | p95 (ms) | p99 (ms) | Budget (ms) | Status |`);
+              lines.push(`|----------|----------|----------|----------|-------------|--------|`);
+              for (const r of report.results) {
+                const status = r.passed ? 'PASS' : 'FAIL';
+                lines.push(`| ${r.endpoint} | ${r.latencyMs.p50} | ${r.latencyMs.p95} | ${r.latencyMs.p99} | ${r.budgetMs} | ${status} |`);
+              }
+              lines.push(`\n**Summary:** ${report.summary.passed}/${report.summary.total} passed`);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: lines.join('\n'),
+              });
+            } catch (e) {
+              console.log('Could not post benchmark results:', e.message);
+            }

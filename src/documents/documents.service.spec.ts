@@ -6,6 +6,7 @@ import { PrismaService } from '../database/prisma.service';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let prismaService: PrismaService;
 
   const mockPrismaService = {
@@ -249,7 +250,10 @@ describe('DocumentsService', () => {
     it('update', async () => {
       mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
       mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', status: 'VERIFIED' });
-      expect(await service.update('doc-1', { status: 'VERIFIED' } as any)).toHaveProperty('status', 'VERIFIED');
+      expect(await service.update('doc-1', { status: 'VERIFIED' } as any)).toHaveProperty(
+        'status',
+        'VERIFIED',
+      );
     });
 
     it('remove', async () => {
@@ -262,9 +266,11 @@ describe('DocumentsService', () => {
   describe('Extended Coverage Operations - Branches', () => {
     it('should execute methods with alternate parameters to trigger secondary branches', async () => {
       const safeExec = async (promise: any) => {
-        try { await promise; } catch (e) {}
+        try {
+          await promise;
+        } catch (e) {}
       };
-      
+
       // Execute standard paths
       await safeExec(service.getVersions('doc-1', 'user-1', 'USER'));
       await safeExec(service.getVersion('doc-1', 'v1', 'user-1', 'USER'));
@@ -286,5 +292,4 @@ describe('DocumentsService', () => {
       await safeExec(service.signDocument('doc-1', {} as any));
     });
   });
-  
 });

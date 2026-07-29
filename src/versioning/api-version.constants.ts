@@ -41,6 +41,51 @@ export const DEFAULT_API_VERSION = ApiVersionEnum.V2;
 export const SUPPORTED_API_VERSIONS = Object.keys(API_VERSIONS) as ApiVersionEnum[];
 
 /**
+ * Minimum deprecation notice period in days (RFC requirement)
+ */
+export const MIN_DEPRECATION_NOTICE_DAYS = 90;
+
+/**
+ * Deprecation policy configuration
+ */
+export const DEPRECATION_POLICY = {
+  minNoticeDays: MIN_DEPRECATION_NOTICE_DAYS,
+  warningCode: 299,
+  documentation: 'https://docs.propchain.io/api-deprecation',
+  supportEmail: 'api-support@propchain.io',
+  migrationGuide: 'https://docs.propchain.io/migration',
+};
+
+/**
+ * Resolve the HTTP-date string for a Date, returning undefined if no date.
+ */
+export function toHttpDate(date?: Date): string | undefined {
+  if (!date) return undefined;
+  return date.toUTCString();
+}
+
+/**
+ * Check whether a deprecated version's sunset date has passed.
+ * If so, auto-transition status to 'sunset'.
+ */
+export function resolveEffectiveStatus(
+  meta: ApiVersionMetadata,
+): 'active' | 'deprecated' | 'sunset' {
+  if (meta.status === 'active') return 'active';
+  if (meta.sunsetDate && new Date() >= meta.sunsetDate) return 'sunset';
+  return meta.status;
+}
+
+/**
+ * Compute the days remaining before sunset (null if no sunset date).
+ */
+export function getSunsetCountdown(meta: ApiVersionMetadata): number | null {
+  if (!meta.sunsetDate) return null;
+  const diff = meta.sunsetDate.getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+/**
  * Get version metadata
  */
 export function getVersionMetadata(version: ApiVersionEnum): ApiVersionMetadata | null {

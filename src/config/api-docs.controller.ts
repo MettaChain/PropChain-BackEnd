@@ -8,6 +8,7 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Response } from 'express';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ApiVersionEnum, API_VERSIONS } from '../versioning/api-version.constants';
 
 @ApiExcludeController()

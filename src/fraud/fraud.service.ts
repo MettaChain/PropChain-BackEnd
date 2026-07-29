@@ -5,6 +5,9 @@ import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SmsService } from '../notifications/sms.service';
+import { GeoLocationService } from './geo-location.service';
+import { DeviceFingerprintService } from './device-fingerprint.service';
 import {
   AddFraudInvestigationNoteDto,
   BlockFraudUserDto,
@@ -47,7 +50,10 @@ export class FraudService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
     private readonly configService: ConfigService,
+    private readonly geoLocationService: GeoLocationService,
+    private readonly deviceFingerprintService: DeviceFingerprintService,
   ) {
     this.fraudAlertRecipients = (this.configService.get<string>('FRAUD_ALERT_RECIPIENTS') ?? '')
       .split(',')
@@ -686,10 +692,8 @@ export class FraudService {
         },
       });
 
-      // Send notification only if severity increased or occurrence count is a multiple of 5
-      // This prevents spamming admins with repeated low-severity alerts
       if (severityIncreased || updated.occurrenceCount % 5 === 0) {
-        await this.notifySecurityTeam(updated, true);
+        await this.deliverMultiChannelNotifications(updated, payload);
       }
 
       if (
@@ -753,7 +757,7 @@ export class FraudService {
       });
     }
 
-    await this.notifySecurityTeam(created, false);
+    await this.deliverMultiChannelNotifications(created, payload);
 
     if (payload.autoBlockUser && payload.userId) {
       await this.blockUserForFraud(
@@ -765,6 +769,88 @@ export class FraudService {
     }
 
     return created;
+  }
+
+  /**
+   * Multi-channel notification delivery based on alert severity:
+   *  - ALL severities: in-app + email to security team
+   *  - HIGH + CRITICAL: email to user
+   *  - CRITICAL: SMS to user (if available)
+   */
+  private async deliverMultiChannelNotifications(alert: any, payload: AlertPayload) {
+    try {
+      await this.notifySecurityTeam(alert, false);
+    } catch (error) {
+      this.logger.error(`Failed to send security team notification: ${error.message}`);
+    }
+
+    if (
+      (payload.severity === FraudSeverity.HIGH || payload.severity === FraudSeverity.CRITICAL) &&
+      alert.user?.email
+    ) {
+      try {
+        await this.emailService.sendEmail({
+          to: alert.user.email,
+          subject: `[Security Alert][${payload.severity}] ${payload.title}`,
+          html: `
+            <h2>Fraud Alert - ${payload.severity}</h2>
+            <p>${payload.description}</p>
+            <p>If you did not perform this action, please secure your account immediately and contact support.</p>
+          `,
+          userId: payload.userId,
+          emailType: 'FRAUD_ALERT',
+        });
+      } catch (error) {
+        this.logger.error(`Failed to send fraud alert email to user: ${error.message}`);
+      }
+    }
+
+    if (payload.severity === FraudSeverity.CRITICAL && alert.user?.email) {
+      try {
+        const phone = await this.getUserPhone(payload.userId);
+        if (phone) {
+          await this.smsService.sendSms(
+            phone,
+            `[CRITICAL Security Alert] ${payload.title}. ${payload.description} Please secure your account immediately.`,
+          );
+        } else {
+          this.logger.warn(`No phone number for user ${payload.userId}, skipping SMS notification`);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to send fraud alert SMS: ${error.message}`);
+      }
+    }
+
+    if (payload.userId) {
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: payload.userId,
+            title: `Security Alert: ${payload.title}`,
+            message: payload.description,
+            type: 'FRAUD_ALERT',
+            status: 'PENDING',
+            metadata: {
+              severity: payload.severity,
+              pattern: payload.pattern,
+              score: payload.score,
+              alertId: alert.id,
+            },
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to create in-app notification: ${error.message}`);
+      }
+    }
+  }
+
+  private async getUserPhone(userId?: string): Promise<string | null> {
+    if (!userId) return null;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    });
+    return user?.phone ?? null;
   }
 
   private async findOpenAlert(payload: AlertPayload) {
@@ -950,6 +1036,191 @@ export class FraudService {
     } catch (error) {
       this.logger.error(`Failed to send fraud alert notification: ${error.message}`);
     }
+  }
+
+  /**
+   * Public entry point invoked by the auth flow (#961). Captures the geo
+   * location + device fingerprint, persists them on the latest Session row,
+   * then runs every login-time fraud evaluation.
+   */
+  async recordLoginContext(
+    userId: string,
+    input: {
+      ipAddress?: string;
+      userAgent?: string;
+      acceptLanguage?: string;
+      geo?: import('./geo-location.service').GeoLocation | null;
+      fingerprint?: string | null;
+      accessTokenJti?: string;
+      refreshTokenJti?: string;
+    },
+  ) {
+    const geoLocation = input.geo ?? null;
+    const fingerprint = input.fingerprint ?? null;
+
+    // Persist on the most-recent session so we have a historical record.
+    if (input.accessTokenJti) {
+      try {
+        await this.prisma.session.updateMany({
+          where: { userId, accessTokenJti: input.accessTokenJti },
+          data: {
+            deviceFingerprint: fingerprint ?? undefined,
+            geoCountryCode: geoLocation?.countryCode ?? undefined,
+            geoCity: geoLocation?.city ?? undefined,
+          },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to attach geo/fingerprint to session: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    const alerts: unknown[] = [];
+    const [velocity, impossibleTravel, deviceMismatch] = await Promise.all([
+      this.evaluateVelocity(userId, input.ipAddress),
+      geoLocation?.countryCode
+        ? this.evaluateImpossibleTravel(userId, geoLocation.countryCode)
+        : Promise.resolve(null),
+      fingerprint ? this.evaluateDeviceFingerprint(userId, fingerprint) : Promise.resolve(null),
+    ]);
+
+    if (velocity) alerts.push(velocity);
+    if (impossibleTravel) alerts.push(impossibleTravel);
+    if (deviceMismatch) alerts.push(deviceMismatch);
+
+    if (alerts.length > 0 && input.accessTokenJti) {
+      // Touch the session to bump lastActivityAt — useful for downstream UIs.
+      try {
+        await this.prisma.session.updateMany({
+          where: { userId, accessTokenJti: input.accessTokenJti },
+          data: { lastActivityAt: new Date() },
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+
+    return { alerts, geoLocation, fingerprint };
+  }
+
+  /**
+   * Velocity check — fires when the same account performs > N successful
+   * logins within M minutes.
+   */
+  async evaluateVelocity(userId: string, ipAddress?: string) {
+    const windowMinutes = 5;
+    const threshold = 10;
+    const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000);
+
+    const recentLogins = await this.prisma.loginHistory.count({
+      where: {
+        userId,
+        timestamp: { gte: windowStart },
+        ...(ipAddress ? { ipAddress } : {}),
+      },
+    });
+
+    if (recentLogins < threshold) {
+      return null;
+    }
+
+    return this.createOrUpdateAlert({
+      userId,
+      pattern: FraudPattern.VELOCITY_EXCEEDED,
+      severity: recentLogins >= 25 ? FraudSeverity.HIGH : FraudSeverity.MEDIUM,
+      score: recentLogins >= 25 ? 80 : 62,
+      title: 'High login velocity detected',
+      description: `${recentLogins} successful logins in the last ${windowMinutes} minutes exceed the established threshold.`,
+      evidence: {
+        recentLogins,
+        windowMinutes,
+        threshold,
+        ipAddress: ipAddress ?? null,
+      },
+    });
+  }
+
+  /**
+   * Impossible-travel alert — fires when login attempts come from 2+
+   * distinct countries within the last hour.
+   */
+  async evaluateImpossibleTravel(userId: string, geoCountryCode: string) {
+    if (!geoCountryCode) {
+      return null;
+    }
+    const windowStart = new Date(Date.now() - 60 * 60 * 1000);
+    const distinctCountries = await this.prisma.session.findMany({
+      where: { userId, createdAt: { gte: windowStart } },
+      select: { geoCountryCode: true },
+      distinct: ['geoCountryCode'],
+    });
+    const codes = Array.from(
+      new Set(
+        distinctCountries
+          .map((row) => row.geoCountryCode)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+    if (!codes.includes(geoCountryCode)) {
+      codes.push(geoCountryCode);
+    }
+    if (codes.length < 2) {
+      return null;
+    }
+
+    return this.createOrUpdateAlert({
+      userId,
+      pattern: FraudPattern.IMPOSSIBLE_TRAVEL,
+      severity: codes.length >= 3 ? FraudSeverity.HIGH : FraudSeverity.MEDIUM,
+      score: codes.length >= 3 ? 76 : 60,
+      title: 'Impossible travel detected',
+      description: `Recent logins originated from ${codes.length} distinct countries (${codes.join(', ')}).`,
+      evidence: {
+        countries: codes,
+        currentCountry: geoCountryCode,
+        windowHours: 1,
+      },
+    });
+  }
+
+  /**
+   * Device-fingerprint mismatch — stores the new fingerprint is associated
+   * with no prior session, AND a previous fingerprint on the account
+   * exists.
+   */
+  async evaluateDeviceFingerprint(userId: string, fingerprint: string) {
+    if (!fingerprint) {
+      return null;
+    }
+    const recent = await this.prisma.session.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { deviceFingerprint: true, createdAt: true },
+    });
+    const priorFingerprints = recent
+      .map((row) => row.deviceFingerprint)
+      .filter((value): value is string => Boolean(value) && value !== fingerprint);
+    if (priorFingerprints.length === 0) {
+      return null;
+    }
+
+    return this.createOrUpdateAlert({
+      userId,
+      pattern: FraudPattern.DEVICE_FINGERPRINT_MISMATCH,
+      severity: FraudSeverity.MEDIUM,
+      score: 55,
+      title: 'Login from new device fingerprint',
+      description:
+        'A session was opened from a device fingerprint that has previously not been seen on this account.',
+      evidence: {
+        previousFingerprintCount: priorFingerprints.length,
+        sampleWindow: 5,
+      },
+    });
   }
 
   private severityRank(severity: FraudSeverity | string) {

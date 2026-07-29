@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import {

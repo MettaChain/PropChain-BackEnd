@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Body, Controller, Get, Param, Patch, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { EmailDigestService } from './email-digest.service';

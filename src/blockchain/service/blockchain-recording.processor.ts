@@ -21,7 +21,9 @@ export class BlockchainRecordingProcessor {
     // Use recordTransactionOnBlockchain with minimal required data
     // The full recording should be initiated by the controller with complete data
     // For queue processing, we just log and mark as processed
-    this.logger.log(`Blockchain recording job ${job.id} processed for transaction ${job.data.transactionId}`);
+    this.logger.log(
+      `Blockchain recording job ${job.id} processed for transaction ${job.data.transactionId}`,
+    );
     return { processed: true, transactionId: job.data.transactionId };
   }
 }

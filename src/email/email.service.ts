@@ -4,9 +4,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { TrackingService } from '../tracking/tracking.service';
+import { I18nService } from '../i18n/i18n.service';
 import { v4 as uuidv4 } from 'uuid';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+
+const UNSUBSCRIBE_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 export interface EmailOptions {
   to: string;
@@ -17,6 +20,7 @@ export interface EmailOptions {
   emailType?: string;
   template?: string;
   context?: any;
+  language?: string;
 }
 
 export interface FraudAlertEmailPayload {
@@ -49,6 +53,7 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly trackingService: TrackingService,
+    private readonly i18nService: I18nService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
   ) {}
 
@@ -142,7 +147,7 @@ export class EmailService {
     if (type === 'HARD') {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { emailStatus: 'INVALID' },
+        data: { emailStatus: 'BOUNCED' },
       });
 
       await this.prisma.userPreferences.upsert({
@@ -153,6 +158,10 @@ export class EmailService {
           emailNotifications: false,
         },
       });
+
+      this.logger.warn(
+        `Hard bounce processed for ${email}: user marked as BOUNCED, email notifications disabled`,
+      );
     } else {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -161,9 +170,105 @@ export class EmailService {
     }
   }
 
+  async handleComplaint(email: string, rawEvent?: any): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return;
+
+    await this.prisma.emailBounce.create({
+      data: {
+        userId: user.id,
+        email,
+        bounceType: 'HARD',
+        reason: 'Spam complaint',
+        rawEvent,
+        spamAction: 'COMPLAINED',
+      },
+    });
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailStatus: 'BOUNCED' },
+    });
+
+    await this.prisma.userPreferences.upsert({
+      where: { userId: user.id },
+      update: { emailNotifications: false },
+      create: {
+        userId: user.id,
+        emailNotifications: false,
+      },
+    });
+
+    this.logger.warn(`Spam complaint processed for ${email}: user marked as BOUNCED`);
+  }
+
+  async handleUnsubscribe(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return;
+
+    await this.prisma.userPreferences.upsert({
+      where: { userId: user.id },
+      update: { emailNotifications: false },
+      create: {
+        userId: user.id,
+        emailNotifications: false,
+      },
+    });
+
+    this.logger.log(`Unsubscribe processed for ${email}`);
+  }
+
+  async getSenderReputation() {
+    const [totalBounced, totalComplaints, totalUsers, bouncedUsers, complainedUsers] =
+      await Promise.all([
+        this.prisma.emailBounce.count({ where: { bounceType: 'HARD' } }),
+        this.prisma.emailBounce.count({ where: { spamAction: 'COMPLAINED' } }),
+        this.prisma.user.count(),
+        this.prisma.user.count({ where: { emailStatus: 'BOUNCED' } }),
+        this.prisma.user.count({ where: { isBlocked: false } }),
+      ]);
+
+    const bounceRate = totalUsers > 0 ? (bouncedUsers / totalUsers) * 100 : 0;
+    const complaintRate =
+      totalUsers > 0 ? (complainedUsers > 0 ? (complainedUsers / totalUsers) * 100 : 0) : 0;
+    const reputationScore = Math.max(0, 100 - bounceRate * 10 - complaintRate * 20);
+
+    return {
+      totals: {
+        totalUsers,
+        bouncedUsers,
+        totalBouncedEvents: totalBounced,
+        totalComplaints,
+      },
+      rates: {
+        bounceRate: Math.round(bounceRate * 100) / 100,
+        complaintRate: Math.round(complaintRate * 100) / 100,
+      },
+      reputationScore: Math.round(reputationScore * 100) / 100,
+      health: reputationScore >= 90 ? 'GOOD' : reputationScore >= 70 ? 'FAIR' : 'POOR',
+    };
+  }
+
+  buildListUnsubscribeHeader(userId?: string, email?: string): string | null {
+    if (!userId || !email) return null;
+    const token = Buffer.from(`${userId}:${email}`).toString('base64');
+    return `<${UNSUBSCRIBE_URL}/unsubscribe?token=${token}>`;
+  }
+
   async sendEmail(options: EmailOptions): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const baseUrl = this.configService.get<string>('API_URL', 'http://localhost:3000/api');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const html = options.html;
+
+    if (options.language && options.template) {
+      const lang = options.language;
+      const i18nKey = `email.${options.template}`;
+      const translated = this.i18nService.translate(i18nKey, lang, options.context);
+      if (translated !== i18nKey) {
+        options.subject = options.subject || translated;
+      }
+    }
 
     // 1. Check if user is blocked or has invalid email
     if (options.userId) {
@@ -197,6 +302,8 @@ export class EmailService {
 
     // 3. Add to Queue
     try {
+      const listUnsubscribe = this.buildListUnsubscribeHeader(options.userId, options.to);
+
       await this.mailQueue.add(
         'sendEmail',
         {
@@ -206,6 +313,9 @@ export class EmailService {
           context: options.context,
           html: options.html,
           text: options.text,
+          headers: {
+            ...(listUnsubscribe ? { 'List-Unsubscribe': listUnsubscribe } : {}),
+          },
         },
         {
           attempts: 3,
@@ -223,5 +333,29 @@ export class EmailService {
       this.logger.error(`❌ Failed to queue email to ${options.to}: ${error.message}`);
       throw error;
     }
+  }
+
+  async sendLocalizedEmail(
+    to: string,
+    templateKey: string,
+    userId: string,
+    params?: Record<string, string | number>,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { languagePreference: true },
+    });
+
+    const language = user?.languagePreference || 'en';
+    const translated = this.i18nService.translate(templateKey, language, params);
+
+    await this.sendEmail({
+      to,
+      subject: translated,
+      template: templateKey.replace('.', '-'),
+      context: params,
+      userId,
+      language,
+    });
   }
 }
