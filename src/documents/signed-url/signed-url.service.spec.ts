@@ -4,7 +4,7 @@ import { SignedUrlRequest, SignedUrlResponse } from './signed-url-provider.inter
 
 describe('SignedUrlService', () => {
   let service: SignedUrlService;
-  
+
   // Create a mock provider that mimics the SignedUrlProvider interface
   const mockProvider = {
     getSignedUrl: jest.fn(),
@@ -36,7 +36,7 @@ describe('SignedUrlService', () => {
       mockProvider.getSignedUrl.mockResolvedValue({ url: 'http://signed' } as SignedUrlResponse);
       
       const result = await service.getSignedUrl(payload);
-      
+
       expect(mockProvider.getSignedUrl).toHaveBeenCalledWith(payload);
       expect(result).toEqual({ url: 'http://signed' });
     });

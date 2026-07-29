@@ -42,6 +42,7 @@ export interface ApiKey {
   keyHash: string;
   permissions: string[];
   usageCount: number;
+  monthlyQuota: number | null;
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   revokedAt: Date | null;
@@ -68,6 +69,12 @@ export enum UserRole {
   USER = 'USER',
   ADMIN = 'ADMIN',
   AGENT = 'AGENT',
+}
+
+export enum UserTier {
+  FREE = 'FREE',
+  PREMIUM = 'PREMIUM',
+  ENTERPRISE = 'ENTERPRISE',
 }
 
 export enum PropertyStatus {
@@ -130,6 +137,12 @@ export enum MilestoneStatus {
   PENDING = 'PENDING',
   COMPLETED = 'COMPLETED',
   DELAYED = 'DELAYED',
+}
+
+export enum SpamAction {
+  NONE = 'NONE',
+  COMPLAINED = 'COMPLAINED',
+  UNSUBSCRIBED = 'UNSUBSCRIBED',
 }
 
 export interface PropertyAgent {

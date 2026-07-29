@@ -46,7 +46,9 @@ export class PropertyTaxService {
         {
           year: new Date().getFullYear(),
           amount: Number(property.annualTaxAmount),
-          assessmentValue: property.taxAssessmentValue ? Number(property.taxAssessmentValue) : undefined,
+          assessmentValue: property.taxAssessmentValue
+            ? Number(property.taxAssessmentValue)
+            : undefined,
           taxRate: property.taxRate ? Number(property.taxRate) : undefined,
         },
       ];
@@ -76,9 +78,10 @@ export class PropertyTaxService {
       const sorted = [...records].sort((a, b) => b.year - a.year);
       const latest = sorted[0];
       const previous = sorted[1];
-      yearOverYearChange = previous.amount > 0
-        ? Math.round(((latest.amount - previous.amount) / previous.amount) * 10000) / 100
-        : null;
+      yearOverYearChange =
+        previous.amount > 0
+          ? Math.round(((latest.amount - previous.amount) / previous.amount) * 10000) / 100
+          : null;
     }
 
     return {

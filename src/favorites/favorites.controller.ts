@@ -8,12 +8,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FavoritesService } from './favorites.service';
 import { ListFavoritesQueryDto } from './dto/favorite.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 
+@ApiTags('Favorites')
 @Controller('favorites')
 export class FavoritesController {
   constructor(private readonly favoritesService: FavoritesService) {}
@@ -21,6 +23,7 @@ export class FavoritesController {
   /**
    * Add a property to the current user's favorites.
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post(':propertyId')
   add(
@@ -33,6 +36,7 @@ export class FavoritesController {
   /**
    * Remove a property from the current user's favorites.
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Delete(':propertyId')
   remove(
@@ -45,6 +49,7 @@ export class FavoritesController {
   /**
    * List the current user's favorites (paginated).
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get()
   list(@CurrentUser() user: AuthUserPayload, @Query() query: ListFavoritesQueryDto) {
@@ -57,6 +62,7 @@ export class FavoritesController {
   /**
    * Total count of favorites for the current user.
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get('count')
   async myCount(@CurrentUser() user: AuthUserPayload) {
@@ -67,6 +73,7 @@ export class FavoritesController {
   /**
    * Whether a property is currently favorited by the user.
    */
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get(':propertyId/status')
   async status(

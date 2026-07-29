@@ -13,7 +13,7 @@ import {
   UseGuards,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiBody, ApiResponse, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import {
@@ -30,6 +30,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
 import { UserRole } from '../types/prisma.types';
 
+@ApiTags('Documents')
+@ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
 export class DocumentsController {

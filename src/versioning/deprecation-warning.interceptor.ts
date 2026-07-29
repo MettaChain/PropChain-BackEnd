@@ -47,6 +47,7 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
   constructor(private reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse<Response>();
     const handler = context.getHandler();
@@ -70,7 +71,11 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
       }
 
       if (effective === 'deprecated') {
-        this.applyDeprecationHeaders(response, versionMeta as ApiVersionMetadata, deprecationMessage);
+        this.applyDeprecationHeaders(
+          response,
+          versionMeta as ApiVersionMetadata,
+          deprecationMessage,
+        );
       }
     } else if (isDeprecated) {
       this.applyDeprecationHeaders(response, undefined, deprecationMessage);
@@ -78,7 +83,12 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap((data: any) => {
-        if ((isDeprecated || versionMeta) && typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        if (
+          (isDeprecated || versionMeta) &&
+          typeof data === 'object' &&
+          data !== null &&
+          !Array.isArray(data)
+        ) {
           data._deprecationInfo = this.buildDeprecationPayload(versionMeta, deprecationMessage);
         }
       }),
@@ -107,7 +117,10 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
       response.setHeader('Link', `<${meta.documentation}>; rel="sunset"`);
     }
 
-    response.setHeader('X-Deprecation-Notice', `Minimum ${DEPRECATION_POLICY.minNoticeDays}-day deprecation window`);
+    response.setHeader(
+      'X-Deprecation-Notice',
+      `Minimum ${DEPRECATION_POLICY.minNoticeDays}-day deprecation window`,
+    );
     response.setHeader('X-Migration-Guide', DEPRECATION_POLICY.migrationGuide);
   }
 

@@ -11,7 +11,9 @@ import {
 
 describe('BlockchainService', () => {
   let service: BlockchainService;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let configService: ConfigService;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let prismaService: PrismaService;
 
   const mockConfigService = {

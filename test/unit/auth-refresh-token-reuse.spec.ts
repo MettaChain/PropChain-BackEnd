@@ -2,18 +2,26 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { AuthService } from '../../src/auth/auth.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { PrismaService } from '../../src/database/prisma.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { UsersService } from '../../src/users/users.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SessionsService } from '../../src/sessions/sessions.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { EmailService } from '../../src/email/email.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LoginRateLimitService } from '../../src/auth/login-rate-limit.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { FraudService } from '../../src/fraud/fraud.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { createSha256 } from '../../src/auth/security.utils';
 
-const ACCESS_SECRET = 'test-access-secret';
-const REFRESH_SECRET = 'test-refresh-secret';
+const ACCESS_SECRET = 'test-access-secret-at-least-32-characters-long';
+const REFRESH_SECRET = 'test-refresh-secret-at-least-32-characters-long';
 
 function signRefresh(payload: Record<string, any>) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { exp, ...rest } = payload;
   return jwt.sign(rest, REFRESH_SECRET, {
     expiresIn: '7d',
@@ -184,9 +192,9 @@ describe('AuthService.refreshToken – token-reuse attack', () => {
       isDeactivated: false,
     });
 
-    await expect(
-      service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA'),
-    ).rejects.toThrow('blocked');
+    await expect(service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA')).rejects.toThrow(
+      'blocked',
+    );
   });
 
   it('rejects refresh if user is deactivated', async () => {
@@ -200,9 +208,9 @@ describe('AuthService.refreshToken – token-reuse attack', () => {
       isDeactivated: true,
     });
 
-    await expect(
-      service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA'),
-    ).rejects.toThrow('deactivated');
+    await expect(service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA')).rejects.toThrow(
+      'deactivated',
+    );
   });
 
   it('rejects refresh if user no longer exists', async () => {
@@ -212,21 +220,27 @@ describe('AuthService.refreshToken – token-reuse attack', () => {
     mockPrisma.blacklistedToken.findUnique.mockResolvedValue(null);
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
-    await expect(
-      service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA'),
-    ).rejects.toThrow('no longer exists');
+    await expect(service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA')).rejects.toThrow(
+      'no longer exists',
+    );
   });
 
   it('rejects a token that is not a refresh token', async () => {
-    const accessPayload = { sub: 'user-1', email: 'user@example.com', role: 'USER', type: 'access', jti: 'access-jti' };
+    const accessPayload = {
+      sub: 'user-1',
+      email: 'user@example.com',
+      role: 'USER',
+      type: 'access',
+      jti: 'access-jti',
+    };
     const token = jwt.sign(accessPayload, REFRESH_SECRET, {
       expiresIn: '15m',
       issuer: 'PropChain',
     });
 
-    await expect(
-      service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA'),
-    ).rejects.toThrow('Invalid refresh token');
+    await expect(service.refreshToken({ refreshToken: token }, '1.2.3.4', 'UA')).rejects.toThrow(
+      'Invalid refresh token',
+    );
   });
 
   it('rejects an invalid or expired token', async () => {

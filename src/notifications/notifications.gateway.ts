@@ -80,7 +80,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   emitPropertyPriceChanged(propertyId: string, data: any) {
-    this.server.to(`property:${propertyId}`).emit('property:price_changed', { propertyId, ...data });
+    this.server
+      .to(`property:${propertyId}`)
+      .emit('property:price_changed', { propertyId, ...data });
     this.logger.log(`Emitted property:price_changed for ${propertyId}`);
   }
 

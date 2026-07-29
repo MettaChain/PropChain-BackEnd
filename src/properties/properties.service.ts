@@ -67,7 +67,13 @@ export class PropertiesService {
 
   private async shouldGeocode(
     propertyId: string,
-    addressFields: { address: string; city: string; state: string; zipCode: string; country: string },
+    addressFields: {
+      address: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      country: string;
+    },
   ): Promise<boolean> {
     const existing = await this.prisma.property.findUnique({
       where: { id: propertyId },
@@ -98,7 +104,13 @@ export class PropertiesService {
 
   private async attemptGeocode(
     propertyId: string,
-    addressFields: { address: string; city: string; state: string; zipCode: string; country: string },
+    addressFields: {
+      address: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      country: string;
+    },
   ): Promise<{ lat: number; lng: number } | null> {
     if (!(await this.shouldGeocode(propertyId, addressFields))) {
       return null;
@@ -163,16 +175,13 @@ export class PropertiesService {
     let resolvedLat = latitude;
     let resolvedLng = longitude;
     if (resolvedLat === undefined || resolvedLng === undefined) {
-      const geo = await this.attemptGeocode(
-        'new',
-        {
-          address: rest.address,
-          city: rest.city,
-          state: rest.state,
-          zipCode: rest.zipCode,
-          country: rest.country || 'USA',
-        },
-      );
+      const geo = await this.attemptGeocode('new', {
+        address: rest.address,
+        city: rest.city,
+        state: rest.state,
+        zipCode: rest.zipCode,
+        country: rest.country || 'USA',
+      });
       if (geo) {
         resolvedLat = geo.lat;
         resolvedLng = geo.lng;

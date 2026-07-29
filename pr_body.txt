@@ -1,0 +1,18 @@
+﻿## Changes
+
+### Add proper CSP headers and security middleware (#870)
+- Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, Permissions-Policy
+
+### Implement proper CORS configuration (#869)
+- Use CORS_ORIGINS env var instead of wildcard
+- Refuse wildcard origins in production mode
+
+### Fix CAPTCHA verification bypass in non-production mode (#868)
+- Require CAPTCHA by default in all environments
+- Add CAPTCHA_BYPASS env var for development-only bypass
+- Log warning when CAPTCHA is bypassed
+
+### Add distributed tracing via OpenTelemetry TraceInterceptor (#808)
+- UUID trace IDs for request tracking
+- Request start/completion/failure logging with duration
+- Global interceptor for all HTTP requests

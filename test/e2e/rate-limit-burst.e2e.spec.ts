@@ -13,6 +13,7 @@ import { RateLimitService } from '../../src/auth/rate-limit.service';
 import { RateLimitGuard } from '../../src/auth/guards/rate-limit.guard';
 import { RateLimitHeadersInterceptor } from '../../src/auth/interceptors/rate-limit-headers.interceptor';
 import { FraudService } from '../../src/fraud/fraud.service';
+import { ApiKeyAnalyticsService } from '../../src/auth/api-key-analytics.service';
 import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
@@ -87,12 +88,14 @@ describe('Rate-limit guard e2e – burst traffic', () => {
         },
         findFirst: async ({ where }: any) => {
           if (!where) return null;
-          return Array.from(users.values()).find((u) => {
-            for (const k of Object.keys(where)) {
-              if (u[k] !== where[k]) return false;
-            }
-            return true;
-          }) ?? null;
+          return (
+            Array.from(users.values()).find((u) => {
+              for (const k of Object.keys(where)) {
+                if (u[k] !== where[k]) return false;
+              }
+              return true;
+            }) ?? null
+          );
         },
         update: async ({ where, data }: any) => {
           const user = users.get(where.id);
@@ -100,6 +103,7 @@ describe('Rate-limit guard e2e – burst traffic', () => {
           Object.assign(user, data);
           return user;
         },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         updateMany: async ({ where, data }: any) => {
           for (const user of users.values()) {
             Object.assign(user, data);
@@ -122,7 +126,12 @@ describe('Rate-limit guard e2e – burst traffic', () => {
       fraudAlert: {
         findFirst: async () => null,
         findUnique: async () => null,
-        create: async ({ data }: any) => ({ id: nid(), ...data, occurrenceCount: 1, status: 'OPEN' }),
+        create: async ({ data }: any) => ({
+          id: nid(),
+          ...data,
+          occurrenceCount: 1,
+          status: 'OPEN',
+        }),
         update: async ({ data }: any) => data,
         findMany: async () => [],
         count: async () => 0,
@@ -187,6 +196,13 @@ describe('Rate-limit guard e2e – burst traffic', () => {
         RateLimitGuard,
         RateLimitHeadersInterceptor,
         Reflector,
+        {
+          provide: ApiKeyAnalyticsService,
+          useValue: {
+            trackUsage: jest.fn().mockResolvedValue(undefined),
+            getUsageStats: jest.fn().mockResolvedValue({}),
+          },
+        },
         { provide: PrismaService, useValue: prisma },
         {
           provide: UsersService,
@@ -208,8 +224,8 @@ describe('Rate-limit guard e2e – burst traffic', () => {
           useValue: {
             get: (key: string) => {
               const cfg: Record<string, string> = {
-                JWT_SECRET: 'test-access-secret',
-                JWT_REFRESH_SECRET: 'test-refresh-secret',
+                JWT_SECRET: 'test-access-secret-at-least-32-characters-long',
+                JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
                 JWT_ACCESS_EXPIRES_IN: '15m',
                 JWT_REFRESH_EXPIRES_IN: '7d',
                 BCRYPT_ROUNDS: '4',

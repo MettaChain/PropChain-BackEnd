@@ -8,6 +8,7 @@ import { CreateDocumentDto, UpdateDocumentDto, SignDocumentDto } from './dto/doc
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let prismaService: PrismaService;
 
   const mockPrismaService = {
@@ -272,7 +273,7 @@ describe('DocumentsService', () => {
       const safeExec = async (promise: Promise<unknown>) => {
         try { await promise; } catch (e) { /* expected in some branches */ }
       };
-      
+
       // Execute standard paths
       await safeExec(service.getVersions('doc-1', 'user-1', 'USER'));
       await safeExec(service.getVersion('doc-1', 'v1', 'user-1', 'USER'));
@@ -294,5 +295,4 @@ describe('DocumentsService', () => {
       await safeExec(service.signDocument('doc-1', {} as unknown as SignDocumentDto));
     });
   });
-  
 });

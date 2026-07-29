@@ -285,7 +285,11 @@ export class SessionsService {
   /**
    * Parse User-Agent string to extract device information
    */
-  private parseDeviceInfo(userAgent?: string): { browser?: string; os?: string; deviceType?: string } {
+  private parseDeviceInfo(userAgent?: string): {
+    browser?: string;
+    os?: string;
+    deviceType?: string;
+  } {
     if (!userAgent) return {};
 
     const browser = this.extractBrowser(userAgent);
@@ -326,7 +330,9 @@ export class SessionsService {
    * Simple geo-location lookup from IP address
    * Returns raw IP-based location info or falls back to basic data
    */
-  private lookupGeoFromIp(ipAddress?: string): { country?: string; city?: string; region?: string } | null {
+  private lookupGeoFromIp(
+    ipAddress?: string,
+  ): { country?: string; city?: string; region?: string } | null {
     if (!ipAddress) return null;
     if (ipAddress === '127.0.0.1' || ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') {
       return { country: 'Local', city: 'Localhost', region: 'Local' };

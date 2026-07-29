@@ -6,8 +6,13 @@
  */
 
 import { CacheModuleOptions } from '@nestjs/cache-manager';
-import * as redisStore from 'cache-manager-redis-store';
+import { Keyv } from 'keyv';
+import KeyvRedis from '@keyv/redis';
 
+// cache-manager v7 (used via @nestjs/cache-manager v3) is Keyv-based; the old
+// cache-manager-redis-store package targeted cache-manager v3/v4's store
+// interface and is not compatible with this version. @keyv/redis is the
+// maintained adapter for the current API.
 export const REDIS_CONFIG: CacheModuleOptions = {
   isGlobal: true,
   // cache-manager-redis-store's store type doesn't match @nestjs/cache-manager's

@@ -124,12 +124,14 @@ describe('PropertiesController - RBAC', () => {
     sub: 'admin-1',
     email: 'admin@test.com',
     role: UserRole.ADMIN,
+    tier: UserTier.FREE,
     type: 'access',
   };
   const regularUser: AuthUserPayload = {
     sub: 'user-1',
     email: 'user@test.com',
     role: UserRole.USER,
+    tier: UserTier.FREE,
     type: 'access',
   };
 

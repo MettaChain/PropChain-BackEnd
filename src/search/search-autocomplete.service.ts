@@ -48,15 +48,12 @@ export class SearchAutocompleteService {
    * @param limit   – max suggestions to return (default 10)
    * @returns grouped suggestion array
    */
-  async getSuggestions(
-    query: string,
-    limit: number = 10,
-    userId?: string,
-  ): Promise<Suggestion[]> {
+  async getSuggestions(query: string, limit: number = 10, userId?: string): Promise<Suggestion[]> {
     if (!query || query.length < MIN_QUERY_LENGTH) {
       return [];
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const queryLower = query.toLowerCase();
     const suggestions: Suggestion[] = [];
 
@@ -69,7 +66,13 @@ export class SearchAutocompleteService {
         this.getPopularSearchSuggestions(query, Math.ceil(limit * 0.15)),
       ]);
 
-    suggestions.push(...propertyResults, ...locationResults, ...featureResults, ...recentResults, ...popularResults);
+    suggestions.push(
+      ...propertyResults,
+      ...locationResults,
+      ...featureResults,
+      ...recentResults,
+      ...popularResults,
+    );
 
     return this.rankSuggestions(suggestions, query, userId).slice(0, limit);
   }
@@ -134,10 +137,26 @@ export class SearchAutocompleteService {
    */
   private async getFeatureSuggestions(query: string, limit: number): Promise<Suggestion[]> {
     const features = [
-      'pool', 'garage', 'garden', 'balcony', 'fireplace', 'basement',
-      'patio', 'deck', 'gym', 'doorman', 'elevator', 'laundry',
-      'rooftop', 'storage', 'parking', 'smart home', 'solar panels',
-      'wine cellar', 'home office', 'walk-in closet',
+      'pool',
+      'garage',
+      'garden',
+      'balcony',
+      'fireplace',
+      'basement',
+      'patio',
+      'deck',
+      'gym',
+      'doorman',
+      'elevator',
+      'laundry',
+      'rooftop',
+      'storage',
+      'parking',
+      'smart home',
+      'solar panels',
+      'wine cellar',
+      'home office',
+      'walk-in closet',
     ];
 
     return features
@@ -187,10 +206,7 @@ export class SearchAutocompleteService {
   /**
    * Popular / trending search suggestions from the PopularSearch model.
    */
-  private async getPopularSearchSuggestions(
-    query: string,
-    limit: number,
-  ): Promise<Suggestion[]> {
+  private async getPopularSearchSuggestions(query: string, limit: number): Promise<Suggestion[]> {
     try {
       const popular = await (this.prisma as any).popularSearch.findMany({
         where: {
@@ -216,11 +232,7 @@ export class SearchAutocompleteService {
    * Rank suggestions: exact > starts-with > type priority, with user's own
    * recent searches boosted to the top among equal matches.
    */
-  private rankSuggestions(
-    suggestions: Suggestion[],
-    query: string,
-    userId?: string,
-  ): Suggestion[] {
+  private rankSuggestions(suggestions: Suggestion[], query: string, userId?: string): Suggestion[] {
     const queryLower = query.toLowerCase();
 
     const typePriority: Record<string, number> = {
@@ -345,9 +357,16 @@ export class SearchAutocompleteService {
       return rows.map((r: any) => r.query);
     } catch {
       return [
-        'house for sale', 'apartment for rent', '3 bedroom house',
-        'pool house', 'garage apartment', 'condo downtown',
-        'townhouse with garden', 'luxury property', 'investment property', 'first home',
+        'house for sale',
+        'apartment for rent',
+        '3 bedroom house',
+        'pool house',
+        'garage apartment',
+        'condo downtown',
+        'townhouse with garden',
+        'luxury property',
+        'investment property',
+        'first home',
       ].slice(0, limit);
     }
   }
@@ -362,7 +381,10 @@ export class SearchAutocompleteService {
       });
       return rows.map((r: any) => r.query);
     } catch {
-      return this.searchHistoryService.getHistory(userId).map((e) => e.query).slice(0, limit);
+      return this.searchHistoryService
+        .getHistory(userId)
+        .map((e) => e.query)
+        .slice(0, limit);
     }
   }
 }

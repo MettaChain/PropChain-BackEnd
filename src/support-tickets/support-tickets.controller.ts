@@ -1,15 +1,6 @@
 // @ts-nocheck
 
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { SupportTicketsService } from './support-tickets.service';
 import {
   CreateSupportTicketDto,
@@ -88,11 +79,7 @@ export class SupportTicketsController {
   }
 
   @Post(':id/notes')
-  addNote(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-    @Body() dto: AddTicketNoteDto,
-  ) {
+  addNote(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: AddTicketNoteDto) {
     return this.supportTicketsService.addNote(id, dto, user.id);
   }
 

@@ -4,7 +4,7 @@ import { Controller, Get, Post, Query, Body, UseGuards, Request } from '@nestjs/
 import { SearchService, SearchQuery } from './search.service';
 import { SearchAutocompleteService } from './search-autocomplete.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -14,7 +14,8 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-@ApiTags('search')
+@ApiTags('Search')
+@ApiBearerAuth('access-token')
 @Controller('search')
 @UseGuards(JwtAuthGuard)
 export class SearchController {

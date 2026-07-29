@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class RpcHealthCheckResult {
