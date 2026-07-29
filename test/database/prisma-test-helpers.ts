@@ -94,3 +94,51 @@ export async function withDatabaseCleanup<T>(fn: (prisma: PrismaClient) => Promi
     await prisma.$disconnect();
   }
 }
+
+export class PrismaTestHelper {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL,
+        },
+      },
+    });
+  }
+
+  async cleanup() {
+    // Clean up test data in reverse dependency order
+    await this.prisma.transactionNote.deleteMany();
+    await this.prisma.transactionHistory.deleteMany();
+    await this.prisma.transactionMilestone.deleteMany();
+    await this.prisma.commission.deleteMany();
+    await this.prisma.transaction.deleteMany();
+    await this.prisma.documentVersion.deleteMany();
+    await this.prisma.document.deleteMany();
+    await this.prisma.propertyImage.deleteMany();
+    await this.prisma.propertyFavorite.deleteMany();
+    await this.prisma.propertyView.deleteMany();
+    await this.prisma.propertyAmenity.deleteMany();
+    await this.prisma.property.deleteMany();
+    await this.prisma.activityLog.deleteMany();
+    await this.prisma.loginHistory.deleteMany();
+    await this.prisma.loginAttempt.deleteMany();
+    await this.prisma.blacklistedToken.deleteMany();
+    await this.prisma.passwordHistory.deleteMany();
+    await this.prisma.passwordResetToken.deleteMany();
+    await this.prisma.apiKey.deleteMany();
+    await this.prisma.session.deleteMany();
+    await this.prisma.userPreferences.deleteMany();
+    await this.prisma.user.deleteMany();
+  }
+
+  async disconnect() {
+    await this.prisma.$disconnect();
+  }
+
+  get client() {
+    return this.prisma;
+  }
+}

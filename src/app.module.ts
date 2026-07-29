@@ -50,6 +50,7 @@ import { I18nModule } from './i18n/i18n.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
 import { APP_FILTER } from '@nestjs/core';
 
 @Module({
@@ -106,6 +107,7 @@ import { APP_FILTER } from '@nestjs/core';
     CleanupService,
     // Issue #964 – Register the i18n-aware exception filters globally via
     // APP_FILTER so NestJS injects I18nService into them.
+    { provide: APP_FILTER, useClass: ValidationExceptionFilter },
     { provide: APP_FILTER, useClass: PrismaExceptionFilter },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
