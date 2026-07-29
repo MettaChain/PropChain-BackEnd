@@ -182,7 +182,7 @@ class FakePrismaService {
       );
     },
     findMany: async ({ where, skip = 0, take = 100, include }: any) => {
-      let items = Array.from(this.properties.values()).filter((p) => {
+      const items = Array.from(this.properties.values()).filter((p) => {
         // handle deleted filter
         if (where?.deleted === false && p.deleted) return false;
         if (where?.status && p.status !== where.status) return false;
@@ -196,7 +196,7 @@ class FakePrismaService {
       return results;
     },
     count: async ({ where }: any) => {
-      let items = Array.from(this.properties.values()).filter((p) => {
+      const items = Array.from(this.properties.values()).filter((p) => {
         if (where?.deleted === false && p.deleted) return false;
         if (where?.status && p.status !== where.status) return false;
         if (where?.ownerId && p.ownerId !== where.ownerId) return false;
@@ -382,7 +382,7 @@ describe('Property CRUD → view → favorite (e2e)', () => {
       // The service returns null for missing properties; NestJS serialises null
       // as 200 with empty body unless the service/controller throws.
       // Accept either 404 (if service throws NotFoundException) or null body.
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .get(`/properties/${crypto.randomUUID()}`)
         .expect((r) => {
           expect([200, 404]).toContain(r.status);

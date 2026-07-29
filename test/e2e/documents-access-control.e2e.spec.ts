@@ -27,7 +27,7 @@ import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
 import { AuthUserPayload } from '../../src/auth/types/auth-user.type';
 
 const OWNER_ID = '22222222-2222-4222-b222-222222222222';
-const OTHER_ID  = '33333333-3333-4333-b333-333333333333';
+const OTHER_ID = '33333333-3333-4333-b333-333333333333';
 const TRANSACTION_ID = '44444444-4444-4444-b444-444444444444';
 
 @Injectable()
@@ -39,7 +39,12 @@ class MockJwtAuthGuard implements CanActivate {
     const token = auth.slice(7);
     const userId = token === 'other-token' ? OTHER_ID : OWNER_ID;
     const role = token === 'admin-token' ? 'ADMIN' : 'USER';
-    req.user = { sub: userId, email: `${userId}@example.com`, role, type: 'access' } as AuthUserPayload;
+    req.user = {
+      sub: userId,
+      email: `${userId}@example.com`,
+      role,
+      type: 'access',
+    } as AuthUserPayload;
     req.authUser = req.user;
     return true;
   }
@@ -129,10 +134,7 @@ describe('Document access control (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [DocumentsController],
-      providers: [
-        DocumentsService,
-        { provide: PrismaService, useValue: fakePrisma as any },
-      ],
+      providers: [DocumentsService, { provide: PrismaService, useValue: fakePrisma as any }],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(new MockJwtAuthGuard())
@@ -177,7 +179,7 @@ describe('Document access control (e2e)', () => {
 
   describe('Get document by ID', () => {
     it('owner can retrieve their document', async () => {
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .get(`/documents/${seededDocId}`)
         .set('Authorization', 'Bearer owner-token')
         .expect((r) => {
@@ -206,7 +208,7 @@ describe('Document access control (e2e)', () => {
 
   describe('Delete document', () => {
     it('owner can delete their document', async () => {
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .delete(`/documents/${seededDocId}`)
         .set('Authorization', 'Bearer owner-token')
         .expect((r) => {

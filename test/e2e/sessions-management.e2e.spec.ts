@@ -64,7 +64,8 @@ class FakePrismaService {
     count: async ({ where }: any) => {
       let items = Array.from(this.sessions.values());
       if (where?.userId) items = items.filter((s) => s.userId === where.userId);
-      if (where?.isRevoked !== undefined) items = items.filter((s) => s.isRevoked === where.isRevoked);
+      if (where?.isRevoked !== undefined)
+        items = items.filter((s) => s.isRevoked === where.isRevoked);
       if (where?.expiresAt?.gt) items = items.filter((s) => s.expiresAt > where.expiresAt.gt);
       return items.length;
     },
@@ -83,10 +84,11 @@ class FakePrismaService {
         }) ?? null
       );
     },
-    findMany: async ({ where, orderBy }: any) => {
+    findMany: async ({ where }: any) => {
       let items = Array.from(this.sessions.values());
       if (where?.userId) items = items.filter((s) => s.userId === where.userId);
-      if (where?.isRevoked !== undefined) items = items.filter((s) => s.isRevoked === where.isRevoked);
+      if (where?.isRevoked !== undefined)
+        items = items.filter((s) => s.isRevoked === where.isRevoked);
       return items;
     },
     update: async ({ where, data }: any) => {

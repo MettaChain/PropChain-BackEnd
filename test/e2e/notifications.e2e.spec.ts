@@ -67,7 +67,7 @@ class FakePrismaService {
       return rec;
     },
     findUnique: async ({ where }: any) => this.notifications.get(where.id) ?? null,
-    findMany: async ({ where, orderBy, take }: any) => {
+    findMany: async ({ where, take }: any) => {
       let items = Array.from(this.notifications.values());
       if (where?.userId) items = items.filter((n) => n.userId === where.userId);
       if (where?.status) {
@@ -148,7 +148,7 @@ describe('Notifications workflow (e2e)', () => {
         metadata: {},
       },
     });
-    const _n2 = await fakePrisma.notification.create({
+    await fakePrisma.notification.create({
       data: {
         userId: TEST_USER_ID,
         title: 'Test notification 2',
@@ -220,7 +220,8 @@ describe('Notifications workflow (e2e)', () => {
     expect(res.body).toBeDefined();
     const raw = res.body;
     const unwrapped = raw?.data ?? raw;
-    const count = typeof unwrapped === 'number' ? unwrapped : parseInt(String(unwrapped ?? '0'), 10);
+    const count =
+      typeof unwrapped === 'number' ? unwrapped : parseInt(String(unwrapped ?? '0'), 10);
     expect(Number.isFinite(count) || raw !== undefined).toBe(true);
   });
 

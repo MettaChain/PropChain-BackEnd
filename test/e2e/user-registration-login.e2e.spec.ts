@@ -273,7 +273,7 @@ describe('User profile management (e2e)', () => {
 
   describe('Input validation', () => {
     it('rejects update with excessively long first name', async () => {
-      const res = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .put('/users/me/profile')
         .set('Authorization', 'Bearer valid-token')
         .send({ firstName: 'A'.repeat(300) })
