@@ -8,7 +8,7 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Application, Response } from 'express';
-import { ApiVersionEnum, API_VERSIONS } from '../versioning/api-version.constants';
+import { API_VERSIONS } from '../versioning/api-version.constants';
 
 interface AppWithOpenApiDoc extends Application {
   openAPIDocument?: Record<string, unknown>;

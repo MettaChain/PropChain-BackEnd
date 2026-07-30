@@ -2,10 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebhooksService } from './webhooks.service';
 import { PrismaService } from '../database/prisma.service';
-import { NotFoundException } from '@nestjs/common';
 import { CreateWebhookDto } from './webhook.dto';
-
-const mockPrisma = {};
 
 describe('WebhooksService', () => {
   let service: WebhooksService;
