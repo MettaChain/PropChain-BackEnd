@@ -73,18 +73,6 @@ export class DashboardService {
   }
 
   private async getQuickStats(userId: string): Promise<QuickStatsDto> {
-    // Get user's properties
-    const properties = await this.prisma.property.findMany({
-      where: { ownerId: userId },
-    });
-
-    const totalProperties = properties.length;
-    const activeListings = properties.filter((p) => p.status === 'ACTIVE').length;
-
-    // Get user's transactions (both as buyer and seller)
-    const buyerTransactions = await this.prisma.transaction.findMany({
-      where: { buyerId: userId },
-    });
     // Issue #911 – Replace separate per-role queries and in-memory aggregation
     // with a single grouped count query + a single transaction query using OR.
 
