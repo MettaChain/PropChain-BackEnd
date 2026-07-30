@@ -7,11 +7,17 @@ import { ForbiddenException, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthUserPayload } from '../auth/types/auth-user.type';
-import { UserRole } from '../types/prisma.types';
+import { UserRole, UserTier } from '../types/prisma.types';
 import { CreatePropertyDto } from '../properties/dto/property.dto';
 
 function makeContext(role: UserRole, requiredRoles: UserRole[] | null): ExecutionContext {
-  const user: AuthUserPayload = { sub: 'u1', email: 'u@test.com', role, type: 'access' };
+  const user: AuthUserPayload = {
+    sub: 'u1',
+    email: 'u@test.com',
+    role,
+    tier: UserTier.FREE,
+    type: 'access',
+  };
   const request = { authUser: user };
   return {
     switchToHttp: () => ({ getRequest: () => request }),

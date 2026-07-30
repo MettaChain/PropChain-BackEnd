@@ -15,14 +15,14 @@ import KeyvRedis from '@keyv/redis';
 // maintained adapter for the current API.
 export const REDIS_CONFIG: CacheModuleOptions = {
   isGlobal: true,
-  // cache-manager-redis-store's store type doesn't match @nestjs/cache-manager's
-  // CacheModuleOptions type -- unavoidable third-party interop
-  store: redisStore as unknown as CacheModuleOptions['store'],
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  password: process.env.REDIS_PASSWORD,
-  db: parseInt(process.env.REDIS_DB || '0', 10),
-  ttl: 600, // Default TTL: 10 minutes
+  stores: [
+    new Keyv({
+      store: new KeyvRedis({
+        url: getRedisConnectionString(),
+      }),
+    }),
+  ],
+  ttl: 600 * 1000, // Default TTL: 10 minutes (Keyv TTLs are in milliseconds)
 };
 
 /**
