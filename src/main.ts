@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe, BadRequestException } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { VersionHeaderInterceptor } from './versioning/version-header.interceptor';
@@ -11,6 +11,8 @@ import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-head
 import { ResponseFormatInterceptor } from './common/interceptors/response-format.interceptor';
 import { setupSwagger } from './config/swagger.config';
 import { validateEnvironment } from './utils/validate-env';
+// Issue #914 – Structured JSON logging in production, pretty-print in dev
+import { AppLogger } from './common/logger';
 import { TraceInterceptor } from './tracing/trace.interceptor';
 // Issue #964 – exception filters are registered globally via APP_FILTER
 // providers in AppModule. We deliberately do NOT call useGlobalFilters here
@@ -19,7 +21,9 @@ import { TraceInterceptor } from './tracing/trace.interceptor';
 async function bootstrap() {
   validateEnvironment();
 
-  const logger = new Logger('Bootstrap');
+  // Issue #914 – use structured AppLogger as NestJS application logger.
+  // JSON output in production; pretty-print in development.
+  const logger = new AppLogger('Bootstrap');
 
   // Node.js version check (#775, #754 NestJS 11 requires Node 20+)
   const REQUIRED_NODE_MAJOR = 20;
@@ -33,7 +37,10 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    // Issue #914 – replace NestJS default ConsoleLogger with our structured logger
+    logger: new AppLogger('NestApplication'),
+  });
 
   // CORS configuration
   const corsOrigins = process.env.CORS_ORIGINS

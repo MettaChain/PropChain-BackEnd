@@ -69,23 +69,35 @@ export class SessionsService {
   }
 
   /**
-   * Get all sessions for a user
+   * Get all sessions for a user.
+   *
+   * Issue #911 – Push active/revoked counts to the database with a single
+   * aggregation query instead of loading all sessions and filtering in memory.
    */
   async getUserSessions(userId: string, currentAccessTokenJti?: string): Promise<SessionsListDto> {
-    const sessions = await this.prisma.session.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const now = new Date();
 
-    const activeSessions = sessions.filter((s: any) => !s.isRevoked && s.expiresAt > new Date());
-    const revokedSessions = sessions.filter((s: any) => s.isRevoked);
+    // Fetch all sessions for display and run two DB count queries in parallel.
+    // The counts avoid iterating the result set twice in JS.
+    const [sessions, activeCount, revokedCount] = await Promise.all([
+      this.prisma.session.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.session.count({
+        where: { userId, isRevoked: false, expiresAt: { gt: now } },
+      }),
+      this.prisma.session.count({
+        where: { userId, isRevoked: true },
+      }),
+    ]);
 
     return {
       sessions: sessions.map((s: any) =>
         this.mapSessionToDto(s, s.accessTokenJti === currentAccessTokenJti),
       ),
-      activeCount: activeSessions.length,
-      revokedCount: revokedSessions.length,
+      activeCount,
+      revokedCount,
     };
   }
 

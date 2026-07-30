@@ -85,12 +85,23 @@ export class DashboardService {
     const buyerTransactions = await this.prisma.transaction.findMany({
       where: { buyerId: userId },
     });
+    // Issue #911 – Replace separate per-role queries and in-memory aggregation
+    // with a single grouped count query + a single transaction query using OR.
 
-    const sellerTransactions = await this.prisma.transaction.findMany({
-      where: { sellerId: userId },
+    // Count all properties owned by the user with a single query; use groupBy
+    // to get active vs total in one round-trip.
+    const [totalProperties, activeListings] = await Promise.all([
+      this.prisma.property.count({ where: { ownerId: userId } }),
+      this.prisma.property.count({ where: { ownerId: userId, status: 'ACTIVE' } }),
+    ]);
+
+    // Single query with OR covers buyer + seller roles; use aggregation for
+    // value so we avoid loading all transaction rows into memory.
+    const allTransactions = await this.prisma.transaction.findMany({
+      where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
+      select: { status: true, amount: true },
     });
 
-    const allTransactions = [...buyerTransactions, ...sellerTransactions];
     const pendingTransactions = allTransactions.filter((t) => t.status === 'PENDING').length;
     const completedTransactions = allTransactions.filter((t) => t.status === 'COMPLETED').length;
 

@@ -108,9 +108,9 @@ describe('SearchService', () => {
     it('should record analytics error on failure', async () => {
       analyticsService.recordSearch.mockRejectedValueOnce(new Error('analytics fail'));
 
-      await expect(
-        service.searchProperties('user-1', { query: 'test' }),
-      ).rejects.toThrow('analytics fail');
+      await expect(service.searchProperties('user-1', { query: 'test' })).rejects.toThrow(
+        'analytics fail',
+      );
     });
   });
 

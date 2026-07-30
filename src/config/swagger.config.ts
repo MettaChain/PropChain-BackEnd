@@ -6,7 +6,9 @@
  */
 
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
+
+const logger = new Logger('SwaggerConfig');
 
 interface AppWithOpenApiDoc {
   openAPIDocument?: Record<string, unknown>;
@@ -124,7 +126,7 @@ export function setupSwagger(app: INestApplication): void {
     ],
   });
 
-  console.log('✅ Swagger UI available at http://localhost:3000/api/docs');
+  logger.log('Swagger UI available at http://localhost:3000/api/docs');
 }
 
 /**

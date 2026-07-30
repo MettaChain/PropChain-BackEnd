@@ -36,7 +36,6 @@ module.exports = {
     '@typescript-eslint/no-namespace': 'off',
     // Allow @ts-nocheck / @ts-ignore where needed (tracked separately)
     '@typescript-eslint/ban-ts-comment': 'off',
-    // Disallow console.log in production code
-    'no-console': 'off',
+    'no-console': 'error',
   },
 };

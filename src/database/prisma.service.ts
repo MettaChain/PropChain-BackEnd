@@ -106,6 +106,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // ── Query event logging & slow query detection (#917) ─────────────────
     const slowThreshold = isProduction ? SLOW_QUERY_THRESHOLD_PROD : SLOW_QUERY_THRESHOLD_DEV;
 
+    // Issue #911 – N+1 detection: track how many queries are fired in a short
+    // rolling window per table.  If the same table is queried more than the
+    // N1_REPETITION_THRESHOLD times within N1_WINDOW_MS milliseconds we emit a
+    // warning so the pattern can be caught in development before it reaches
+    // production.
+    const N1_WINDOW_MS = 100;
+    const N1_REPETITION_THRESHOLD = 5;
+    const queryWindow: Map<string, number[]> = new Map();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this as any).$on('query', (event: { query: string; params: string; duration: number }) => {
       const { duration, query } = event;
@@ -128,6 +137,29 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
       } else if (!isProduction) {
         this.logger.debug(`[Query] ${duration}ms`);
+      }
+
+      // Issue #911 – N+1 detection (development + staging only; skipped in
+      // production to avoid overhead in hot paths).
+      if (!isProduction) {
+        // Extract the primary table name from the query (heuristic: first word
+        // after SELECT/INSERT/UPDATE/DELETE ... FROM/INTO/UPDATE).
+        const tableMatch = query.match(/(?:FROM|INTO|UPDATE)\s+"?(\w+)"?/i);
+        if (tableMatch) {
+          const table = tableMatch[1];
+          const now = Date.now();
+          const timestamps = (queryWindow.get(table) ?? []).filter((t) => now - t < N1_WINDOW_MS);
+          timestamps.push(now);
+          queryWindow.set(table, timestamps);
+
+          if (timestamps.length === N1_REPETITION_THRESHOLD) {
+            const sanitised = query.replace(/\$\d+/g, '?').substring(0, 200);
+            this.logger.warn(
+              `[N+1 Detected] Table "${table}" queried ${timestamps.length} times ` +
+                `within ${N1_WINDOW_MS}ms. Possible N+1 pattern. Last query: ${sanitised}`,
+            );
+          }
+        }
       }
     });
 
