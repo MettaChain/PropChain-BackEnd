@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, BlacklistedToken, Document, ApiKey, PasswordHistory } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../database/prisma.service';
@@ -515,7 +515,7 @@ export class AuthService {
    * Handle token reuse detection - invalidate entire token family
    */
   private async handleTokenReuse(
-    blacklistedToken: Prisma.BlacklistedToken,
+    blacklistedToken: BlacklistedToken,
     reusedJti: string,
     ipAddress?: string,
     userAgent?: string,
@@ -796,7 +796,7 @@ export class AuthService {
     const recentActivity = [
       ...this.transactionsToActivityItems(buyerTransactions, 'purchase'),
       ...this.transactionsToActivityItems(sellerTransactions, 'sale'),
-      ...documents.map((doc: Prisma.Document) => ({
+      ...documents.map((doc: Document) => ({
         type: 'document' as const,
         id: doc.id,
         title: doc.fileName,
@@ -1081,7 +1081,7 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return apiKeys.map((apiKey: Prisma.ApiKey) => this.toApiKeyResponse(apiKey));
+    return apiKeys.map((apiKey: ApiKey) => this.toApiKeyResponse(apiKey));
   }
 
   async rotateApiKey(user: AuthUserPayload, apiKeyId: string) {
@@ -1451,7 +1451,7 @@ export class AuthService {
     return `pc_${randomToken(24)}`;
   }
 
-  private toApiKeyResponse(apiKey: Prisma.ApiKey) {
+  private toApiKeyResponse(apiKey: ApiKey) {
     return {
       id: apiKey.id,
       name: apiKey.name,
@@ -1595,7 +1595,7 @@ export class AuthService {
       if (historyEntries.length > 0) {
         await tx.passwordHistory.deleteMany({
           where: {
-            id: { in: historyEntries.map((entry: Prisma.PasswordHistory) => entry.id) },
+            id: { in: historyEntries.map((entry: PasswordHistory) => entry.id) },
           },
         });
       }

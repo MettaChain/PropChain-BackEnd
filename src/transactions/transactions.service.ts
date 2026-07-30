@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Transaction, TransactionTaxStrategy } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -8,8 +8,11 @@ import { TransactionFeesService } from './transaction-fees.service';
 import { TimelineService } from './timeline.service';
 import { TransactionAuditService } from './transaction-audit.service';
 import { canTransitionTransactionStatus } from './transaction-status.constants';
-import { TransactionStatus } from '../types/prisma.types';
-import { BlockchainTransactionDto, BlockchainVerificationResultDto } from '../blockchain/dto/blockchain.dto';
+import { TransactionStatus, TransactionType } from '../types/prisma.types';
+import {
+  BlockchainTransactionDto,
+  BlockchainVerificationResultDto,
+} from '../blockchain/dto/blockchain.dto';
 import {
   CreateTransactionDto,
   UpdateTransactionDto,
@@ -21,6 +24,7 @@ import {
   TransactionAnalyticsDto,
   TransactionAnalyticsGranularity,
   TransactionAnalyticsQueryDto,
+  FeeBreakdown,
 } from './dto/transaction.dto';
 
 type TransactionWithFullRelations = Prisma.TransactionGetPayload<{
@@ -74,18 +78,18 @@ export class TransactionsService {
 
     const feeBreakdown = this.transactionFeesService.calculateFees(Number(dto.amount));
 
-      const transaction = await this.prisma.transaction.create({
-        data: {
-          propertyId: dto.propertyId,
-          buyerId: dto.buyerId,
-          sellerId: dto.sellerId,
-          amount: dto.amount,
-          type: dto.type as Prisma.TransactionType,
-          status: 'PENDING',
-          notes: dto.notes,
-          feeBreakdown: feeBreakdown as Prisma.InputJsonValue,
-        },
-      });
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        propertyId: dto.propertyId,
+        buyerId: dto.buyerId,
+        sellerId: dto.sellerId,
+        amount: dto.amount,
+        type: dto.type as unknown as TransactionType,
+        status: 'PENDING',
+        notes: dto.notes,
+        feeBreakdown: feeBreakdown as unknown as Prisma.InputJsonValue,
+      },
+    });
 
     await this.commissionsService.createCommissionsForTransaction(transaction.id);
 
@@ -107,7 +111,7 @@ export class TransactionsService {
       if (query.propertyId) where.propertyId = query.propertyId;
       if (query.buyerId) where.buyerId = query.buyerId;
       if (query.sellerId) where.sellerId = query.sellerId;
-      if (query.status) where.status = query.status;
+      if (query.status) where.status = query.status as unknown as TransactionStatus;
       if (query.type) where.type = query.type;
       if (cursor) {
         where.createdAt = { lt: new Date(Buffer.from(cursor, 'base64').toString()) };
@@ -130,9 +134,9 @@ export class TransactionsService {
 
       const nextCursor =
         transactions.length === limit
-          ? Buffer.from(
-              (transactions[transactions.length - 1] as any).createdAt.toISOString(),
-            ).toString('base64')
+          ? Buffer.from(transactions[transactions.length - 1].createdAt.toISOString()).toString(
+              'base64',
+            )
           : null;
 
       return {
@@ -140,6 +144,8 @@ export class TransactionsService {
         page,
         limit,
         items: transactions.map((t) => this.toResponseDto(t)),
+        nextCursor,
+        previousCursor: cursor || null,
       };
     } catch (error) {
       this.logger.error(
@@ -178,18 +184,18 @@ export class TransactionsService {
       where: { id },
     });
 
-      const updated = await this.prisma.transaction.update({
-        where: { id },
-        data: {
-          status: dto.status as Prisma.TransactionStatus,
-          notes: dto.notes,
-        },
-      });
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    if (dto.status === TransactionStatusDto.FAILED) {
+      throw new BadRequestException('FAILED is not a supported transaction status');
+    }
 
     const updated = await this.prisma.transaction.update({
       where: { id },
       data: {
-        status: dto.status as any,
+        status: dto.status as unknown as TransactionStatus,
         notes: dto.notes,
       },
     });
@@ -219,55 +225,64 @@ export class TransactionsService {
         },
       });
 
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      if (!transaction) {
+        throw new NotFoundException('Transaction not found');
+      }
+
+      if (transaction.blockchainHash) {
+        throw new BadRequestException('Transaction already recorded on blockchain');
+      }
+
+      // Get wallet addresses - use provided or fallback to placeholder
+      const buyerAddress = dto.buyerAddress || `0x${transaction.buyerId.substring(0, 40)}`;
+
+      const sellerAddress = dto.sellerAddress || `0x${transaction.sellerId.substring(0, 40)}`;
+
+      // Validate addresses
+      if (
+        !this.blockchainService.isValidAddress(buyerAddress) ||
+        !this.blockchainService.isValidAddress(sellerAddress)
+      ) {
+        this.logger.warn(`Invalid addresses for transaction ${id}. Using fallback hashing.`);
+      }
+
+      // Record on blockchain
+      const blockchainRecord = await this.blockchainService.recordTransactionOnBlockchain({
+        transactionId: id,
+        propertyId: transaction.propertyId,
+        buyerAddress,
+        sellerAddress,
+        amount: transaction.amount.toNumber(),
+        metadata: {
+          transactionType: transaction.type,
+          propertyAddress: transaction.property?.address,
+        },
+      });
+
+      // Update transaction with blockchain data
+      const updated = await this.prisma.transaction.update({
+        where: { id },
+        data: {
+          blockchainHash: blockchainRecord.blockchainHash,
+          contractAddress: blockchainRecord.contractAddress,
+        },
+      });
+
+      this.logger.log(
+        `Transaction ${id} recorded on blockchain: ${blockchainRecord.blockchainHash}`,
+      );
+
+      return {
+        transaction: this.toResponseDto(updated),
+        blockchain: blockchainRecord,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to record transaction on blockchain: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      throw error;
     }
-
-    if (transaction.blockchainHash) {
-      throw new BadRequestException('Transaction already recorded on blockchain');
-    }
-
-    // Get wallet addresses - use provided or fallback to placeholder
-    const buyerAddress = dto.buyerAddress || `0x${transaction.buyerId.substring(0, 40)}`;
-
-    const sellerAddress = dto.sellerAddress || `0x${transaction.sellerId.substring(0, 40)}`;
-
-    // Validate addresses
-    if (
-      !this.blockchainService.isValidAddress(buyerAddress) ||
-      !this.blockchainService.isValidAddress(sellerAddress)
-    ) {
-      this.logger.warn(`Invalid addresses for transaction ${id}. Using fallback hashing.`);
-    }
-
-    // Record on blockchain
-    const blockchainRecord = await this.blockchainService.recordTransactionOnBlockchain({
-      transactionId: id,
-      propertyId: transaction.propertyId,
-      buyerAddress,
-      sellerAddress,
-      amount: transaction.amount.toNumber(),
-      metadata: {
-        transactionType: transaction.type,
-        propertyAddress: transaction.property?.address,
-      },
-    });
-
-    // Update transaction with blockchain data
-    const updated = await this.prisma.transaction.update({
-      where: { id },
-      data: {
-        blockchainHash: blockchainRecord.blockchainHash,
-        contractAddress: blockchainRecord.contractAddress,
-      },
-    });
-
-    this.logger.log(`Transaction ${id} recorded on blockchain: ${blockchainRecord.blockchainHash}`);
-
-    return {
-      transaction: this.toResponseDto(updated),
-      blockchain: blockchainRecord,
-    };
   }
 
   /**
@@ -279,32 +294,39 @@ export class TransactionsService {
         where: { id },
       });
 
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
+      if (!transaction) {
+        throw new NotFoundException('Transaction not found');
+      }
 
-    if (!transaction.blockchainHash) {
-      throw new BadRequestException('Transaction not recorded on blockchain');
-    }
+      if (!transaction.blockchainHash) {
+        throw new BadRequestException('Transaction not recorded on blockchain');
+      }
 
-    const verification = await this.blockchainService.verifyBlockchainTransaction({
-      transactionHash: transaction.blockchainHash,
-    });
-
-    // Update transaction status if verified and not already completed
-    if (verification.verified && verification.status === 'success') {
-      await this.prisma.transaction.update({
-        where: { id },
-        data: {
-          status: 'COMPLETED',
-        },
+      const verification = await this.blockchainService.verifyBlockchainTransaction({
+        transactionHash: transaction.blockchainHash,
       });
-      await this.commissionsService.updateCommissionsStatus(id, 'COMPLETED');
+
+      // Update transaction status if verified and not already completed
+      if (verification.verified && verification.status === 'success') {
+        await this.prisma.transaction.update({
+          where: { id },
+          data: {
+            status: 'COMPLETED',
+          },
+        });
+        await this.commissionsService.updateCommissionsStatus(id, 'COMPLETED');
+      }
+
+      this.logger.log(`Transaction ${id} verification result: ${verification.verified}`);
+
+      return verification;
+    } catch (error) {
+      this.logger.error(
+        `Failed to verify transaction on blockchain: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      throw error;
     }
-
-    this.logger.log(`Transaction ${id} verification result: ${verification.verified}`);
-
-    return verification;
   }
 
   /**
@@ -422,10 +444,10 @@ export class TransactionsService {
       );
     }
 
-      const updated = await this.prisma.transaction.update({
-        where: { id: transactionId },
-        data: { status: status as Prisma.TransactionStatus },
-      });
+    const updated = await this.prisma.transaction.update({
+      where: { id: transactionId },
+      data: { status: status as TransactionStatus },
+    });
 
     // Audit log the transition (#557)
     await this.transactionAuditService.log(
@@ -475,7 +497,7 @@ export class TransactionsService {
         buyerId: dto.buyerId,
         sellerId: dto.sellerId,
         amount: dto.amount,
-        type: dto.type as Prisma.TransactionType,
+        type: dto.type as TransactionType,
         status: 'PENDING',
       },
       include: {
@@ -503,7 +525,7 @@ export class TransactionsService {
       metadata?: Record<string, unknown>;
     },
     user: { sub: string; email: string; role: string; type: string },
-  ): Promise<Prisma.TransactionTaxStrategy> {
+  ): Promise<TransactionTaxStrategy> {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },
       include: { property: { select: { id: true, city: true, state: true, country: true } } },
@@ -564,7 +586,7 @@ export class TransactionsService {
     },
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     user: { sub: string; email: string; role: string; type: string },
-  ): Promise<Prisma.TransactionTaxStrategy> {
+  ): Promise<TransactionTaxStrategy> {
     const existing = await this.prisma.transactionTaxStrategy.findFirst({
       where: { id: strategyId, transactionId },
     });
@@ -583,8 +605,9 @@ export class TransactionsService {
   }
 
   /**
-   * Convert transaction to response DTO
+   * Update escrow details for a transaction
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async updateEscrow(transactionId: string, dto: UpdateEscrowDto, actorId?: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },
@@ -616,19 +639,19 @@ export class TransactionsService {
     return this.toResponseDto(updated);
   }
 
-  private toResponseDto(transaction: Prisma.Transaction): TransactionResponseDto {
+  private toResponseDto(transaction: Transaction): TransactionResponseDto {
     return {
       id: transaction.id,
       propertyId: transaction.propertyId,
       buyerId: transaction.buyerId,
       sellerId: transaction.sellerId,
-      amount: transaction.amount,
+      amount: this.toNumber(transaction.amount),
       type: transaction.type as TransactionTypeDto,
       status: transaction.status as TransactionStatusDto,
-      blockchainHash: transaction.blockchainHash,
-      contractAddress: transaction.contractAddress,
-      notes: transaction.notes,
-      feeBreakdown: transaction.feeBreakdown ?? undefined,
+      blockchainHash: transaction.blockchainHash ?? undefined,
+      contractAddress: transaction.contractAddress ?? undefined,
+      notes: transaction.notes ?? undefined,
+      feeBreakdown: (transaction.feeBreakdown as unknown as FeeBreakdown) ?? undefined,
       escrowStatus: transaction.escrowStatus ?? undefined,
       escrowAmount: transaction.escrowAmount ?? undefined,
       paymentStatus: transaction.paymentStatus ?? undefined,
