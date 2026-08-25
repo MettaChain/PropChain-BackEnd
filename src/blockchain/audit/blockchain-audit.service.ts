@@ -1,17 +1,12 @@
-// @ts-nocheck
+import { Injectable } from '@nestjs/common';
+import { BlockchainAuditValidator } from '../service/blockchain-audit.validator';
+import { BlockchainAuditRecordDto } from './dto/blockchain-audit-record.dto';
 
 @Injectable()
 export class BlockchainAuditService {
-  constructor(
-    private readonly validator: BlockchainAuditValidator,
+  constructor(private readonly validator: BlockchainAuditValidator) {}
 
-    @InjectRepository(BlockchainAuditEntity)
-    private readonly repository: Repository<BlockchainAuditEntity>,
-  ) {}
-
-  async create(payload: unknown) {
-    const validated = await this.validator.validateRecord(payload);
-
-    return this.repository.save(this.repository.create(validated));
+  async create(payload: unknown): Promise<BlockchainAuditRecordDto> {
+    return this.validator.validateRecord(payload);
   }
 }
