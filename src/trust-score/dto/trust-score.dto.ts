@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export class ScoreFactor {
   score: number;
   maxScore: number;

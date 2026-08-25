@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * API Documentation Decorators
  * Decorators for enriching OpenAPI documentation

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Post, Delete, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * API Documentation Controller
  * Provides access to OpenAPI spec and API information
