@@ -303,12 +303,22 @@ export class BlockchainService {
       return;
     }
 
+    // Fail closed: never initialize against a placeholder RPC URL. If the
+    // service is enabled but no RPC URL is configured, run disabled and log a
+    // clear, actionable error instead of silently pointing at a broken default.
+    const rpcUrl = this.configService.get('BLOCKCHAIN_RPC_URL');
+    if (!rpcUrl) {
+      this.logger.error(
+        'BLOCKCHAIN_ENABLED is true but BLOCKCHAIN_RPC_URL is not set. ' +
+          'Blockchain service will run DISABLED — set BLOCKCHAIN_RPC_URL to enable it.',
+      );
+      return;
+    }
+
     this.config = {
       enabled: isEnabled,
       network: (this.configService.get('BLOCKCHAIN_NETWORK') || 'sepolia') as BlockchainNetwork,
-      rpcUrl:
-        this.configService.get('BLOCKCHAIN_RPC_URL') ||
-        'https://sepolia.infura.io/v3/YOUR_INFURA_KEY',
+      rpcUrl,
       contractAddress: this.configService.get('BLOCKCHAIN_CONTRACT_ADDRESS') || '',
       privateKey: this.configService.get('BLOCKCHAIN_PRIVATE_KEY') || '',
       explorerUrl: this.getExplorerUrl(
