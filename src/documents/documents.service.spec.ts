@@ -258,7 +258,9 @@ describe('DocumentsService', () => {
     it('update', async () => {
       mockPrismaService.document.findUnique.mockResolvedValue({ id: 'doc-1' });
       mockPrismaService.document.update.mockResolvedValue({ id: 'doc-1', status: 'VERIFIED' });
-      expect(await service.update('doc-1', { status: 'VERIFIED' } as UpdateDocumentDto)).toHaveProperty('status', 'VERIFIED');
+      expect(
+        await service.update('doc-1', { status: 'VERIFIED' } as UpdateDocumentDto),
+      ).toHaveProperty('status', 'VERIFIED');
     });
 
     it('remove', async () => {
@@ -271,7 +273,11 @@ describe('DocumentsService', () => {
   describe('Extended Coverage Operations - Branches', () => {
     it('should execute methods with alternate parameters to trigger secondary branches', async () => {
       const safeExec = async (promise: Promise<unknown>) => {
-        try { await promise; } catch (e) { /* expected in some branches */ }
+        try {
+          await promise;
+        } catch (e) {
+          /* expected in some branches */
+        }
       };
 
       // Execute standard paths
@@ -282,14 +288,18 @@ describe('DocumentsService', () => {
       await safeExec(service.deleteExpired());
       await safeExec(service.flagExpiryNotified('doc-1'));
       // Fixed: Removed the 3rd argument
-      await safeExec(service.signDocument('doc-1', { signature: 'test' } as unknown as SignDocumentDto));
+      await safeExec(
+        service.signDocument('doc-1', { signature: 'test' } as unknown as SignDocumentDto),
+      );
       // Fixed: Removed the 2nd argument
       await safeExec(service.verifySignature('doc-1'));
 
       // Execute alternate paths (missing users, admin roles, null parameters)
       await safeExec(service.getVersions('doc-1', null as unknown as string, 'ADMIN'));
       await safeExec(service.getVersion('doc-1', 'v1', null as unknown as string, 'ADMIN'));
-      await safeExec(service.findAuthorizedById('doc-1', null as unknown as string, null as unknown as string));
+      await safeExec(
+        service.findAuthorizedById('doc-1', null as unknown as string, null as unknown as string),
+      );
       await safeExec(service.findAll(null as unknown as string, { category: 'legal' }, 'ADMIN'));
       // Fixed: Removed the 3rd argument
       await safeExec(service.signDocument('doc-1', {} as unknown as SignDocumentDto));

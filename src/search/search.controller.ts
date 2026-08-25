@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Post, Query, Body, UseGuards, Request } from '@nestjs/common';
 import { SearchService, SearchQuery } from './search.service';
 import { SearchAutocompleteService } from './search-autocomplete.service';

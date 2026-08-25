@@ -34,7 +34,7 @@ describe('SignedUrlService', () => {
     it('should delegate to the injected provider', async () => {
       const payload = { operation: 'download', objectKey: 'test.pdf' } as SignedUrlRequest;
       mockProvider.getSignedUrl.mockResolvedValue({ url: 'http://signed' } as SignedUrlResponse);
-      
+
       const result = await service.getSignedUrl(payload);
 
       expect(mockProvider.getSignedUrl).toHaveBeenCalledWith(payload);
