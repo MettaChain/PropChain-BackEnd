@@ -23,7 +23,8 @@ describe('EmailDigestService', () => {
 
   it('getOrCreatePreference creates preference for new user', async () => {
     const result = await service.getOrCreatePreference('u1');
-    expect(prisma.digestPreference.upsert).toHaveBeenCalledWith(
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(prisma.digestPreference!.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: 'u1' } }),
     );
     expect(result.userId).toBe('u1');
