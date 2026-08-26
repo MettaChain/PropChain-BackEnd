@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AvatarUploadController } from '../../src/users/avatar-upload.controller';
 import { AvatarUploadService } from '../../src/users/avatar-upload.service';
 import { UsersService } from '../../src/users/users.service';
+import { AuthService } from '../../src/auth/auth.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('AvatarUploadController', () => {
@@ -64,6 +65,12 @@ describe('AvatarUploadController', () => {
           useValue: {
             updateAvatar: jest.fn(),
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            validateAccessToken: jest.fn(),
           },
         },
       ],

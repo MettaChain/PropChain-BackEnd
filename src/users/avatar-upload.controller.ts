@@ -6,6 +6,7 @@ import {
   Delete,
   Get,
   UseInterceptors,
+  UseGuards,
   UploadedFile,
   Body,
   Param,
@@ -14,6 +15,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AvatarUploadService } from './avatar-upload.service';
 import { UsersService } from './users.service';
 import { AvatarUploadResponseDto } from './dto/avatar-upload.dto';
@@ -33,6 +35,7 @@ interface MulterFile {
 }
 
 @Controller('users/avatar')
+@UseGuards(JwtAuthGuard)
 export class AvatarUploadController {
   constructor(
     private readonly avatarUploadService: AvatarUploadService,

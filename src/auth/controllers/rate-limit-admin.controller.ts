@@ -7,7 +7,6 @@ import {
   Post,
   Delete,
   Param,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -17,10 +16,16 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RateLimitService, RateLimitStatus } from '../rate-limit.service';
 import { SkipRateLimit } from '../guards/rate-limit.guard';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../decorators/roles.decorator';
+import { UserRole } from '../../types/prisma.types';
 
 @ApiTags('Admin - Rate Limiting')
 @Controller('admin/rate-limits')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
 export class RateLimitAdminController {
   constructor(private rateLimitService: RateLimitService) {}
 
