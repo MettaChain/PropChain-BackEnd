@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { SupportTicketsService } from './support-tickets.service';
