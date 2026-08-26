@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import { Module } from '@nestjs/common';
 import { SupportTicketsController } from './support-tickets.controller';
