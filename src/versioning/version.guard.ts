@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Version Guard
  * Validates that the requested version is supported before processing the request
@@ -22,7 +20,7 @@ export class VersionGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const currentVersion = (request as RequestWithApiVersion).apiVersion;
+    const currentVersion = (request as RequestWithApiVersion).apiVersion as ApiVersionEnum;
 
     // Get supported versions for this endpoint from metadata
     const endpointVersions = this.reflector.get<ApiVersionEnum[]>(

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Delete, UseGuards } from '@nestjs/common';
 import { CacheMonitoringService } from './cache-monitoring.service';
 import { CacheService } from './cache.service';

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Cache Monitoring Service
  * Monitors cache performance, hits/misses, and health

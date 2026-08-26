@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * API Version Decorators
  * Decorators for marking endpoints with specific API versions
