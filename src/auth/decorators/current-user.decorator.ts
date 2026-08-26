@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { AuthUserPayload } from '../types/auth-user.type';
 

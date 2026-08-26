@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsString, IsOptional, IsNumber, IsDateString } from 'class-validator';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Type } from 'class-transformer';

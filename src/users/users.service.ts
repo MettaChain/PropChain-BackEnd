@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Injectable,
   Logger,
@@ -10,6 +8,7 @@ import {
 import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '@prisma/client';
+import { redactEmail } from '../auth/security.utils';
 import { CreateUserDto, SearchUsersDto, UpdatePreferencesDto, UpdateUserDto } from './dto/user.dto';
 import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
 import {
@@ -106,15 +105,12 @@ export class UsersService implements OnModuleInit {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.avatar !== undefined) updateData.avatar = data.avatar;
-    if (data.bio !== undefined) updateData.bio = data.bio;
     if (data.preferredChannel !== undefined) updateData.preferredChannel = data.preferredChannel;
     if (data.languagePreference !== undefined)
       updateData.languagePreference = data.languagePreference;
     if (data.timezone !== undefined) updateData.timezone = data.timezone;
-    if (data.contactHours !== undefined) updateData.contactHours = data.contactHours;
-    if (data.address !== undefined) updateData.address = data.address;
-    if (data.occupation !== undefined) updateData.occupation = data.occupation;
-    if (data.company !== undefined) updateData.company = data.company;
+    if (data.contactHours !== undefined)
+      updateData.contactHours = data.contactHours as unknown as Prisma.InputJsonValue;
 
     // Update user
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

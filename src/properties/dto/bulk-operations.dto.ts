@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsArray, IsEnum, IsOptional, IsString, IsUUID, ArrayMinSize } from 'class-validator';
 import { PropertyStatus } from '../../types/prisma.types';
 

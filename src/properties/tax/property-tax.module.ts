@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Module } from '@nestjs/common';
 import { PropertyTaxService } from './property-tax.service';
 import { PropertyTaxController } from './property-tax.controller';

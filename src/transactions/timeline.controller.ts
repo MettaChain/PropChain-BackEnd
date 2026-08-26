@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Post, Patch, Get, Body, Param, UseGuards } from '@nestjs/common';
 import { TimelineService } from './timeline.service';
 import { CreateMilestoneDto, UpdateMilestoneDto } from './dto/timeline.dto';

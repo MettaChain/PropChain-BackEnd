@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Controller,
   Post,
@@ -62,7 +60,9 @@ export class AvatarUploadController {
 
       return uploadResult;
     } catch (error) {
-      throw new BadRequestException(`Failed to upload avatar: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to upload avatar: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -84,7 +84,9 @@ export class AvatarUploadController {
 
       return { message: 'Avatar deleted successfully' };
     } catch (error) {
-      throw new BadRequestException(`Failed to delete avatar: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to delete avatar: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

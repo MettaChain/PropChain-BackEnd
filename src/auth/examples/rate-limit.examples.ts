@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Rate Limiting Usage Examples
  *
