@@ -196,8 +196,12 @@ describe('FraudService', () => {
   });
 
   it('auto-blocks a user when a critical alert is created with enforcement enabled', async () => {
-    jest.spyOn(service as unknown as FraudServiceInternals, 'findOpenAlert').mockResolvedValue(null);
-    jest.spyOn(service as unknown as FraudServiceInternals, 'notifySecurityTeam').mockResolvedValue(undefined);
+    jest
+      .spyOn(service as unknown as FraudServiceInternals, 'findOpenAlert')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(service as unknown as FraudServiceInternals, 'notifySecurityTeam')
+      .mockResolvedValue(undefined);
     const blockUserForFraudSpy = jest
       .spyOn(service as unknown as FraudServiceInternals, 'blockUserForFraud')
       .mockResolvedValue(undefined);

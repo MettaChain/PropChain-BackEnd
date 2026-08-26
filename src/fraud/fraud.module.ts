@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../database/prisma.module';

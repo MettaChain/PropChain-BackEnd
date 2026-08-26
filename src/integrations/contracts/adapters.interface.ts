@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export interface MlsListing {
   mlsId: string;
   address: string;

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
@@ -781,7 +779,9 @@ export class FraudService {
     try {
       await this.notifySecurityTeam(alert, false);
     } catch (error) {
-      this.logger.error(`Failed to send security team notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send security team notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     if (
@@ -801,7 +801,9 @@ export class FraudService {
           emailType: 'FRAUD_ALERT',
         });
       } catch (error) {
-        this.logger.error(`Failed to send fraud alert email to user: ${error.message}`);
+        this.logger.error(
+          `Failed to send fraud alert email to user: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
@@ -817,7 +819,9 @@ export class FraudService {
           this.logger.warn(`No phone number for user ${payload.userId}, skipping SMS notification`);
         }
       } catch (error) {
-        this.logger.error(`Failed to send fraud alert SMS: ${error.message}`);
+        this.logger.error(
+          `Failed to send fraud alert SMS: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
@@ -839,7 +843,9 @@ export class FraudService {
           },
         });
       } catch (error) {
-        this.logger.error(`Failed to create in-app notification: ${error.message}`);
+        this.logger.error(
+          `Failed to create in-app notification: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }
@@ -1034,7 +1040,9 @@ export class FraudService {
         userEmail: alert.user?.email,
       });
     } catch (error) {
-      this.logger.error(`Failed to send fraud alert notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send fraud alert notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

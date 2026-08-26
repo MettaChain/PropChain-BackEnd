@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
@@ -72,7 +70,9 @@ export class NotificationsService {
         // DB roundtrips per party. If a user has no preferences row, fall back
         // to schema defaults locally instead of triggering the upsert
         // side-effect in `UserPreferencesService.findByUserId`.
-        const prefs = user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS;
+        const prefs = (user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS) as Parameters<
+          typeof shouldDeliverNotificationFromPrefs
+        >[0];
         const canInApp = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'inApp');
         const canEmail = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'email');
         const canSms = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'sms');
@@ -98,7 +98,7 @@ export class NotificationsService {
                 amount: `$${Number(transaction.amount || 0).toLocaleString()}`,
                 completionDate:
                   transaction.status === 'COMPLETED' ? new Date().toLocaleDateString() : undefined,
-                blockchainTxHash: transaction.blockchainTxHash || undefined,
+                blockchainTxHash: transaction.blockchainHash || undefined,
                 cancellationReason: transaction.cancellationReason || undefined,
                 cancelledDate:
                   transaction.status === 'CANCELLED' ? new Date().toLocaleDateString() : undefined,

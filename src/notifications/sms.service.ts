@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'fs';

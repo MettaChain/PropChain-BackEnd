@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   IsDateString,
   IsEnum,
