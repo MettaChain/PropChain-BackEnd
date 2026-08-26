@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PROPERTY_STATUS_ENUM } from '../../common/common.types';
@@ -161,4 +159,62 @@ export class SearchPropertiesDto {
   @Min(0)
   @Max(100)
   maxNeighborhoodTrustScore?: number;
+
+  // ----- Sorting -----
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
+
+  // ----- Category / tag / amenity -----
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  tag?: string;
+
+  @IsOptional()
+  @IsString()
+  amenityType?: string;
+
+  // ----- Geo (point + radius or bounding box) -----
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lng?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  radiusKm?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  minLat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxLat?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  minLng?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxLng?: number;
 }

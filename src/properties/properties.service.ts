@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   BadRequestException,
   ForbiddenException,
@@ -8,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto';
 import { AssignAgentDto, UpdateAgentAssignmentDto } from './dto/agent-assignment.dto';
@@ -135,10 +134,11 @@ export class PropertiesService {
   private async markGeocodingFailed(propertyId: string): Promise<void> {
     const existing = await this.prisma.property.findUnique({
       where: { id: propertyId },
-      select: { metadata: true },
+      select: { metadata: true } as unknown as Prisma.PropertySelect,
     });
 
-    const metadata = (existing?.metadata as Record<string, any>) || {};
+    const metadata =
+      ((existing as { metadata?: unknown } | null)?.metadata as Record<string, any>) || {};
     await this.prisma.property.update({
       where: { id: propertyId },
       data: {
@@ -302,7 +302,7 @@ export class PropertiesService {
           changeAmount,
           changePercentage,
           changedBy: userId,
-          changeReason: rest.changeReason || null,
+          changeReason: (rest as { changeReason?: string }).changeReason || null,
         },
       });
     }

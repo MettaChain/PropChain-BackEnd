@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import {
@@ -101,7 +99,9 @@ export class VerificationDocumentsService {
   async findAllForAdmin(page = 1, limit = 20, status?: string) {
     const skip = (page - 1) * limit;
 
-    const where: Prisma.VerificationDocumentWhereInput = status ? { status: status as VerificationStatus } : {};
+    const where: Prisma.VerificationDocumentWhereInput = status
+      ? { status: status as VerificationStatus }
+      : {};
 
     const [documents, total] = await Promise.all([
       this.prisma.verificationDocument.findMany({

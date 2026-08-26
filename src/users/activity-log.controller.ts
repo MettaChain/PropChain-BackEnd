@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ActivityLogService } from './activity-log.service';
 import { GetActivityLogsDto } from './dto/activity-log.dto';
@@ -14,7 +12,7 @@ export class ActivityLogController {
 
   @Get()
   getActivityLogs(@CurrentUser() user: AuthUserPayload, @Query() filters: GetActivityLogsDto) {
-    return this.activityLogService.findByUserId(user.id, filters);
+    return this.activityLogService.findByUserId(user.sub, filters);
   }
 }
 

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -38,7 +36,7 @@ export class PropertyTaxService {
     }
 
     if (property.taxHistory && Array.isArray(property.taxHistory)) {
-      return property.taxHistory as TaxRecord[];
+      return property.taxHistory as unknown as TaxRecord[];
     }
 
     if (property.annualTaxAmount) {

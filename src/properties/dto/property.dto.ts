@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsString, IsNumber, IsOptional, IsArray, IsIn, IsUrl } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InputType, Field, Float } from '@nestjs/graphql';
@@ -206,7 +204,7 @@ export class UpdatePropertyDto {
   @IsNumber()
   yearBuilt?: number;
 
-  @Field(() => PropertyStatusLiteral, { nullable: true })
+  @Field(() => String, { nullable: true })
   @IsOptional()
   @IsIn(PROPERTY_STATUS_ENUM)
   status?: PropertyStatusLiteral;

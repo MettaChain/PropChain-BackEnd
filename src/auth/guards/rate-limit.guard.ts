@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Injectable,
   CanActivate,
@@ -161,8 +159,10 @@ export class RateLimitGuard implements CanActivate {
    * Extract client IP from request
    */
   private getClientIp(request: Request): string {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    const forwardedForStr = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
     return (
-      request.headers['x-forwarded-for']?.split(',')[0].trim() ||
+      forwardedForStr?.split(',')[0].trim() ||
       request.connection?.remoteAddress ||
       request.socket?.remoteAddress ||
       request.ip ||

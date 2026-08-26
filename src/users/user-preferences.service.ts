@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
@@ -145,7 +143,11 @@ export class UserPreferencesService {
     channel: 'email' | 'sms' | 'push' | 'inApp',
   ): Promise<boolean> {
     const prefs = await this.findByUserId(userId);
-    return shouldDeliverNotificationFromPrefs(prefs, eventType, channel);
+    return shouldDeliverNotificationFromPrefs(
+      prefs as Parameters<typeof shouldDeliverNotificationFromPrefs>[0],
+      eventType,
+      channel,
+    );
   }
 }
 

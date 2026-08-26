@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 import { UserRole } from '../../common/common.types';
 

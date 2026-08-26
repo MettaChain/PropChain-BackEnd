@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Field, ID, ObjectType, Float } from '@nestjs/graphql';
 import { PropertyStatus } from '../../common/common.types';
 import { User } from '../../users/models/user.model';

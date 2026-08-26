@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PROPERTY_STATUS_ENUM } from '../../common/common.types';
 

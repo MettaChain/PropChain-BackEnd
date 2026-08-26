@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Type } from 'class-transformer';
 import {
   IsDateString,

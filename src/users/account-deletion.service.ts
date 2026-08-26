@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * AccountDeletionService
  *
@@ -56,6 +54,10 @@ export interface DeletionJobResult {
   restoredCount?: number;
 }
 
+function asLang(lang?: string | null): 'en' | 'es' {
+  return lang === 'es' ? 'es' : 'en';
+}
+
 @Injectable()
 export class AccountDeletionService {
   private readonly logger = new Logger(AccountDeletionService.name);
@@ -101,7 +103,7 @@ export class AccountDeletionService {
   async requestDeletion(input: RequestAccountDeletionInput) {
     const user = await this.prisma.user.findUnique({ where: { id: input.userId } });
     if (!user) {
-      throw new NotFoundException(this.i18n.tFor('users.not_found', input.language ?? 'en'));
+      throw new NotFoundException(this.i18n.tFor('users.not_found', asLang(input.language)));
     }
 
     if (user.legalHold) {
@@ -113,13 +115,13 @@ export class AccountDeletionService {
         metadata: { retentionDays: input.retentionDays },
       });
       throw new BadRequestException(
-        this.i18n.tFor('users.self_deletion_blocked_by_legal_hold', input.language ?? 'en'),
+        this.i18n.tFor('users.self_deletion_blocked_by_legal_hold', asLang(input.language)),
       );
     }
 
     if (user.isDeactivated && user.scheduledDeletionAt) {
       throw new BadRequestException(
-        this.i18n.tFor('users.self_deletion_already_requested', input.language ?? 'en'),
+        this.i18n.tFor('users.self_deletion_already_requested', asLang(input.language)),
       );
     }
 
@@ -147,7 +149,7 @@ export class AccountDeletionService {
       },
     });
 
-    await this.sendRetentionNoticeEmail(updated, retentionDays, input.language ?? 'en');
+    await this.sendRetentionNoticeEmail(updated, retentionDays, asLang(input.language));
 
     return {
       userId: user.id,
@@ -164,18 +166,18 @@ export class AccountDeletionService {
   async cancelDeletion(input: CancelAccountDeletionInput) {
     const user = await this.prisma.user.findUnique({ where: { id: input.userId } });
     if (!user) {
-      throw new NotFoundException(this.i18n.tFor('users.not_found', input.language ?? 'en'));
+      throw new NotFoundException(this.i18n.tFor('users.not_found', asLang(input.language)));
     }
 
     if (!user.isDeactivated || !user.scheduledDeletionAt) {
       throw new BadRequestException(
-        this.i18n.tFor('users.self_deletion_not_requested', input.language ?? 'en'),
+        this.i18n.tFor('users.self_deletion_not_requested', asLang(input.language)),
       );
     }
 
     if (user.scheduledDeletionAt.getTime() <= Date.now()) {
       throw new BadRequestException(
-        this.i18n.tFor('users.self_deletion_already_permanent', input.language ?? 'en'),
+        this.i18n.tFor('users.self_deletion_already_permanent', asLang(input.language)),
       );
     }
 
@@ -198,7 +200,7 @@ export class AccountDeletionService {
       },
     });
 
-    await this.sendCancellationEmail(updated, input.language ?? 'en');
+    await this.sendCancellationEmail(updated, asLang(input.language));
 
     return {
       userId: updated.id,
@@ -258,7 +260,7 @@ export class AccountDeletionService {
   private async sendRetentionNoticeEmail(
     user: { id: string; email: string; firstName?: string | null },
     retentionDays: number,
-    language: string,
+    language: 'en' | 'es',
   ): Promise<void> {
     try {
       await this.emailService.sendEmail({
@@ -279,7 +281,7 @@ export class AccountDeletionService {
 
   private async sendCancellationEmail(
     user: { id: string; email: string; firstName?: string | null },
-    language: string,
+    language: 'en' | 'es',
   ): Promise<void> {
     try {
       await this.emailService.sendEmail({
@@ -296,7 +298,7 @@ export class AccountDeletionService {
     }
   }
 
-  private async sendCompletionEmail(email: string, language: string): Promise<void> {
+  private async sendCompletionEmail(email: string, language: 'en' | 'es'): Promise<void> {
     try {
       await this.emailService.sendEmail({
         to: email,

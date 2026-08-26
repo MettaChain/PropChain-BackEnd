@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Module } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { TransactionsController } from './transactions.controller';
