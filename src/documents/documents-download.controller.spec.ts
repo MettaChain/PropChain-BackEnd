@@ -126,10 +126,10 @@ describe('DocumentsDownloadController', () => {
   });
 
   describe('Upload URL Endpoints', () => {
-    const uploadDto = { 
-      fileName: 'test.pdf', 
-      mimeType: 'application/pdf', 
-      fileSizeBytes: 1024 
+    const uploadDto = {
+      fileName: 'test.pdf',
+      mimeType: 'application/pdf',
+      fileSizeBytes: 1024,
     } as RequestSignedUploadDto;
 
     const mockSignedUrlResponse = {
@@ -188,7 +188,11 @@ describe('DocumentsDownloadController', () => {
 
   describe('createMetadata', () => {
     it('should pass the DTO and user ID to the documents service', async () => {
-      const mockDto = { fileName: 'test.pdf', documentType: 'OTHER', fileUrl: 'https://example.com/test.pdf' };
+      const mockDto = {
+        fileName: 'test.pdf',
+        documentType: 'OTHER',
+        fileUrl: 'https://example.com/test.pdf',
+      };
       mockDocumentsService.create.mockResolvedValue({ id: 'doc-123' });
 
       const result = await controller.createMetadata(mockDto, mockUser);

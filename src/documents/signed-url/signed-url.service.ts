@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { SignedUrlResponse } from './signed-url-provider.interface';
 import { SIGNED_URL_PROVIDER_TOKEN } from '../documents.module';
@@ -20,7 +18,9 @@ export class SignedUrlService {
     try {
       return await this.provider.getSignedUrl(req);
     } catch (e: unknown) {
-      throw new InternalServerErrorException(e?.message ?? 'Failed to get signed URL');
+      throw new InternalServerErrorException(
+        (e instanceof Error ? e.message : undefined) ?? 'Failed to get signed URL',
+      );
     }
   }
 }
