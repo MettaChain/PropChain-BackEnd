@@ -81,7 +81,8 @@ export class CommissionsService {
           `Created commission of ${amount.toString()} for agent ${agentAssignment.agentId} on transaction ${transactionId}`,
         );
       }
-    } catch (error) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
       this.logger.error(
         `Failed to create commissions for transaction ${transactionId}: ${error.message}`,
         error.stack,
@@ -105,7 +106,8 @@ export class CommissionsService {
       this.logger.log(
         `Updated ${result.count} commission statuses to ${dbStatus} for transaction ${transactionId}`,
       );
-    } catch (error) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
       this.logger.error(
         `Failed to update commission statuses for transaction ${transactionId}: ${error.message}`,
         error.stack,
