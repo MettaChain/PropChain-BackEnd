@@ -13,7 +13,13 @@
  *   - Email preview: GET /admin/email/preview/:templateName
  */
 
-import { INestApplication, ValidationPipe, Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
@@ -63,10 +69,11 @@ class FakePrismaService {
 
   user = {
     count: async () => this.users.size,
-    findMany: async ({ where, skip, take, orderBy, select }: any) => {
+    findMany: async ({ where, skip, take, _orderBy, select }: any) => {
       let items = Array.from(this.users.values());
       if (where?.role) items = items.filter((u) => u.role === where.role);
-      if (where?.isBlocked !== undefined) items = items.filter((u) => u.isBlocked === where.isBlocked);
+      if (where?.isBlocked !== undefined)
+        items = items.filter((u) => u.isBlocked === where.isBlocked);
       if (where?.OR) {
         const search = where.OR[0]?.email?.contains;
         if (search) {
@@ -135,7 +142,7 @@ class FakePrismaService {
       if (where?.status) items = items.filter((p) => p.status === where.status);
       return items.length;
     },
-    findMany: async ({ where, skip, take, orderBy, include }: any = {}) => {
+    findMany: async ({ where, _skip, take, _orderBy, _include }: any = {}) => {
       let items = Array.from(this.properties.values());
       if (where?.status) items = items.filter((p) => p.status === where.status);
       if (where?.id?.in) items = items.filter((p) => where.id.in.includes(p.id));
@@ -173,7 +180,7 @@ class FakePrismaService {
       const sum = items.reduce((acc, t) => acc + (t.amount || 0), 0);
       return { _sum: { amount: sum } };
     },
-    findMany: async ({ where, skip, take }: any = {}) => {
+    findMany: async ({ where, _skip, take }: any = {}) => {
       let items = Array.from(this.transactions.values());
       if (where?.status) items = items.filter((t) => t.status === where.status);
       if (take) items = items.slice(0, take);
@@ -186,11 +193,12 @@ class FakePrismaService {
       let items = Array.from(this.fraudAlerts.values());
       if (where?.status) items = items.filter((a) => a.status === where.status);
       if (where?.severity) items = items.filter((a) => a.severity === where.severity);
-      if (where?.autoBlocked !== undefined) items = items.filter((a) => a.autoBlocked === where.autoBlocked);
+      if (where?.autoBlocked !== undefined)
+        items = items.filter((a) => a.autoBlocked === where.autoBlocked);
       return items.length;
     },
     groupBy: async () => [],
-    findMany: async ({ where, skip, take }: any = {}) => {
+    findMany: async ({ _where, _skip, take }: any = {}) => {
       let items = Array.from(this.fraudAlerts.values());
       if (take) items = items.slice(0, take);
       return items;
@@ -236,23 +244,34 @@ class FakeAdminService {
   }
 
   async getDashboard() {
-    const [totalUsers, blockedUsers, totalProperties, pendingProperties, activeProperties] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { isBlocked: true } }),
-      this.prisma.property.count(),
-      this.prisma.property.count({ where: { status: 'PENDING' } }),
-      this.prisma.property.count({ where: { status: 'ACTIVE' } }),
-    ]);
-    const [completedTransactions, pendingTransactions, salesAggregate, rentAggregate] = await Promise.all([
-      this.prisma.transaction.count({ where: { status: 'COMPLETED' } }),
-      this.prisma.transaction.count({ where: { status: 'PENDING' } }),
-      this.prisma.transaction.aggregate({ where: { status: 'COMPLETED', type: 'SALE' }, _sum: { amount: true } }),
-      this.prisma.transaction.aggregate({ where: { status: 'COMPLETED', type: 'TRANSFER' }, _sum: { amount: true } }),
-    ]);
+    const [totalUsers, blockedUsers, totalProperties, pendingProperties, activeProperties] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.user.count({ where: { isBlocked: true } }),
+        this.prisma.property.count(),
+        this.prisma.property.count({ where: { status: 'PENDING' } }),
+        this.prisma.property.count({ where: { status: 'ACTIVE' } }),
+      ]);
+    const [completedTransactions, pendingTransactions, salesAggregate, rentAggregate] =
+      await Promise.all([
+        this.prisma.transaction.count({ where: { status: 'COMPLETED' } }),
+        this.prisma.transaction.count({ where: { status: 'PENDING' } }),
+        this.prisma.transaction.aggregate({
+          where: { status: 'COMPLETED', type: 'SALE' },
+          _sum: { amount: true },
+        }),
+        this.prisma.transaction.aggregate({
+          where: { status: 'COMPLETED', type: 'TRANSFER' },
+          _sum: { amount: true },
+        }),
+      ]);
     return {
       userStats: { totalUsers, blockedUsers, activeUsers: totalUsers - blockedUsers },
       propertyStats: { totalProperties, pendingProperties, activeProperties },
-      revenueMetrics: { totalSalesRevenue: salesAggregate._sum.amount ?? 0, totalTransferRevenue: rentAggregate._sum.amount ?? 0 },
+      revenueMetrics: {
+        totalSalesRevenue: salesAggregate._sum.amount ?? 0,
+        totalTransferRevenue: rentAggregate._sum.amount ?? 0,
+      },
       systemHealth: { completedTransactions, pendingTransactions },
     };
   }
@@ -266,7 +285,22 @@ class FakeAdminService {
       where.OR = [{ email: { contains: query.search, mode: 'insensitive' } }];
     }
     const [items, total] = await Promise.all([
-      this.prisma.user.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, firstName: true, lastName: true, role: true, isVerified: true, isBlocked: true, createdAt: true } }),
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isVerified: true,
+          isBlocked: true,
+          createdAt: true,
+        },
+      }),
       this.prisma.user.count({ where }),
     ]);
     return { total, page, limit, items, nextCursor: null, previousCursor: null };
@@ -288,25 +322,44 @@ class FakeAdminService {
   }
 
   async getFraudAlertsSummary() {
-    const [open, investigating, resolved, dismissed, autoBlocked, critical, high] = await Promise.all([
-      this.prisma.fraudAlert.count({ where: { status: 'OPEN' } }),
-      this.prisma.fraudAlert.count({ where: { status: 'INVESTIGATING' } }),
-      this.prisma.fraudAlert.count({ where: { status: 'RESOLVED' } }),
-      this.prisma.fraudAlert.count({ where: { status: 'DISMISSED' } }),
-      this.prisma.fraudAlert.count({ where: { autoBlocked: true } }),
-      this.prisma.fraudAlert.count({ where: { severity: 'CRITICAL' } }),
-      this.prisma.fraudAlert.count({ where: { severity: 'HIGH' } }),
-    ]);
-    return { statuses: { open, investigating, resolved, dismissed }, severity: { critical, high }, autoBlocked, byPattern: [] };
+    const [open, investigating, resolved, dismissed, autoBlocked, critical, high] =
+      await Promise.all([
+        this.prisma.fraudAlert.count({ where: { status: 'OPEN' } }),
+        this.prisma.fraudAlert.count({ where: { status: 'INVESTIGATING' } }),
+        this.prisma.fraudAlert.count({ where: { status: 'RESOLVED' } }),
+        this.prisma.fraudAlert.count({ where: { status: 'DISMISSED' } }),
+        this.prisma.fraudAlert.count({ where: { autoBlocked: true } }),
+        this.prisma.fraudAlert.count({ where: { severity: 'CRITICAL' } }),
+        this.prisma.fraudAlert.count({ where: { severity: 'HIGH' } }),
+      ]);
+    return {
+      statuses: { open, investigating, resolved, dismissed },
+      severity: { critical, high },
+      autoBlocked,
+      byPattern: [],
+    };
   }
 
-  async scanUserForFraud(userId: string, actorId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  async scanUserForFraud(userId: string, _actorId: string) {
     return { userId, generatedAlerts: [] };
   }
 
   async updateUser(userId: string, payload: any) {
-    return this.prisma.user.update({ where: { id: userId }, data: payload, select: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true, isVerified: true, isBlocked: true, updatedAt: true } });
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: payload,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+        isBlocked: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async approveProperty(propertyId: string) {
@@ -318,13 +371,30 @@ class FakeAdminService {
   }
 
   async getModerationQueue(query: any) {
-    const items = await this.prisma.property.findMany({ where: { status: query.status ?? 'PENDING' }, take: 20 });
-    return { total: items.length, page: 1, limit: 20, items, nextCursor: null, previousCursor: null };
+    const items = await this.prisma.property.findMany({
+      where: { status: query.status ?? 'PENDING' },
+      take: 20,
+    });
+    return {
+      total: items.length,
+      page: 1,
+      limit: 20,
+      items,
+      nextCursor: null,
+      previousCursor: null,
+    };
   }
 
   async monitorTransactions(query: any) {
     const items = await this.prisma.transaction.findMany({ where: query, take: 20 });
-    return { total: items.length, page: 1, limit: 20, items, nextCursor: null, previousCursor: null };
+    return {
+      total: items.length,
+      page: 1,
+      limit: 20,
+      items,
+      nextCursor: null,
+      previousCursor: null,
+    };
   }
 
   async transactionMonitoringSummary() {
@@ -351,24 +421,54 @@ describe('Admin API (e2e)', () => {
     // Seed users
     const now = new Date();
     fakePrisma.users.set('admin-1', {
-      id: 'admin-1', email: 'admin@example.com', firstName: 'Admin', lastName: 'User',
-      role: 'ADMIN', isVerified: true, isBlocked: false, createdAt: now, updatedAt: now,
+      id: 'admin-1',
+      email: 'admin@example.com',
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'ADMIN',
+      isVerified: true,
+      isBlocked: false,
+      createdAt: now,
+      updatedAt: now,
     });
     fakePrisma.users.set('user-1', {
-      id: 'user-1', email: 'regular@example.com', firstName: 'Regular', lastName: 'User',
-      role: 'USER', isVerified: true, isBlocked: false, createdAt: now, updatedAt: now,
+      id: 'user-1',
+      email: 'regular@example.com',
+      firstName: 'Regular',
+      lastName: 'User',
+      role: 'USER',
+      isVerified: true,
+      isBlocked: false,
+      createdAt: now,
+      updatedAt: now,
     });
     fakePrisma.users.set('blocked-user-1', {
-      id: 'blocked-user-1', email: 'blocked@example.com', firstName: 'Blocked', lastName: 'User',
-      role: 'USER', isVerified: true, isBlocked: true, createdAt: now, updatedAt: now,
+      id: 'blocked-user-1',
+      email: 'blocked@example.com',
+      firstName: 'Blocked',
+      lastName: 'User',
+      role: 'USER',
+      isVerified: true,
+      isBlocked: true,
+      createdAt: now,
+      updatedAt: now,
     });
 
     // Seed fraud alert
     fakePrisma.fraudAlerts.set('alert-1', {
-      id: 'alert-1', userId: 'user-1', pattern: 'EXCESSIVE_FAILED_LOGINS',
-      severity: 'HIGH', status: 'OPEN', score: 75, title: 'Repeated failed logins',
-      description: 'Multiple failed login attempts detected', autoBlocked: false,
-      occurrenceCount: 3, lastDetectedAt: now, createdAt: now, updatedAt: now,
+      id: 'alert-1',
+      userId: 'user-1',
+      pattern: 'EXCESSIVE_FAILED_LOGINS',
+      severity: 'HIGH',
+      status: 'OPEN',
+      score: 75,
+      title: 'Repeated failed logins',
+      description: 'Multiple failed login attempts detected',
+      autoBlocked: false,
+      occurrenceCount: 3,
+      lastDetectedAt: now,
+      createdAt: now,
+      updatedAt: now,
     });
 
     adminService = new FakeAdminService(fakePrisma);
@@ -381,8 +481,22 @@ describe('Admin API (e2e)', () => {
         { provide: PrismaService, useValue: fakePrisma as any },
         { provide: AdminService, useValue: adminService as any },
         { provide: EmailService, useValue: { sendEmail: async () => ({}) } },
-        { provide: ArchiveService, useValue: { listArchiveFiles: async () => [], getLastSummary: async () => null, runArchival: async () => ({ archived: 0 }), restoreFromArchive: async () => ({ restored: 0, errors: [] }) } },
-        { provide: CleanupService, useValue: { getLastSummary: async () => null, performCleanup: async () => ({ cleaned: 0 }) } },
+        {
+          provide: ArchiveService,
+          useValue: {
+            listArchiveFiles: async () => [],
+            getLastSummary: async () => null,
+            runArchival: async () => ({ archived: 0 }),
+            restoreFromArchive: async () => ({ restored: 0, errors: [] }),
+          },
+        },
+        {
+          provide: CleanupService,
+          useValue: {
+            getLastSummary: async () => null,
+            performCleanup: async () => ({ cleaned: 0 }),
+          },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -390,7 +504,9 @@ describe('Admin API (e2e)', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }),
+    );
     await app.init();
   }, 30000);
 
@@ -404,31 +520,41 @@ describe('Admin API (e2e)', () => {
     it('rejects GET /admin/dashboard without a token', async () => {
       await request(app.getHttpServer())
         .get('/admin/dashboard')
-        .expect((r: any) => { expect([401, 403]).toContain(r.status); });
+        .expect((r: any) => {
+          expect([401, 403]).toContain(r.status);
+        });
     });
 
     it('rejects GET /admin/users without a token', async () => {
       await request(app.getHttpServer())
         .get('/admin/users')
-        .expect((r: any) => { expect([401, 403]).toContain(r.status); });
+        .expect((r: any) => {
+          expect([401, 403]).toContain(r.status);
+        });
     });
 
     it('rejects POST /admin/users/:id/block without a token', async () => {
       await request(app.getHttpServer())
         .post('/admin/users/user-1/block')
-        .expect((r: any) => { expect([401, 403]).toContain(r.status); });
+        .expect((r: any) => {
+          expect([401, 403]).toContain(r.status);
+        });
     });
 
     it('rejects GET /admin/fraud/alerts without a token', async () => {
       await request(app.getHttpServer())
         .get('/admin/fraud/alerts')
-        .expect((r: any) => { expect([401, 403]).toContain(r.status); });
+        .expect((r: any) => {
+          expect([401, 403]).toContain(r.status);
+        });
     });
 
     it('rejects POST /admin/fraud/users/:id/scan without a token', async () => {
       await request(app.getHttpServer())
         .post('/admin/fraud/users/user-1/scan')
-        .expect((r: any) => { expect([401, 403]).toContain(r.status); });
+        .expect((r: any) => {
+          expect([401, 403]).toContain(r.status);
+        });
     });
   });
 

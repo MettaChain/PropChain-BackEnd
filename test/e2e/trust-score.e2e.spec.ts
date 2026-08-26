@@ -17,7 +17,13 @@
  *   - Activity decay for long-inactive users
  */
 
-import { INestApplication, ValidationPipe, Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PrismaService } from '../../src/database/prisma.service';
@@ -63,7 +69,6 @@ class MockApiKeyAuthGuard implements CanActivate {
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest();
     const apiKey = req.headers['x-api-key'];
-    const authHeader = req.headers['authorization'] as string | undefined;
     // Accept if x-api-key header is present, or if Bearer token was already validated by JwtAuthGuard
     if (apiKey) {
       req.authUser = { id: USER_A_ID, email: `${USER_A_ID}@example.com`, type: 'api-key' } as any;
@@ -262,10 +267,7 @@ describe('Trust-score API (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [TrustScoreController],
-      providers: [
-        TrustScoreService,
-        { provide: PrismaService, useValue: fakePrisma as any },
-      ],
+      providers: [TrustScoreService, { provide: PrismaService, useValue: fakePrisma as any }],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(new MockJwtAuthGuard())
@@ -274,7 +276,9 @@ describe('Trust-score API (e2e)', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }),
+    );
     await app.init();
   }, 30000);
 
