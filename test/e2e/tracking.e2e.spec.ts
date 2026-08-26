@@ -79,10 +79,7 @@ describe('Tracking API (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [TrackingController],
-      providers: [
-        TrackingService,
-        { provide: PrismaService, useValue: fakePrisma as any },
-      ],
+      providers: [TrackingService, { provide: PrismaService, useValue: fakePrisma as any }],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -100,9 +97,7 @@ describe('Tracking API (e2e)', () => {
 
   describe('Click redirect', () => {
     it('returns 400 when url is missing', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/track/click')
-        .expect(400);
+      const res = await request(app.getHttpServer()).get('/track/click').expect(400);
 
       expect(res.text).toBe('URL is required');
     });
@@ -210,9 +205,7 @@ describe('Tracking API (e2e)', () => {
 
     it('does not fail for unknown tracking IDs', async () => {
       // Service catches errors internally for unknown trackingIds
-      await request(app.getHttpServer())
-        .get('/track/open/unknown-id.png')
-        .expect(200);
+      await request(app.getHttpServer()).get('/track/open/unknown-id.png').expect(200);
     });
 
     it('calls trackEmailOpen with the tracking ID', async () => {
@@ -231,9 +224,7 @@ describe('Tracking API (e2e)', () => {
 
   describe('Stats', () => {
     it('returns click and email stats', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/track/stats')
-        .expect(200);
+      const res = await request(app.getHttpServer()).get('/track/stats').expect(200);
 
       expect(res.body).toBeDefined();
       expect(res.body.clicks).toBeDefined();
@@ -246,9 +237,7 @@ describe('Tracking API (e2e)', () => {
 
     it('is accessible without authentication (public endpoint)', async () => {
       // No Authorization header → should still return 200
-      const res = await request(app.getHttpServer())
-        .get('/track/stats')
-        .expect(200);
+      const res = await request(app.getHttpServer()).get('/track/stats').expect(200);
 
       expect(res.body.clicks).toBeDefined();
     });
@@ -264,9 +253,7 @@ describe('Tracking API (e2e)', () => {
           .expect(302);
 
         // Fetch stats
-        const res = await request(app.getHttpServer())
-          .get('/track/stats')
-          .expect(200);
+        const res = await request(app.getHttpServer()).get('/track/stats').expect(200);
 
         const clickEntry = res.body.clicks.find(
           (c: any) => c.url === 'https://stats-test.example.com/landing',

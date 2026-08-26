@@ -17,7 +17,6 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  NotFoundException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as http from 'http';
@@ -152,8 +151,7 @@ describe('Webhook workflow (e2e)', () => {
   let fakePrisma: FakePrismaService;
   let receiverServer: http.Server;
   let receiverPort: number;
-  let capturedRequests: { method: string; headers: http.IncomingHttpHeaders; body: string }[] =
-    [];
+  let capturedRequests: { method: string; headers: http.IncomingHttpHeaders; body: string }[] = [];
 
   beforeAll(async () => {
     fakePrisma = new FakePrismaService();
@@ -278,9 +276,7 @@ describe('Webhook workflow (e2e)', () => {
     expect(res.body.verified).toBe(true);
 
     // The receiver should have received a GET with the challenge query param
-    const challengeRequest = capturedRequests.find(
-      (r) => r.method === 'GET' && r.body === '',
-    );
+    const challengeRequest = capturedRequests.find((r) => r.method === 'GET' && r.body === '');
     expect(challengeRequest).toBeDefined();
   });
 
@@ -373,12 +369,16 @@ describe('Webhook workflow (e2e)', () => {
   });
 
   it('rejects all webhook routes without auth', async () => {
-    await request(app.getHttpServer()).get('/webhooks').expect((res) => {
-      expect([401, 403]).toContain(res.status);
-    });
-    await request(app.getHttpServer()).post('/webhooks').expect((res) => {
-      expect([401, 403]).toContain(res.status);
-    });
+    await request(app.getHttpServer())
+      .get('/webhooks')
+      .expect((res) => {
+        expect([401, 403]).toContain(res.status);
+      });
+    await request(app.getHttpServer())
+      .post('/webhooks')
+      .expect((res) => {
+        expect([401, 403]).toContain(res.status);
+      });
   });
 
   it('returns 404 for a non-existent webhook', async () => {
