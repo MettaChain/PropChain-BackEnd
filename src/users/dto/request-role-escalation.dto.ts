@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsEnum, IsString, MinLength } from 'class-validator';
 
 export class RequestRoleEscalationDto {

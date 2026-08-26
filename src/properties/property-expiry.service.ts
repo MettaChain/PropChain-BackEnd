@@ -1,8 +1,7 @@
-// @ts-nocheck
-
 import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PropertiesService } from './properties.service';
+import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PropertyStatus } from '../types/prisma.types';
 
@@ -15,6 +14,7 @@ export class PropertyExpiryService {
 
   constructor(
     private readonly propertiesService: PropertiesService,
+    private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -49,7 +49,7 @@ export class PropertyExpiryService {
       const nextDay = new Date(targetDate);
       nextDay.setDate(nextDay.getDate() + 1);
 
-      const properties = await this.propertiesService.prisma.property.findMany({
+      const properties = await this.prisma.property.findMany({
         where: {
           expiryDate: {
             gte: targetDate,
@@ -106,7 +106,7 @@ export class PropertyExpiryService {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const properties = await this.propertiesService.prisma.property.findMany({
+    const properties = await this.prisma.property.findMany({
       where: {
         status: PropertyStatus.EXPIRED,
         updatedAt: {
@@ -149,7 +149,7 @@ export class PropertyExpiryService {
     const graceCutoff = new Date();
     graceCutoff.setDate(graceCutoff.getDate() - GRACE_PERIOD_DAYS);
 
-    const result = await this.propertiesService.prisma.property.updateMany({
+    const result = await this.prisma.property.updateMany({
       where: {
         status: PropertyStatus.EXPIRED,
         updatedAt: {
@@ -166,7 +166,7 @@ export class PropertyExpiryService {
         `Archived ${result.count} properties past ${GRACE_PERIOD_DAYS}-day grace period`,
       );
 
-      const archivedProps = await this.propertiesService.prisma.property.findMany({
+      const archivedProps = await this.prisma.property.findMany({
         where: {
           status: PropertyStatus.ARCHIVED,
           updatedAt: {
@@ -207,7 +207,7 @@ export class PropertyExpiryService {
   }
 
   async renewProperty(id: string, userId: string, days: number) {
-    const property = await this.propertiesService.prisma.property.findUnique({
+    const property = await this.prisma.property.findUnique({
       where: { id },
     });
 
@@ -222,7 +222,7 @@ export class PropertyExpiryService {
     const newExpiryDate = new Date();
     newExpiryDate.setDate(newExpiryDate.getDate() + days);
 
-    const updated = await this.propertiesService.prisma.property.update({
+    const updated = await this.prisma.property.update({
       where: { id },
       data: {
         expiryDate: newExpiryDate,

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Body,
   Controller,
@@ -127,7 +125,8 @@ export class PropertiesController {
       }
 
       // Remap Prisma "not found" errors to a safe NotFoundException.
-      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+      const err = error as { code?: string; name?: string };
+      if (err?.code === 'P2025' || err?.name === 'NotFoundError') {
         throw new NotFoundException(`Property with id "${id}" was not found`);
       }
 

@@ -1,7 +1,6 @@
-// @ts-nocheck
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateActivityLogDto, GetActivityLogsDto } from './dto/activity-log.dto';
 
 @Injectable()
@@ -13,7 +12,7 @@ export class ActivityLogService {
       data: {
         userId,
         ...data,
-      },
+      } as Prisma.ActivityLogUncheckedCreateInput,
     });
   }
 

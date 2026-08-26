@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { ConfigService } from '@nestjs/config';
 
 export type PasswordPolicy = {

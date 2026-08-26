@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
 
 export class CancelTransactionDto {

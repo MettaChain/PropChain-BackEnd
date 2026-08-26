@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { parse } from 'csv-parse/sync';
@@ -32,7 +30,9 @@ export class UserImportService {
       });
     } catch (error) {
       this.logger.error('Failed to parse CSV:', error);
-      throw new BadRequestException('Invalid CSV format: ' + error.message);
+      throw new BadRequestException(
+        'Invalid CSV format: ' + (error instanceof Error ? error.message : String(error)),
+      );
     }
 
     const report = {
@@ -121,7 +121,7 @@ export class UserImportService {
         report.errors.push({
           row: rowNumber,
           email: email || 'N/A',
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AccountDeletionService } from './account-deletion.service';
