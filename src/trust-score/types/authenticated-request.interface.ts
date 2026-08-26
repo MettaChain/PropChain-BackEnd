@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export interface AuthenticatedRequest {
   authUser: {
     id: string;
