@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsDateString, IsNotEmpty, IsString, Matches } from 'class-validator';
 
 export class BlockchainAuditRecordDto {

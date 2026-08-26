@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Version Routing Service
  * Handles version-specific routing and request transformation

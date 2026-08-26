@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Cache Service
  * Manages cache operations with custom strategies and invalidation

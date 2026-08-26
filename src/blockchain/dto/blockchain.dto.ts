@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { IsString, IsNumber, IsOptional, IsEthereumAddress, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -32,7 +30,7 @@ export class RecordTransactionOnBlockchainDto {
   @IsNumber()
   amount: number;
 
-  @ApiPropertyOptional({ description: 'Transaction metadata (JSON)', type: 'object' })
+  @ApiPropertyOptional({ description: 'Transaction metadata (JSON)', type: Object })
   @IsOptional()
   metadata?: Record<string, any>;
 
