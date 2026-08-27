@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Delete, Get, Param, Patch, Body, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
