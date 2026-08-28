@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Type } from 'class-transformer';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { IsDate, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';

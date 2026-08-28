@@ -10,6 +10,33 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 export class TrackingController {
   constructor(private trackingService: TrackingService) {}
 
+  /**
+   * Validates a redirect target against an http(s) scheme check and an
+   * allow-list of hostnames (TRACKING_ALLOWED_REDIRECT_HOSTS, comma-separated).
+   * Fails closed: when no allow-list is configured, all external redirects are
+   * rejected, preventing this public endpoint from being abused as an open
+   * redirect / phishing vehicle.
+   */
+  private isSafeRedirect(target: string): boolean {
+    let parsed: URL;
+    try {
+      parsed = new URL(target);
+    } catch {
+      return false;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    const allowed = (process.env.TRACKING_ALLOWED_REDIRECT_HOSTS ?? '')
+      .split(',')
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean);
+    if (allowed.length === 0) {
+      return false;
+    }
+    return allowed.includes(parsed.hostname.toLowerCase());
+  }
+
   @Get('click')
   @ApiOperation({ summary: 'Track link click and redirect' })
   async trackClick(
@@ -20,6 +47,10 @@ export class TrackingController {
   ) {
     if (!url) {
       return res.status(400).send('URL is required');
+    }
+
+    if (!this.isSafeRedirect(url)) {
+      return res.status(400).send('Invalid or disallowed redirect URL');
     }
 
     const ipAddress = req.ip;

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -51,17 +49,6 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       this.socketUsers.delete(client.id);
       this.logger.log(`User ${userId} disconnected (${client.id})`);
     }
-  }
-
-  sendToUser(userId: string, event: string, data: unknown): boolean {
-    const sockets = this.userSockets.get(userId);
-    if (sockets && sockets.length > 0) {
-      sockets.forEach((socketId) => {
-        this.server.to(socketId).emit(event, data);
-      });
-      return true;
-    }
-    return { event: 'error', data: { message: 'Unauthorized to join this user room' } };
   }
 
   // -- Emit helpers for property events --

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   Controller,
   Post,
@@ -23,7 +21,9 @@ export class UserImportController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
-  async importCsv(@UploadedFile() file: Express.Multer.File) {
+  async importCsv(
+    @UploadedFile() file: { originalname: string; mimetype: string; buffer: Buffer },
+  ) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }

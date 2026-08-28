@@ -1,18 +1,16 @@
-// @ts-nocheck
-
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
-import { BlockchainAuditRecordDto } from './dto/blockchain-audit-record.dto';
+import { BlockchainAuditRecordDto } from '../audit/dto/blockchain-audit-record.dto';
 
 @Injectable()
 export class BlockchainAuditValidator {
   private readonly logger = new Logger(BlockchainAuditValidator.name);
 
   async validateRecord(payload: unknown): Promise<BlockchainAuditRecordDto> {
-    const dto = plainToInstance(BlockchainAuditRecordDto, payload);
+    const dto = plainToInstance(BlockchainAuditRecordDto, payload as object);
 
     const errors = await validate(dto);
 

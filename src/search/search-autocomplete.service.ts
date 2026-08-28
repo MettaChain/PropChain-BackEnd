@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Search Autocomplete Service
  *

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable } from '@nestjs/common';
 
 interface SearchableItem {

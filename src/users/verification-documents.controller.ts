@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
 import { VerificationDocumentsService } from './verification-documents.service';
 import {

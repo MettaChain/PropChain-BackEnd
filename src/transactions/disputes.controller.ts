@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Post, Patch, Get, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { DisputesService } from './disputes.service';
 import { CreateDisputeDto, ResolveDisputeDto } from './dto/dispute.dto';

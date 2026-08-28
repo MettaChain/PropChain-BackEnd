@@ -1,11 +1,10 @@
-// @ts-nocheck
-
 import {
   Controller,
   Post,
   Delete,
   Get,
   UseInterceptors,
+  UseGuards,
   UploadedFile,
   Body,
   Param,
@@ -14,6 +13,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AvatarUploadService } from './avatar-upload.service';
 import { UsersService } from './users.service';
 import { AvatarUploadResponseDto } from './dto/avatar-upload.dto';
@@ -33,6 +33,7 @@ interface MulterFile {
 }
 
 @Controller('users/avatar')
+@UseGuards(JwtAuthGuard)
 export class AvatarUploadController {
   constructor(
     private readonly avatarUploadService: AvatarUploadService,
@@ -62,7 +63,9 @@ export class AvatarUploadController {
 
       return uploadResult;
     } catch (error) {
-      throw new BadRequestException(`Failed to upload avatar: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to upload avatar: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -84,7 +87,9 @@ export class AvatarUploadController {
 
       return { message: 'Avatar deleted successfully' };
     } catch (error) {
-      throw new BadRequestException(`Failed to delete avatar: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to delete avatar: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

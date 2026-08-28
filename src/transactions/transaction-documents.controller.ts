@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { TransactionDocumentsService } from './transaction-documents.service';
 import { AttachDocumentDto, AddVersionDto } from './dto/transaction-document.dto';

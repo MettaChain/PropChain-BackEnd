@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Module, Type } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';

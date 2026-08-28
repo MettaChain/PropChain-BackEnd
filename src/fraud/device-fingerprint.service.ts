@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * DeviceFingerprintService (#961)
  *

@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import { Controller, Post, Body, Get, HttpCode, UseGuards } from '@nestjs/common';
 import { EmailService } from './email.service';

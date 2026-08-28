@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Cache Module
  * Comprehensive caching layer with Redis, monitoring, and warming

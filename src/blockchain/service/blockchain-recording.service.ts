@@ -1,10 +1,12 @@
-// @ts-nocheck
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class BlockchainRecordingService {
   private readonly logger = new Logger(BlockchainRecordingService.name);
 
-  constructor(private readonly queue: Queue) {}
+  constructor(@InjectQueue('record-blockchain-transaction') private readonly queue: Queue) {}
 
   async recordTransaction(transactionId: string) {
     await this.queue.add(

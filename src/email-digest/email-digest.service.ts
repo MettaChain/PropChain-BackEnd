@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -74,7 +72,9 @@ export class EmailDigestService {
           data: { lastSentAt: new Date() },
         });
       } catch (err) {
-        this.logger.error(`Failed to send digest to ${pref.user.email}: ${err.message}`);
+        this.logger.error(
+          `Failed to send digest to ${pref.user.email}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -264,7 +263,7 @@ export class EmailService {
     if (options.language && options.template) {
       const lang = options.language;
       const i18nKey = `email.${options.template}`;
-      const translated = this.i18nService.translate(i18nKey, lang, options.context);
+      const translated = this.i18nService.translate(i18nKey, { userPreference: lang }, options.context);
       if (translated !== i18nKey) {
         options.subject = options.subject || translated;
       }
@@ -329,7 +328,8 @@ export class EmailService {
       );
 
       this.logger.log(`📧 Email to ${options.to} queued for subject: ${options.subject}`);
-    } catch (error) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
       this.logger.error(`❌ Failed to queue email to ${options.to}: ${error.message}`);
       throw error;
     }
@@ -347,7 +347,7 @@ export class EmailService {
     });
 
     const language = user?.languagePreference || 'en';
-    const translated = this.i18nService.translate(templateKey, language, params);
+    const translated = this.i18nService.translate(templateKey, { userPreference: language }, params);
 
     await this.sendEmail({
       to,

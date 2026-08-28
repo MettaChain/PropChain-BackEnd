@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { PropertyTaxService } from './property-tax.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';

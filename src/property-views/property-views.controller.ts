@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import {
   BadRequestException,
@@ -13,6 +12,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
+
+interface RequestWithAuth extends Request {
+  authUser?: { sub: string };
+}
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PropertyViewsService } from './property-views.service';
 import {

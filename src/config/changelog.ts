@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * API Changelog
  * Tracks all changes, features, and improvements across versions

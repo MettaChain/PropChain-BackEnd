@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Module } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { SignedUrlService } from './signed-url/signed-url.service';

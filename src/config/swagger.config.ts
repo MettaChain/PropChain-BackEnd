@@ -1,17 +1,15 @@
-// @ts-nocheck
-
 /**
  * Swagger/OpenAPI Configuration
  * Sets up comprehensive API documentation with Swagger UI
  */
 
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DocumentBuilder, SwaggerModule, OpenAPIObject } from '@nestjs/swagger';
 import { INestApplication, Logger } from '@nestjs/common';
 
 const logger = new Logger('SwaggerConfig');
 
 interface AppWithOpenApiDoc {
-  openAPIDocument?: Record<string, unknown>;
+  openAPIDocument?: OpenAPIObject;
 }
 
 export function setupSwagger(app: INestApplication): void {
@@ -19,7 +17,6 @@ export function setupSwagger(app: INestApplication): void {
     .setTitle('PropChain API')
     .setDescription('Blockchain-Powered Real Estate Platform API Documentation')
     .setVersion('2.0.0')
-    .setOpenAPI('3.1.0')
     .addBearerAuth(
       {
         type: 'http',
@@ -137,7 +134,6 @@ export function setupOpenAPIEndpoint(app: INestApplication): void {
     .setTitle('PropChain API')
     .setDescription('Blockchain-Powered Real Estate Platform API')
     .setVersion('2.0.0')
-    .setOpenAPI('3.1.0')
     .addBearerAuth(
       {
         type: 'http',

@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { TransactionStatus } from '../types/prisma.types';
 
 export const DEFAULT_TRANSACTION_STATUS = TransactionStatus.PENDING;

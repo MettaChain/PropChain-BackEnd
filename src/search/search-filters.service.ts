@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
@@ -33,6 +31,16 @@ interface SaveFilterDto {
   name: string;
   filters: Record<string, unknown>;
   isQuickFilter?: boolean;
+}
+
+interface RangeFilter {
+  min?: number;
+  max?: number;
+}
+
+interface DateRangeFilter {
+  start?: string | Date;
+  end?: string | Date;
 }
 
 @Injectable()
@@ -92,133 +100,163 @@ export class SearchFiltersService {
     return whereClause;
   }
 
-  private applyPriceFilter(whereClause: Prisma.PropertyWhereInput, price: unknown): Prisma.PropertyWhereInput {
+  private applyPriceFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    priceInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    const price = priceInput as RangeFilter;
     if (price.min !== undefined || price.max !== undefined) {
-      whereClause.price = {};
-      if (price.min !== undefined) {
-        whereClause.price.gte = price.min;
-      }
-      if (price.max !== undefined) {
-        whereClause.price.lte = price.max;
+      const range: { gte?: number; lte?: number } = {};
+      if (price.min !== undefined) range.gte = price.min;
+      if (price.max !== undefined) range.lte = price.max;
+      whereClause.price = range as Prisma.PropertyWhereInput['price'];
+    }
+    return whereClause;
+  }
+
+  private applyBedroomsFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    bedroomsInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    if (typeof bedroomsInput === 'number') {
+      whereClause.bedrooms = bedroomsInput;
+    } else {
+      const bedrooms = bedroomsInput as RangeFilter;
+      if (bedrooms.min !== undefined || bedrooms.max !== undefined) {
+        const range: { gte?: number; lte?: number } = {};
+        if (bedrooms.min !== undefined) range.gte = bedrooms.min;
+        if (bedrooms.max !== undefined) range.lte = bedrooms.max;
+        whereClause.bedrooms = range as Prisma.PropertyWhereInput['bedrooms'];
       }
     }
     return whereClause;
   }
 
-  private applyBedroomsFilter(whereClause: Prisma.PropertyWhereInput, bedrooms: unknown): Prisma.PropertyWhereInput {
-    if (typeof bedrooms === 'number') {
-      whereClause.bedrooms = bedrooms;
-    } else if (bedrooms.min !== undefined || bedrooms.max !== undefined) {
-      whereClause.bedrooms = {};
-      if (bedrooms.min !== undefined) {
-        whereClause.bedrooms.gte = bedrooms.min;
-      }
-      if (bedrooms.max !== undefined) {
-        whereClause.bedrooms.lte = bedrooms.max;
-      }
-    }
-    return whereClause;
-  }
-
-  private applyBathroomsFilter(whereClause: Prisma.PropertyWhereInput, bathrooms: unknown): Prisma.PropertyWhereInput {
-    if (typeof bathrooms === 'number') {
-      whereClause.bathrooms = bathrooms;
-    } else if (bathrooms.min !== undefined || bathrooms.max !== undefined) {
-      whereClause.bathrooms = {};
-      if (bathrooms.min !== undefined) {
-        whereClause.bathrooms.gte = bathrooms.min;
-      }
-      if (bathrooms.max !== undefined) {
-        whereClause.bathrooms.lte = bathrooms.max;
+  private applyBathroomsFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    bathroomsInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    if (typeof bathroomsInput === 'number') {
+      whereClause.bathrooms = bathroomsInput;
+    } else {
+      const bathrooms = bathroomsInput as RangeFilter;
+      if (bathrooms.min !== undefined || bathrooms.max !== undefined) {
+        const range: { gte?: number; lte?: number } = {};
+        if (bathrooms.min !== undefined) range.gte = bathrooms.min;
+        if (bathrooms.max !== undefined) range.lte = bathrooms.max;
+        whereClause.bathrooms = range as Prisma.PropertyWhereInput['bathrooms'];
       }
     }
     return whereClause;
   }
 
-  private applySquareFeetFilter(whereClause: Prisma.PropertyWhereInput, squareFeet: unknown): Prisma.PropertyWhereInput {
+  private applySquareFeetFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    squareFeetInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    const squareFeet = squareFeetInput as RangeFilter;
     if (squareFeet.min !== undefined || squareFeet.max !== undefined) {
-      whereClause.squareFeet = {};
-      if (squareFeet.min !== undefined) {
-        whereClause.squareFeet.gte = squareFeet.min;
-      }
-      if (squareFeet.max !== undefined) {
-        whereClause.squareFeet.lte = squareFeet.max;
-      }
+      const range: { gte?: number; lte?: number } = {};
+      if (squareFeet.min !== undefined) range.gte = squareFeet.min;
+      if (squareFeet.max !== undefined) range.lte = squareFeet.max;
+      whereClause.squareFeet = range as Prisma.PropertyWhereInput['squareFeet'];
     }
     return whereClause;
   }
 
-  private applyPropertyTypeFilter(whereClause: Prisma.PropertyWhereInput, propertyType: unknown): Prisma.PropertyWhereInput {
+  private applyPropertyTypeFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    propertyType: unknown,
+  ): Prisma.PropertyWhereInput {
     if (Array.isArray(propertyType)) {
-      whereClause.propertyType = { in: propertyType };
+      whereClause.propertyType = { in: propertyType as string[] };
     } else {
-      whereClause.propertyType = propertyType;
+      whereClause.propertyType = propertyType as Prisma.PropertyWhereInput['propertyType'];
     }
     return whereClause;
   }
 
-  private applyStatusFilter(whereClause: Prisma.PropertyWhereInput, status: unknown): Prisma.PropertyWhereInput {
+  private applyStatusFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    status: unknown,
+  ): Prisma.PropertyWhereInput {
     if (Array.isArray(status)) {
-      whereClause.status = { in: status };
+      whereClause.status = { in: status as Prisma.PropertyWhereInput['status'] as never };
     } else {
-      whereClause.status = status;
+      whereClause.status = status as Prisma.PropertyWhereInput['status'];
     }
     return whereClause;
   }
 
-  private applyYearBuiltFilter(whereClause: Prisma.PropertyWhereInput, yearBuilt: unknown): Prisma.PropertyWhereInput {
+  private applyYearBuiltFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    yearBuiltInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    const yearBuilt = yearBuiltInput as RangeFilter;
     if (yearBuilt.min !== undefined || yearBuilt.max !== undefined) {
-      whereClause.yearBuilt = {};
-      if (yearBuilt.min !== undefined) {
-        whereClause.yearBuilt.gte = yearBuilt.min;
-      }
-      if (yearBuilt.max !== undefined) {
-        whereClause.yearBuilt.lte = yearBuilt.max;
-      }
+      const range: { gte?: number; lte?: number } = {};
+      if (yearBuilt.min !== undefined) range.gte = yearBuilt.min;
+      if (yearBuilt.max !== undefined) range.lte = yearBuilt.max;
+      whereClause.yearBuilt = range as Prisma.PropertyWhereInput['yearBuilt'];
     }
     return whereClause;
   }
 
-  private applyFeaturesFilter(whereClause: Prisma.PropertyWhereInput, features: string[]): Prisma.PropertyWhereInput {
+  private applyFeaturesFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    featuresInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    const features = Array.isArray(featuresInput) ? (featuresInput as string[]) : [];
     if (features.length > 0) {
       whereClause.features = { hasSome: features };
     }
     return whereClause;
   }
 
-  private applyCityFilter(whereClause: Prisma.PropertyWhereInput, city: unknown): Prisma.PropertyWhereInput {
+  private applyCityFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    city: unknown,
+  ): Prisma.PropertyWhereInput {
     if (Array.isArray(city)) {
-      whereClause.city = { in: city };
+      whereClause.city = { in: city as string[] };
     } else {
-      whereClause.city = city;
+      whereClause.city = city as Prisma.PropertyWhereInput['city'];
     }
     return whereClause;
   }
 
-  private applyStateFilter(whereClause: Prisma.PropertyWhereInput, state: unknown): Prisma.PropertyWhereInput {
+  private applyStateFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    state: unknown,
+  ): Prisma.PropertyWhereInput {
     if (Array.isArray(state)) {
-      whereClause.state = { in: state };
+      whereClause.state = { in: state as string[] };
     } else {
-      whereClause.state = state;
+      whereClause.state = state as Prisma.PropertyWhereInput['state'];
     }
     return whereClause;
   }
 
-  private applyDateRangeFilter(whereClause: Prisma.PropertyWhereInput, dateRange: unknown): Prisma.PropertyWhereInput {
+  private applyDateRangeFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    dateRangeInput: unknown,
+  ): Prisma.PropertyWhereInput {
+    const dateRange = dateRangeInput as DateRangeFilter;
     if (dateRange.start || dateRange.end) {
-      whereClause.createdAt = {};
-      if (dateRange.start) {
-        whereClause.createdAt.gte = new Date(dateRange.start);
-      }
-      if (dateRange.end) {
-        whereClause.createdAt.lte = new Date(dateRange.end);
-      }
+      const range: { gte?: Date; lte?: Date } = {};
+      if (dateRange.start) range.gte = new Date(dateRange.start);
+      if (dateRange.end) range.lte = new Date(dateRange.end);
+      whereClause.createdAt = range;
     }
     return whereClause;
   }
 
-  private applyCustomFilter(whereClause: Prisma.PropertyWhereInput, key: string, value: unknown): Prisma.PropertyWhereInput {
-    whereClause[key] = value;
+  private applyCustomFilter(
+    whereClause: Prisma.PropertyWhereInput,
+    key: string,
+    value: unknown,
+  ): Prisma.PropertyWhereInput {
+    (whereClause as Record<string, unknown>)[key] = value;
     return whereClause;
   }
 
@@ -349,12 +387,16 @@ export class SearchFiltersService {
     whereClause: Prisma.PropertyWhereInput,
     combination: FilterCombination,
   ): Promise<Prisma.PropertyWhereInput> {
+    const conditions = await Promise.all(
+      combination.filters.map((filter) => this.applyFilters({}, filter)),
+    );
+    const toArray = (v: Prisma.PropertyWhereInput['AND']): Prisma.PropertyWhereInput[] =>
+      v === undefined ? [] : Array.isArray(v) ? v : [v];
+
     if (combination.operator === 'AND') {
-      const conditions = combination.filters.map((filter) => this.applyFilters({}, filter));
-      whereClause.AND = [...(whereClause.AND || []), ...conditions];
+      whereClause.AND = [...toArray(whereClause.AND), ...conditions];
     } else if (combination.operator === 'OR') {
-      const conditions = combination.filters.map((filter) => this.applyFilters({}, filter));
-      whereClause.OR = [...(whereClause.OR || []), ...conditions];
+      whereClause.OR = [...toArray(whereClause.OR), ...conditions];
     }
 
     return whereClause;

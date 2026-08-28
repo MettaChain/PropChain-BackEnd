@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebhooksService } from './webhooks.service';
 import { PrismaService } from '../database/prisma.service';
@@ -40,7 +39,7 @@ describe('WebhooksService', () => {
         url: 'https://example.com/hook',
         eventTypes: ['transaction.created'],
         description: 'test webhook',
-      } as CreateWebhookDto;
+      } as unknown as CreateWebhookDto;
 
       prisma.webhook.create.mockResolvedValue({
         id: 'wh-1',

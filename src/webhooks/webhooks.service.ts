@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
@@ -97,7 +95,9 @@ export class WebhooksService {
         return { verified: true };
       }
     } catch (error) {
-      this.logger.warn(`Webhook verification failed for ${webhookId}: ${error.message}`);
+      this.logger.warn(
+        `Webhook verification failed for ${webhookId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     return { verified: false };
   }
@@ -176,14 +176,15 @@ export class WebhooksService {
     } catch (error) {
       const nextAttempt = delivery.attempts + 1;
       const shouldRetry = nextAttempt < this.MAX_ATTEMPTS;
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       await this.prisma.webhookDeliveryLog.update({
         where: { id: delivery.id },
         data: {
           status: shouldRetry ? 'RETRYING' : 'FAILED',
           attempts: nextAttempt,
-          error: error.message,
-          responseBody: error.message.substring(0, 2000),
+          error: errorMessage,
+          responseBody: errorMessage.substring(0, 2000),
           nextRetryAt: shouldRetry
             ? new Date(
                 Date.now() + this.RETRY_DELAYS_MS[nextAttempt] ||

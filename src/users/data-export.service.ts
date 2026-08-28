@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * DataExportService
  *
@@ -45,6 +43,10 @@ export interface ExportResult {
 
 const EXPORT_SCHEMA_VERSION = '1.0.0';
 const SCHEMA_DESCRIPTION = 'PropChain personal data export bundle';
+
+function asLang(lang?: string | null): 'en' | 'es' {
+  return lang === 'es' ? 'es' : 'en';
+}
 
 @Injectable()
 export class DataExportService {
@@ -162,7 +164,7 @@ export class DataExportService {
    * and notify the user by email.
    */
   async exportPersonalData(input: ExportPersonalDataInput): Promise<ExportResult> {
-    const language = input.language ?? 'en';
+    const language = asLang(input.language);
     const { records, counts } = await this.buildPayload(input.userId);
 
     const bundle = {
@@ -260,7 +262,7 @@ export class DataExportService {
   private async sendCompletionEmail(
     userId: string,
     filePath: string,
-    language: string,
+    language: 'en' | 'es',
   ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

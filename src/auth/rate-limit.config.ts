@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Rate Limiting Configuration
  * Defines rate limiting strategies and constants

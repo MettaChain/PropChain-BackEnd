@@ -1,18 +1,17 @@
-// @ts-nocheck
-
-import { Process, Processor } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { BlockchainService } from '../blockchain.service';
 import { Logger } from '@nestjs/common';
 
 @Processor('record-blockchain-transaction')
-export class BlockchainRecordingProcessor {
+export class BlockchainRecordingProcessor extends WorkerHost {
   private readonly logger = new Logger(BlockchainRecordingProcessor.name);
 
-  constructor(private readonly blockchainService: BlockchainService) {}
+  constructor(private readonly blockchainService: BlockchainService) {
+    super();
+  }
 
-  @Process('record-blockchain-transaction')
-  async handle(
+  async process(
     job: Job<{
       transactionId: string;
     }>,

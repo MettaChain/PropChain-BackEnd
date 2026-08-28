@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -17,7 +15,7 @@ export class QueueMonitoringService {
 
     for (const queueName of KNOWN_QUEUES) {
       try {
-        const queue = this.getQueueByName(queueName);
+        const queue = await this.getQueueByName(queueName);
         if (!queue) continue;
 
         const [waiting, active, completed, failed, delayed, paused] = await Promise.all([
@@ -26,7 +24,7 @@ export class QueueMonitoringService {
           queue.getCompletedCount(),
           queue.getFailedCount(),
           queue.getDelayedCount(),
-          queue.getPausedCount(),
+          queue.getJobCounts('paused').then((c) => c.paused ?? 0),
         ]);
 
         queues.push({
@@ -34,11 +32,13 @@ export class QueueMonitoringService {
           counts: { waiting, active, completed, failed, delayed, paused },
         });
       } catch (error) {
-        this.logger.error(`Failed to get stats for queue ${queueName}: ${error.message}`);
+        this.logger.error(
+          `Failed to get stats for queue ${queueName}: ${error instanceof Error ? error.message : String(error)}`,
+        );
         queues.push({
           name: queueName,
           counts: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, paused: 0 },
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -148,7 +148,9 @@ export class QueueMonitoringService {
           delayed,
         });
       } catch (error) {
-        this.logger.error(`Failed to get metrics for queue ${queueName}: ${error.message}`);
+        this.logger.error(
+          `Failed to get metrics for queue ${queueName}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
