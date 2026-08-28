@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export type SupportedLanguage = 'en' | 'es';
 
 export const translations: Record<SupportedLanguage, Record<string, string>> = {
