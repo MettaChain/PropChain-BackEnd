@@ -1631,6 +1631,51 @@ model SupportTicketNote {
   @@map("support_ticket_notes")
 }
 
+model ContentPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("content_pages")
+}
+
+model ContentBanner {
+  id        String   @id @default(uuid())
+  imageUrl  String   @map("image_url")
+  link      String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("content_banners")
+}
+
+model ContentFaq {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String   @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("content_faqs")
+}
+
+model LegalDocument {
+  id        String   @id @default(uuid())
+  type      String   @unique
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("legal_documents")
+}
+
 // ─── User relation additions ──────────────────────────────────────────────────
 
 // Note: Webhook, TourRequest, AgentAvailability, SupportTicket relations

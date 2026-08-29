@@ -1,14 +1,30 @@
-// @ts-nocheck
-
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ContentService } from './content.service';
+import {
+  CreateBannerDto,
+  CreateFaqDto,
+  UpdateBannerDto,
+  UpdateFaqDto,
+  UpdateLegalDto,
+  UpdatePageDto,
+} from './dto';
 
 @Controller('content')
 export class ContentController {
-  constructor(private service: ContentService) {}
+  constructor(private readonly service: ContentService) {}
 
   @Post('pages/:slug')
-  updatePage(@Param('slug') slug: string, @Body() body: { title: string; content: string }) {
+  updatePage(
+    @Param('slug') slug: string,
+    @Body() body: UpdatePageDto,
+  ) {
     return this.service.updatePage(slug, body);
   }
 
@@ -18,7 +34,7 @@ export class ContentController {
   }
 
   @Post('banners')
-  createBanner(@Body() body: { imageUrl: string; link?: string }) {
+  createBanner(@Body() body: CreateBannerDto) {
     return this.service.createBanner(body);
   }
 
@@ -27,8 +43,16 @@ export class ContentController {
     return this.service.getBanners();
   }
 
+  @Patch('banners/:id')
+  updateBanner(
+    @Param('id') id: string,
+    @Body() body: UpdateBannerDto,
+  ) {
+    return this.service.updateBanner(id, body);
+  }
+
   @Post('faqs')
-  createFAQ(@Body() body: { question: string; answer: string }) {
+  createFAQ(@Body() body: CreateFaqDto) {
     return this.service.createFAQ(body);
   }
 
@@ -37,9 +61,20 @@ export class ContentController {
     return this.service.getFAQs();
   }
 
+  @Patch('faqs/:id')
+  updateFAQ(
+    @Param('id') id: string,
+    @Body() body: UpdateFaqDto,
+  ) {
+    return this.service.updateFAQ(id, body);
+  }
+
   @Post('legal/:type')
-  updateLegal(@Param('type') type: string, @Body() body: { content: string }) {
-    return this.service.updateLegal(type, body.content);
+  updateLegal(
+    @Param('type') type: string,
+    @Body() body: UpdateLegalDto,
+  ) {
+    return this.service.updateLegal(type, body);
   }
 
   @Get('legal/:type')

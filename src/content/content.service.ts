@@ -1,49 +1,117 @@
-// @ts-nocheck
-
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../database/prisma.service';
+import {
+  CreateBannerDto,
+  CreateFaqDto,
+  UpdateBannerDto,
+  UpdateFaqDto,
+  UpdateLegalDto,
+  UpdatePageDto,
+} from './dto';
 
 @Injectable()
 export class ContentService {
-  private pages = new Map<string, any>();
-  private banners: any[] = [];
-  private faqs: any[] = [];
-  private legal = new Map<string, string>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  updatePage(slug: string, data: { title: string; content: string }) {
-    this.pages.set(slug, { slug, ...data });
-    return this.pages.get(slug);
+  async updatePage(slug: string, data: UpdatePageDto) {
+    return this.prisma.contentPage.upsert({
+      where: { slug },
+      create: {
+        slug,
+        title: data.title,
+        content: data.content,
+      },
+      update: {
+        title: data.title,
+        content: data.content,
+      },
+    });
   }
 
-  getPage(slug: string) {
-    return this.pages.get(slug) || null;
+  async getPage(slug: string) {
+    return this.prisma.contentPage.findUnique({
+      where: { slug },
+    });
   }
 
-  createBanner(data: { imageUrl: string; link?: string }) {
-    const banner = { id: Date.now().toString(), ...data };
-    this.banners.push(banner);
-    return banner;
+  async createBanner(data: CreateBannerDto) {
+    return this.prisma.contentBanner.create({
+      data: {
+        imageUrl: data.imageUrl,
+        link: data.link,
+        sortOrder: data.sortOrder ?? 0,
+      },
+    });
   }
 
-  getBanners() {
-    return this.banners;
+  async getBanners() {
+    return this.prisma.contentBanner.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
   }
 
-  createFAQ(data: { question: string; answer: string }) {
-    const faq = { id: Date.now().toString(), ...data };
-    this.faqs.push(faq);
-    return faq;
+  async updateBanner(id: string, data: UpdateBannerDto) {
+    const banner = await this.prisma.contentBanner.findUnique({
+      where: { id },
+    });
+
+    if (!banner) {
+      throw new NotFoundException(`Banner ${id} not found`);
+    }
+
+    return this.prisma.contentBanner.update({
+      where: { id },
+      data,
+    });
   }
 
-  getFAQs() {
-    return this.faqs;
+  async createFAQ(data: CreateFaqDto) {
+    return this.prisma.contentFaq.create({
+      data: {
+        question: data.question,
+        answer: data.answer,
+        sortOrder: data.sortOrder ?? 0,
+      },
+    });
   }
 
-  updateLegal(type: string, content: string) {
-    this.legal.set(type, content);
-    return { type, content };
+  async getFAQs() {
+    return this.prisma.contentFaq.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
   }
 
-  getLegal(type: string) {
-    return this.legal.get(type) || null;
+  async updateFAQ(id: string, data: UpdateFaqDto) {
+    const faq = await this.prisma.contentFaq.findUnique({
+      where: { id },
+    });
+
+    if (!faq) {
+      throw new NotFoundException(`FAQ ${id} not found`);
+    }
+
+    return this.prisma.contentFaq.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async updateLegal(type: string, data: UpdateLegalDto) {
+    return this.prisma.legalDocument.upsert({
+      where: { type },
+      create: {
+        type,
+        content: data.content,
+      },
+      update: {
+        content: data.content,
+      },
+    });
+  }
+
+  async getLegal(type: string) {
+    return this.prisma.legalDocument.findUnique({
+      where: { type },
+    });
   }
 }
