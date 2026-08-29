@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { SearchQuery } from './search.service';
+import { RecordSearchDto } from './dto/record-search.dto';
 
 export interface SearchAnalytics {
   queryId: string;
@@ -44,15 +45,21 @@ export class SearchAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async recordSearch(userId: string, searchQuery: SearchQuery): Promise<string> {
-    const queryId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+   async recordSearch(data: RecordSearchDto) {
+  const analytics = await this.prisma.searchAnalytics.create({
+    data: {
+      query: data.query.trim(),
+      resultCount: data.resultCount,
+      filters: data.filters,
+      userId: data.userId,
+      sessionId: data.sessionId,
+    },
+  });
 
-    // Record search analytics
-    // This would typically save to a search analytics table
-    // For now, we'll simulate the recording
-
-    return queryId;
-  }
+  return {
+    queryId: analytics.id,
+  };
+}
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async recordSearchResults(queryId: string, resultsCount: number, took: number): Promise<void> {
