@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
+import { RedisPresenceService } from './redis-presence.service';
 import {
   SmsService,
   SmsProviderFactory,
@@ -19,6 +20,7 @@ import { UsersModule } from '../users/users.module';
   imports: [PrismaModule, EmailModule, UsersModule, ConfigModule],
   controllers: [NotificationsController],
   providers: [
+    RedisPresenceService,
     NotificationsGateway,
     NotificationsService,
     TwilioSmsProvider,

@@ -131,7 +131,7 @@ describe('RBAC enforcement (e2e)', () => {
         RolesGuard,
         { provide: PrismaService, useValue: fakePrisma as any },
         { provide: ConfigService, useValue: { get: (_k: string, def: any) => def } },
-        { provide: NotificationsGateway, useValue: { sendToUser: () => false } },
+        { provide: NotificationsGateway, useValue: { sendToUser: async () => false } },
         { provide: EmailService, useValue: { sendTransactionStatusEmail: async () => ({}) } },
         { provide: SmsService, useValue: { sendSms: async () => ({}) } },
         { provide: UserPreferencesService, useValue: { findByUserId: async () => null } },

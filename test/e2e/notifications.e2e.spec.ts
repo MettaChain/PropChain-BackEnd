@@ -167,7 +167,7 @@ describe('Notifications workflow (e2e)', () => {
         { provide: PrismaService, useValue: fakePrisma as any },
         {
           provide: NotificationsGateway,
-          useValue: { sendToUser: () => false },
+          useValue: { sendToUser: async () => false },
         },
         {
           provide: EmailService,

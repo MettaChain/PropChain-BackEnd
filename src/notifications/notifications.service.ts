@@ -138,7 +138,7 @@ export class NotificationsService {
       this.logger.log(`Sending FCM notification to token: ${user.fcmToken}`);
       // In production, use admin.messaging().send() here
     }
-    const delivered = this.gateway.sendToUser(userId, 'notification', notification);
+    const delivered = await this.gateway.sendToUser(userId, 'notification', notification);
 
     if (delivered) {
       await this.prisma.notification.update({
@@ -209,7 +209,7 @@ export class NotificationsService {
 
     const deliveredIds: string[] = [];
     for (const notification of pending) {
-      const delivered = this.gateway.sendToUser(userId, 'notification', notification);
+      const delivered = await this.gateway.sendToUser(userId, 'notification', notification);
       if (delivered) {
         deliveredIds.push(notification.id);
       }
