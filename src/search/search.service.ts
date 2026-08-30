@@ -159,6 +159,6 @@ export class SearchService {
   }
 
   async getPopularSearches(): Promise<string[]> {
-    return this.analyticsService.getPopularSearches();
+    return (await this.analyticsService.getPopularSearches()).map((search) => search.query);
   }
 }

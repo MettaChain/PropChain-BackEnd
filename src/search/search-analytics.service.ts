@@ -132,7 +132,7 @@ export class SearchAnalyticsService {
   async getPopularSearches(userId?: string, limit: number = 10): Promise<PopularSearch[]> {
     // This would typically query search analytics.
     // For now, return mock data.
-    return [
+    const searches: PopularSearch[] = [
       { query: '3 bedroom house', count: 145, trend: 'up' },
       { query: 'apartment downtown', count: 98, trend: 'stable' },
       { query: 'house with pool', count: 87, trend: 'up' },
@@ -143,7 +143,9 @@ export class SearchAnalyticsService {
       { query: 'first home buyer', count: 32, trend: 'down' },
       { query: 'rental property', count: 28, trend: 'up' },
       { query: 'vacation home', count: 21, trend: 'stable' },
-    ].slice(0, limit);
+    ];
+
+    return searches.slice(0, limit);
   }
 
   async getNoResultSearches(userId?: string, limit: number = 10): Promise<NoResultSearch[]> {
