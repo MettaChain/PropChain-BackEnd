@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { SearchQuery } from './search.service';
 
 type SearchFilters = Record<string, unknown>;
@@ -88,36 +89,31 @@ export interface SearchInsights {
 
 @Injectable()
 export class SearchAnalyticsService {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor() {}
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async recordSearch(userId: string, searchQuery: SearchQuery): Promise<string> {
     const queryId = `search_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
-    // Record search analytics.
-    // This would typically save to a search analytics table.
-    // For now, we'll simulate the recording.
+    void userId;
+    void searchQuery;
 
     return queryId;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async recordSearchResults(queryId: string, resultsCount: number, took: number): Promise<void> {
-    // Update search record with results.
-    // This would typically update the search analytics record.
+    void queryId;
+    void resultsCount;
+    void took;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async recordSearchConversion(queryId: string, propertyId?: string): Promise<void> {
-    // Record when a search leads to a conversion (view, contact, etc.).
-    // This would typically update the search analytics record.
+    void queryId;
+    void propertyId;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async recordSearchError(queryId: string, error: unknown): Promise<void> {
-    // Record search errors for debugging.
-    // This would typically save to an error log.
+    void queryId;
+    void error;
   }
 
   async getAnalytics(userId?: string): Promise<SearchInsights> {
@@ -130,8 +126,8 @@ export class SearchAnalyticsService {
   }
 
   async getPopularSearches(userId?: string, limit: number = 10): Promise<PopularSearch[]> {
-    // This would typically query search analytics.
-    // For now, return mock data.
+    void userId;
+
     const searches: PopularSearch[] = [
       { query: '3 bedroom house', count: 145, trend: 'up' },
       { query: 'apartment downtown', count: 98, trend: 'stable' },
@@ -149,9 +145,9 @@ export class SearchAnalyticsService {
   }
 
   async getNoResultSearches(userId?: string, limit: number = 10): Promise<NoResultSearch[]> {
-    // This would typically query search analytics for searches with no results.
-    // For now, return mock data.
-    return [
+    void userId;
+
+    const searches: NoResultSearch[] = [
       {
         query: 'mansion under 100k',
         count: 23,
@@ -177,13 +173,15 @@ export class SearchAnalyticsService {
         count: 8,
         suggestedAlternatives: ['waterfront property', 'lake house', 'beach house'],
       },
-    ].slice(0, limit);
+    ];
+
+    return searches.slice(0, limit);
   }
 
   async getConversionRates(userId?: string, limit: number = 10): Promise<ConversionRate[]> {
-    // This would typically calculate conversion rates for different search queries.
-    // For now, return mock data.
-    return [
+    void userId;
+
+    const rates: ConversionRate[] = [
       {
         query: '3 bedroom house',
         searches: 145,
@@ -244,12 +242,14 @@ export class SearchAnalyticsService {
         conversions: 4,
         rate: 19.0,
       },
-    ].slice(0, limit);
+    ];
+
+    return rates.slice(0, limit);
   }
 
   async getSearchTrends(userId?: string, days: number = 30): Promise<SearchTrend[]> {
-    // This would typically query search analytics over time.
-    // For now, return mock data.
+    void userId;
+
     const trends: SearchTrend[] = [];
     const today = new Date();
 
@@ -269,8 +269,9 @@ export class SearchAnalyticsService {
   }
 
   async getTopFilters(userId?: string, limit: number = 10): Promise<TopFilter[]> {
-    // This would typically analyze which filters are most commonly used.
-    return [
+    void userId;
+
+    const filters: TopFilter[] = [
       { filter: 'price', usage: 342, percentage: 78.5 },
       { filter: 'bedrooms', usage: 298, percentage: 68.4 },
       { filter: 'propertyType', usage: 245, percentage: 56.3 },
@@ -281,12 +282,14 @@ export class SearchAnalyticsService {
       { filter: 'yearBuilt', usage: 76, percentage: 17.5 },
       { filter: 'status', usage: 54, percentage: 12.4 },
       { filter: 'state', usage: 43, percentage: 9.9 },
-    ].slice(0, limit);
+    ];
+
+    return filters.slice(0, limit);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getSearchPerformanceMetrics(userId?: string): Promise<SearchPerformanceMetrics> {
-    // This would typically calculate performance metrics.
+    void userId;
+
     return {
       avgSearchTime: 245,
       avgResultsPerSearch: 15.3,
@@ -297,9 +300,9 @@ export class SearchAnalyticsService {
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getUserSearchBehavior(userId: string): Promise<UserSearchBehavior> {
-    // This would typically analyze individual user search behavior.
+    void userId;
+
     return {
       totalSearches: 47,
       uniqueQueries: 23,
@@ -314,9 +317,10 @@ export class SearchAnalyticsService {
 
   async generateSearchReport(
     userId?: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     dateRange?: { start: Date; end: Date },
   ): Promise<SearchReport> {
+    void dateRange;
+
     const insights = await this.getAnalytics(userId);
     const performance = await this.getSearchPerformanceMetrics(userId);
     const topFilters = await this.getTopFilters(userId);
@@ -344,7 +348,6 @@ export class SearchAnalyticsService {
   ): string[] {
     const recommendations: string[] = [];
 
-    // Analyze popular searches.
     const topSearch = insights.popularSearches[0];
 
     if (topSearch && topSearch.trend === 'up') {
@@ -353,12 +356,10 @@ export class SearchAnalyticsService {
       );
     }
 
-    // Analyze zero-result searches.
     if (insights.noResultSearches.length > 5) {
       recommendations.push('Consider improving property data to reduce zero-result searches');
     }
 
-    // Analyze conversion rates.
     const lowConversionQueries = insights.conversionRates.filter(
       (conversion) => conversion.rate < 10,
     );
@@ -367,7 +368,6 @@ export class SearchAnalyticsService {
       recommendations.push('Review search result quality for queries with low conversion rates');
     }
 
-    // Analyze performance.
     if (performance.avgSearchTime > 500) {
       recommendations.push('Optimize search performance - average search time is high');
     }
