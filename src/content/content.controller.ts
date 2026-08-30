@@ -1,11 +1,6 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+
+
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ContentService } from './content.service';
 import {
   CreateBannerDto,

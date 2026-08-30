@@ -86,6 +86,8 @@ export class DocumentsController {
 
   // ── #402 Expiration ──────────────────────────────────────────────────────
 
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Get('expiration/expiring')
   getExpiring(@Query('days') days?: string) {
     return this.documentsService.getExpiringDocuments(days ? +days : 7);

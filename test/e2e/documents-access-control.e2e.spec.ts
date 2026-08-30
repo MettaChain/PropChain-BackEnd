@@ -216,4 +216,22 @@ describe('Document access control (e2e)', () => {
         });
     });
   });
+
+  // ── Expiration routes ─────────────────────────────────────────────────────
+
+  describe('Expiration routes', () => {
+    it('rejects non-admin access to expiring documents list', async () => {
+      await request(app.getHttpServer())
+        .get('/documents/expiration/expiring')
+        .set('Authorization', 'Bearer owner-token')
+        .expect(403);
+    });
+
+    it('allows admin access to expiring documents list', async () => {
+      await request(app.getHttpServer())
+        .get('/documents/expiration/expiring')
+        .set('Authorization', 'Bearer admin-token')
+        .expect(200);
+    });
+  });
 });

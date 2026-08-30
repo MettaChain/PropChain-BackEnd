@@ -1,13 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
-import {
-  CreateBannerDto,
-  CreateFaqDto,
-  UpdateBannerDto,
-  UpdateFaqDto,
-  UpdateLegalDto,
-  UpdatePageDto,
-} from './dto';
+
+
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ContentService {
