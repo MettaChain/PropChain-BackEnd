@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-
 import { SearchQuery } from './search.service';
 
 type SearchFilters = Record<string, unknown>;
