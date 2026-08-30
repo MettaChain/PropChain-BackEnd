@@ -51,7 +51,7 @@ export class AnalyticsController {
     example: 60,
   })
   @ApiResponse({ status: 200, description: 'Monitoring stats returned successfully' })
-  getStats(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
+  async getStats(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
     return this.analytics.getStats(window);
   }
 
@@ -65,7 +65,7 @@ export class AnalyticsController {
   })
   @ApiQuery({ name: 'window', required: false, description: 'Time window in minutes', example: 60 })
   @ApiResponse({ status: 200, description: 'Endpoint stats returned successfully' })
-  getEndpoints(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
+  async getEndpoints(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
     return this.analytics.getEndpointStats(window);
   }
 
@@ -79,8 +79,9 @@ export class AnalyticsController {
   })
   @ApiQuery({ name: 'window', required: false, description: 'Time window in minutes', example: 60 })
   @ApiResponse({ status: 200, description: 'Slow endpoints returned successfully' })
-  getSlowEndpoints(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
-    return this.analytics.getStats(window).slowEndpoints;
+  async getSlowEndpoints(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
+    const stats = await this.analytics.getStats(window);
+    return stats.slowEndpoints;
   }
 
   /**
@@ -93,8 +94,8 @@ export class AnalyticsController {
   })
   @ApiQuery({ name: 'window', required: false, description: 'Time window in minutes', example: 60 })
   @ApiResponse({ status: 200, description: 'Error stats returned successfully' })
-  getErrors(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
-    const stats = this.analytics.getStats(window);
+  async getErrors(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
+    const stats = await this.analytics.getStats(window);
     return {
       window: stats.window,
       totalRequests: stats.totalRequests,
@@ -114,8 +115,9 @@ export class AnalyticsController {
   })
   @ApiQuery({ name: 'window', required: false, description: 'Time window in minutes', example: 60 })
   @ApiResponse({ status: 200, description: 'User usage stats returned successfully' })
-  getUsers(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
-    return this.analytics.getStats(window).topUsers;
+  async getUsers(@Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number) {
+    const stats = await this.analytics.getStats(window);
+    return stats.topUsers;
   }
 
   /**
@@ -127,11 +129,11 @@ export class AnalyticsController {
   @ApiQuery({ name: 'window', required: false, description: 'Time window in minutes', example: 60 })
   @ApiResponse({ status: 200, description: 'User stats returned' })
   @ApiResponse({ status: 404, description: 'No data for this user in the given window' })
-  getUserStats(
+  async getUserStats(
     @Param('userId') userId: string,
     @Query('window', new DefaultValuePipe(60), ParseIntPipe) window: number,
   ) {
-    const stats = this.analytics.getUserStats(userId, window);
+    const stats = await this.analytics.getUserStats(userId, window);
     if (!stats) {
       return { message: 'No data for this user in the given window', userId, window: `${window}m` };
     }
@@ -145,8 +147,8 @@ export class AnalyticsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset analytics data' })
   @ApiResponse({ status: 200, description: 'Analytics data cleared' })
-  reset() {
-    this.analytics.reset();
+  async reset() {
+    await this.analytics.reset();
     return { message: 'Analytics reset' };
   }
 }
