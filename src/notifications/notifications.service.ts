@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { EmailService } from '../email/email.service';
@@ -7,16 +9,15 @@ import {
   UserPreferencesService,
   shouldDeliverNotificationFromPrefs,
 } from '../users/user-preferences.service';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Transaction, TransactionStatus, User } from '@prisma/client';
 
 /**
  * Schema-default notification preferences for users who have never set
  * their own. Mirrors the Prisma defaults in `prisma/schema.prisma` for
- * UserPreferences (email:true, sms:false, inApp:true, push:false,
- * eventTypes:[], quietHours disabled). Used by handleTransactionUpdate when
- * `user.preferences` is null, avoiding the hidden upsert side-effect that
- * `UserPreferencesService.findByUserId` performs when prefs are missing.
+ * UserPreferences.
+ *
+ * Used by handleTransactionUpdate when `user.preferences` is null,
+ * avoiding the hidden upsert side-effect that
+ * `UserPreferencesService.findByUserId` performs when preferences are missing.
  */
 const NOTIFICATION_PREFERENCES_DEFAULTS = {
   emailNotifications: true,
@@ -28,53 +29,70 @@ const NOTIFICATION_PREFERENCES_DEFAULTS = {
   quietHoursStart: null as string | null,
   quietHoursEnd: null as string | null,
   timezone: 'UTC',
-  perEventSettings: null as Record<string, any> | null,
+  perEventSettings: null as Prisma.InputJsonValue | null,
 };
+
+type NotificationMetadata = Prisma.InputJsonValue;
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
   constructor(
-    private prisma: PrismaService,
-    private gateway: NotificationsGateway,
-    private emailService: EmailService,
-    private smsService: SmsService,
-    private userPreferencesService: UserPreferencesService,
+    private readonly prisma: PrismaService,
+    private readonly gateway: NotificationsGateway,
+    private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
+    private readonly userPreferencesService: UserPreferencesService,
   ) {}
 
-  async handleTransactionUpdate(transactionId: string) {
+  async handleTransactionUpdate(transactionId: string): Promise<void> {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },
       include: {
-        buyer: { include: { preferences: true } },
-        seller: { include: { preferences: true } },
+        buyer: {
+          include: {
+            preferences: true,
+          },
+        },
+        seller: {
+          include: {
+            preferences: true,
+          },
+        },
         property: true,
       },
     });
 
-    if (!transaction) return;
+    if (!transaction) {
+      return;
+    }
 
     const parties = [
-      { user: transaction.buyer, role: 'Buyer' },
-      { user: transaction.seller, role: 'Seller' },
+      {
+        user: transaction.buyer,
+        role: 'Buyer',
+      },
+      {
+        user: transaction.seller,
+        role: 'Seller',
+      },
     ];
 
     await Promise.all(
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      parties.map(async ({ user, role }) => {
+      parties.map(async ({ user }) => {
         const title = `Transaction ${transaction.status}`;
         const message = `Your transaction for property "${transaction.property.title}" has been updated to ${transaction.status}.`;
 
-        // #765 — use the already-included user.preferences to avoid 3 redundant
-        // DB roundtrips per party. If a user has no preferences row, fall back
-        // to schema defaults locally instead of triggering the upsert
-        // side-effect in `UserPreferencesService.findByUserId`.
-        const prefs = (user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS) as Parameters<
-          typeof shouldDeliverNotificationFromPrefs
-        >[0];
+        // #765 — Use the already-included user.preferences to avoid
+        // redundant database round trips. If preferences do not exist,
+        // use the schema defaults locally.
+        const prefs = user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS;
+
         const canInApp = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'inApp');
+
         const canEmail = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'email');
+
         const canSms = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'sms');
 
         await Promise.all([
@@ -84,6 +102,7 @@ export class NotificationsService {
                 status: transaction.status,
               })
             : Promise.resolve(),
+
           canEmail
             ? this.emailService.sendTransactionStatusEmail(user.email, transaction.status, {
                 transactionId: transaction.id,
@@ -104,6 +123,7 @@ export class NotificationsService {
                   transaction.status === 'CANCELLED' ? new Date().toLocaleDateString() : undefined,
               })
             : Promise.resolve(),
+
           canSms && user.phone ? this.smsService.sendSms(user.phone, message) : Promise.resolve(),
         ]);
       }),
@@ -115,35 +135,40 @@ export class NotificationsService {
     title: string,
     message: string,
     type: string,
-    metadata?: any,
+    metadata?: NotificationMetadata,
   ) {
-    // 1. Save to database
     const notification = await this.prisma.notification.create({
       data: {
         userId,
         title,
         message,
         type,
-        metadata: metadata || {},
+        metadata: metadata ?? {},
       },
     });
 
-    // 2. Try real-time delivery
-    // FCM Push Integration
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { fcmToken: true },
+      select: {
+        fcmToken: true,
+      },
     });
+
     if (user?.fcmToken) {
       this.logger.log(`Sending FCM notification to token: ${user.fcmToken}`);
-      // In production, use admin.messaging().send() here
+
+      // In production, use Firebase Admin SDK:
+      // admin.messaging().send(...)
     }
+
     const delivered = await this.gateway.sendToUser(userId, 'notification', notification);
 
     if (delivered) {
       await this.prisma.notification.update({
         where: { id: notification.id },
-        data: { status: 'DELIVERED' },
+        data: {
+          status: 'DELIVERED',
+        },
       });
     }
 
@@ -153,7 +178,9 @@ export class NotificationsService {
   async getUserNotifications(userId: string) {
     return this.prisma.notification.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
       take: 50,
     });
   }
@@ -169,20 +196,36 @@ export class NotificationsService {
 
     return this.prisma.notification.update({
       where: { id },
-      data: { status: 'READ', readAt: new Date() },
+      data: {
+        status: 'READ',
+        readAt: new Date(),
+      },
     });
   }
 
   async markAllAsRead(userId: string) {
     return this.prisma.notification.updateMany({
-      where: { userId, status: { not: 'READ' } },
-      data: { status: 'READ', readAt: new Date() },
+      where: {
+        userId,
+        status: {
+          not: 'READ',
+        },
+      },
+      data: {
+        status: 'READ',
+        readAt: new Date(),
+      },
     });
   }
 
   async getUnreadCount(userId: string) {
     return this.prisma.notification.count({
-      where: { userId, status: { not: 'READ' } },
+      where: {
+        userId,
+        status: {
+          not: 'READ',
+        },
+      },
     });
   }
 
@@ -200,26 +243,36 @@ export class NotificationsService {
     });
   }
 
-  async deliverPending(userId: string) {
-    // Issue #911 – Replace the N+1 loop (one UPDATE per notification) with a
-    // single batch UPDATE after collecting the IDs that were delivered.
+  async deliverPending(userId: string): Promise<void> {
+    // Issue #911 – Replace the N+1 UPDATE operations with one batch UPDATE
+    // after collecting the IDs of successfully delivered notifications.
     const pending = await this.prisma.notification.findMany({
-      where: { userId, status: 'PENDING' },
+      where: {
+        userId,
+        status: 'PENDING',
+      },
     });
 
     const deliveredIds: string[] = [];
+
     for (const notification of pending) {
       const delivered = await this.gateway.sendToUser(userId, 'notification', notification);
+
       if (delivered) {
         deliveredIds.push(notification.id);
       }
     }
 
     if (deliveredIds.length > 0) {
-      // Single batch update instead of one UPDATE per notification
       await this.prisma.notification.updateMany({
-        where: { id: { in: deliveredIds } },
-        data: { status: 'DELIVERED' },
+        where: {
+          id: {
+            in: deliveredIds,
+          },
+        },
+        data: {
+          status: 'DELIVERED',
+        },
       });
     }
   }
@@ -229,7 +282,12 @@ export class NotificationsService {
     title: string,
     message: string,
     type: string,
-    scheduleData: { scheduledAt: Date; isRecurring?: boolean; cron?: string; timezone?: string },
+    scheduleData: {
+      scheduledAt: Date;
+      isRecurring?: boolean;
+      cron?: string;
+      timezone?: string;
+    },
   ) {
     return this.prisma.notification.create({
       data: {
@@ -248,7 +306,9 @@ export class NotificationsService {
       where: {
         id,
         status: 'PENDING',
-        scheduledAt: { not: null },
+        scheduledAt: {
+          not: null,
+        },
       },
     });
   }

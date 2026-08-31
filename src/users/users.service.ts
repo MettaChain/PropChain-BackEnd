@@ -6,32 +6,57 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { PrismaService } from '../database/prisma.service';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Prisma } from '@prisma/client';
+
+import { PrismaService } from '../database/prisma.service';
 import { redactEmail } from '../auth/security.utils';
-import { CreateUserDto, SearchUsersDto, UpdatePreferencesDto, UpdateUserDto } from './dto/user.dto';
-import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
 import {
   hashPassword,
   sanitizeUser,
   createSha256,
   generateReactivationToken,
 } from '../auth/security.utils';
-import * as fs from 'fs';
-import * as path from 'path';
+import {
+  CreateUserDto,
+  SearchUsersDto,
+  UpdatePreferencesDto,
+  UpdateUserDto,
+} from './dto/user.dto';
+import {
+  DeactivateAccountDto,
+  ReactivateAccountDto,
+} from './dto/deactivation.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { SessionsService } from '../sessions/sessions.service';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionsService: SessionsService,
+  ) {}
+
   async getProfile(userId: string): Promise<ProfileResponseDto> {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId, isDeactivated: false },
+      where: {
+        id: userId,
+        isDeactivated: false,
+      },
       include: {
-        properties: { select: { id: true } },
-        buyerTransactions: { select: { id: true } },
-        sellerTransactions: { select: { id: true } },
+        properties: {
+          select: { id: true },
+        },
+        buyerTransactions: {
+          select: { id: true },
+        },
+        sellerTransactions: {
+          select: { id: true },
+        },
         _count: {
           select: {
             properties: true,
@@ -66,7 +91,10 @@ export class UsersService implements OnModuleInit {
       preferredChannel: user.preferredChannel,
       languagePreference: user.languagePreference,
       timezone: user.timezone,
-      contactHours: user.contactHours as { start: string; end: string } | null,
+      contactHours: user.contactHours as {
+        start: string;
+        end: string;
+      } | null,
       address: null,
       occupation: null,
       company: null,
@@ -76,14 +104,17 @@ export class UsersService implements OnModuleInit {
       lastActivityAt: user.lastActivityAt,
       statistics: {
         propertiesCount: user._count.properties,
-        transactionsCount: user._count.buyerTransactions + user._count.sellerTransactions,
+        transactionsCount:
+          user._count.buyerTransactions + user._count.sellerTransactions,
         accountAgeDays,
       },
     };
   }
 
-  async updateProfile(userId: string, data: UpdateProfileDto): Promise<ProfileResponseDto> {
-    // Check if email is being changed and if it's already taken
+  async updateProfile(
+    userId: string,
+    data: UpdateProfileDto,
+  ): Promise<ProfileResponseDto> {
     if (data.email) {
       const existingUser = await this.prisma.user.findFirst({
         where: {
@@ -97,29 +128,50 @@ export class UsersService implements OnModuleInit {
       }
     }
 
-    // Build update data — only include provided fields
     const updateData: Prisma.UserUpdateInput = {};
 
-    if (data.firstName !== undefined) updateData.firstName = data.firstName;
-    if (data.lastName !== undefined) updateData.lastName = data.lastName;
-    if (data.email !== undefined) updateData.email = data.email;
-    if (data.phone !== undefined) updateData.phone = data.phone;
-    if (data.avatar !== undefined) updateData.avatar = data.avatar;
-    if (data.preferredChannel !== undefined) updateData.preferredChannel = data.preferredChannel;
-    if (data.languagePreference !== undefined)
-      updateData.languagePreference = data.languagePreference;
-    if (data.timezone !== undefined) updateData.timezone = data.timezone;
-    if (data.contactHours !== undefined)
-      updateData.contactHours = data.contactHours as unknown as Prisma.InputJsonValue;
+    if (data.firstName !== undefined) {
+      updateData.firstName = data.firstName;
+    }
 
-    // Update user
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const updatedUser = await this.prisma.user.update({
+    if (data.lastName !== undefined) {
+      updateData.lastName = data.lastName;
+    }
+
+    if (data.email !== undefined) {
+      updateData.email = data.email;
+    }
+
+    if (data.phone !== undefined) {
+      updateData.phone = data.phone;
+    }
+
+    if (data.avatar !== undefined) {
+      updateData.avatar = data.avatar;
+    }
+
+    if (data.preferredChannel !== undefined) {
+      updateData.preferredChannel = data.preferredChannel;
+    }
+
+    if (data.languagePreference !== undefined) {
+      updateData.languagePreference = data.languagePreference;
+    }
+
+    if (data.timezone !== undefined) {
+      updateData.timezone = data.timezone;
+    }
+
+    if (data.contactHours !== undefined) {
+      updateData.contactHours =
+        data.contactHours as unknown as Prisma.InputJsonValue;
+    }
+
+    await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
     });
 
-    // Log the profile update activity
     await this.prisma.activityLog.create({
       data: {
         userId,
@@ -127,29 +179,32 @@ export class UsersService implements OnModuleInit {
         entityType: 'USER',
         entityId: userId,
         description: 'User updated their profile',
-        metadata: { updatedFields: Object.keys(updateData) },
+        metadata: {
+          updatedFields: Object.keys(updateData),
+        },
       },
     });
 
-    // Return fresh profile
     return this.getProfile(userId);
   }
 
-  private readonly logger = new Logger(UsersService.name);
+  onModuleInit(): void {
+    setInterval(
+      () => {
+        void this.cleanupExports();
+      },
+      60 * 60 * 1000,
+    );
 
-  constructor(
-    private prisma: PrismaService,
-    private readonly sessionsService: SessionsService,
-  ) {}
-
-  onModuleInit() {
-    setInterval(() => this.cleanupExports(), 60 * 60 * 1000);
-    this.cleanupExports();
+    void this.cleanupExports();
   }
 
-  private async cleanupExports() {
+  private async cleanupExports(): Promise<void> {
     const exportsDir = path.join(process.cwd(), 'exports');
-    if (!fs.existsSync(exportsDir)) return;
+
+    if (!fs.existsSync(exportsDir)) {
+      return;
+    }
 
     const files = fs.readdirSync(exportsDir);
     const now = Date.now();
@@ -158,6 +213,7 @@ export class UsersService implements OnModuleInit {
     files.forEach((file) => {
       const filepath = path.join(exportsDir, file);
       const stats = fs.statSync(filepath);
+
       if (now - stats.mtimeMs > expirationTime) {
         fs.unlinkSync(filepath);
         this.logger.log(`Deleted expired export file: ${file}`);
@@ -180,7 +236,8 @@ export class UsersService implements OnModuleInit {
     }
 
     const propertiesCount = user.properties.length;
-    const transactionsCount = user.buyerTransactions.length + user.sellerTransactions.length;
+    const transactionsCount =
+      user.buyerTransactions.length + user.sellerTransactions.length;
 
     const now = new Date();
     const createdAt = new Date(user.createdAt);
@@ -200,15 +257,25 @@ export class UsersService implements OnModuleInit {
     const passwordHash = await hashPassword(data.password);
 
     let referralCode: string;
+
     do {
-      referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    } while (await this.prisma.user.findUnique({ where: { referralCode } }));
+      referralCode = Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
+    } while (
+      await this.prisma.user.findUnique({
+        where: { referralCode },
+      })
+    );
 
     let referredById: string | null = null;
+
     if (data.referralCode) {
       const referrer = await this.prisma.user.findUnique({
         where: { referralCode: data.referralCode },
       });
+
       if (referrer) {
         referredById = referrer.id;
       }
@@ -424,7 +491,7 @@ export class UsersService implements OnModuleInit {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const safeUser = {
@@ -450,11 +517,11 @@ export class UsersService implements OnModuleInit {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (user.isDeactivated) {
-      throw new Error('Account is already deactivated');
+      throw new BadRequestException('Account is already deactivated');
     }
 
     const scheduledDeletionAt = data.scheduleDeletion
@@ -480,7 +547,13 @@ export class UsersService implements OnModuleInit {
     });
 
     this.logger.log(
-      `User ${userId} (${redactEmail(user.email)}) deactivated. Scheduled deletion: ${scheduledDeletionAt ? scheduledDeletionAt.toISOString() : 'None'}`,
+      `User ${userId} (${redactEmail(
+        user.email,
+      )}) deactivated. Scheduled deletion: ${
+        scheduledDeletionAt
+          ? scheduledDeletionAt.toISOString()
+          : 'None'
+      }`,
     );
 
     await this.sessionsService.revokeAllSessions(userId);
@@ -501,8 +574,7 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException('Account is not deactivated');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { token, hash } = generateReactivationToken();
+    const { hash } = generateReactivationToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await this.prisma.user.update({
@@ -513,10 +585,13 @@ export class UsersService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`Reactivation token generated for user ${userId} (${user.email})`);
+    this.logger.log(
+      `Reactivation token generated for user ${userId} (${user.email})`,
+    );
 
     return {
-      message: 'Reactivation token generated. Use the token to reactivate your account.',
+      message:
+        'Reactivation token generated. Use the token to reactivate your account.',
     };
   }
 
@@ -547,10 +622,12 @@ export class UsersService implements OnModuleInit {
           reactivationTokenExpires: null,
         },
       });
-      throw new BadRequestException('Reactivation token has expired. Please request a new one.');
+
+      throw new BadRequestException(
+        'Reactivation token has expired. Please request a new one.',
+      );
     }
 
-    // Constant-time comparison of token hash
     const providedHash = createSha256(data.token);
     const storedHash = user.reactivationToken;
     const storedHashBuffer = Buffer.from(storedHash);
@@ -589,11 +666,13 @@ export class UsersService implements OnModuleInit {
         action: 'REACTIVATE',
         entityType: 'USER',
         entityId: userId,
-        description: `Account reactivated`,
+        description: 'Account reactivated',
       },
     });
 
-    this.logger.log(`User ${userId} (${redactEmail(user.email)}) reactivated`);
+    this.logger.log(
+      `User ${userId} (${redactEmail(user.email)}) reactivated`,
+    );
 
     return updatedUser;
   }
@@ -620,33 +699,72 @@ export class UsersService implements OnModuleInit {
     const { q, email, name, page = 1, limit = 10 } = filters;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.UserWhereInput = {
       isDeactivated: false,
     };
 
     if (q) {
       where.OR = [
-        { email: { contains: q, mode: 'insensitive' } },
-        { firstName: { contains: q, mode: 'insensitive' } },
-        { lastName: { contains: q, mode: 'insensitive' } },
+        {
+          email: {
+            contains: q,
+            mode: 'insensitive',
+          },
+        },
+        {
+          firstName: {
+            contains: q,
+            mode: 'insensitive',
+          },
+        },
+        {
+          lastName: {
+            contains: q,
+            mode: 'insensitive',
+          },
+        },
       ];
     }
 
     if (email) {
-      where.email = { contains: email, mode: 'insensitive' };
+      where.email = {
+        contains: email,
+        mode: 'insensitive',
+      };
     }
 
     if (name) {
       const nameParts = name.split(' ');
+
       if (nameParts.length > 1) {
         where.AND = [
-          { firstName: { contains: nameParts[0], mode: 'insensitive' } },
-          { lastName: { contains: nameParts[nameParts.length - 1], mode: 'insensitive' } },
+          {
+            firstName: {
+              contains: nameParts[0],
+              mode: 'insensitive',
+            },
+          },
+          {
+            lastName: {
+              contains: nameParts[nameParts.length - 1],
+              mode: 'insensitive',
+            },
+          },
         ];
       } else {
         where.OR = [
-          { firstName: { contains: name, mode: 'insensitive' } },
-          { lastName: { contains: name, mode: 'insensitive' } },
+          {
+            firstName: {
+              contains: name,
+              mode: 'insensitive',
+            },
+          },
+          {
+            lastName: {
+              contains: name,
+              mode: 'insensitive',
+            },
+          },
         ];
       }
     }
@@ -666,7 +784,9 @@ export class UsersService implements OnModuleInit {
           avatar: true,
           createdAt: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: {
+          createdAt: 'desc',
+        },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -721,25 +841,28 @@ export class UsersService implements OnModuleInit {
       return { deletedCount: 0 };
     }
 
-    const userIds = usersToDelete.map((user: { id: string }) => user.id);
+    const userIds = usersToDelete.map((user) => user.id);
+    const userEmails = usersToDelete.map((user) => user.email);
 
-    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.loginAttempt.deleteMany({
-        where: {
-          email: {
-            in: usersToDelete.map((user: { email: string }) => user.email),
+    const result = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        await tx.loginAttempt.deleteMany({
+          where: {
+            email: {
+              in: userEmails,
+            },
           },
-        },
-      });
+        });
 
-      return tx.user.deleteMany({
-        where: {
-          id: {
-            in: userIds,
+        return tx.user.deleteMany({
+          where: {
+            id: {
+              in: userIds,
+            },
           },
-        },
-      });
-    });
+        });
+      },
+    );
 
     this.logger.log(`Deleted ${result.count} deactivated users`);
 
@@ -748,12 +871,16 @@ export class UsersService implements OnModuleInit {
 
   async getReferralStats(userId: string) {
     const referralCount = await this.prisma.user.count({
-      where: { referredById: userId },
+      where: {
+        referredById: userId,
+      },
     });
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { referralCode: true },
+      select: {
+        referralCode: true,
+      },
     });
 
     return {
@@ -764,7 +891,9 @@ export class UsersService implements OnModuleInit {
 
   async getMyReferrals(userId: string) {
     return this.prisma.user.findMany({
-      where: { referredById: userId },
+      where: {
+        referredById: userId,
+      },
       select: {
         id: true,
         firstName: true,
@@ -777,8 +906,12 @@ export class UsersService implements OnModuleInit {
 
   async getLoginHistory(userId: string) {
     return this.prisma.loginHistory.findMany({
-      where: { userId },
-      orderBy: { timestamp: 'desc' },
+      where: {
+        userId,
+      },
+      orderBy: {
+        timestamp: 'desc',
+      },
       select: {
         timestamp: true,
         ipAddress: true,
@@ -790,7 +923,9 @@ export class UsersService implements OnModuleInit {
   async verify(id: string) {
     return this.prisma.user.update({
       where: { id },
-      data: { isVerified: true },
+      data: {
+        isVerified: true,
+      },
       select: {
         id: true,
         isVerified: true,
@@ -801,7 +936,9 @@ export class UsersService implements OnModuleInit {
   async unverify(id: string) {
     return this.prisma.user.update({
       where: { id },
-      data: { isVerified: false },
+      data: {
+        isVerified: false,
+      },
       select: {
         id: true,
         isVerified: true,
