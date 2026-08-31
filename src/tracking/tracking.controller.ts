@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Controller, Get, Query, Res, Req, Param } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { TrackingService } from './tracking.service';
@@ -54,7 +52,7 @@ export class TrackingController {
     }
 
     const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
+    const userAgent = this.getUserAgent(req);
 
     await this.trackingService.trackClick(url, userId, ipAddress, userAgent);
 
@@ -69,7 +67,7 @@ export class TrackingController {
     @Res() res: Response,
   ) {
     const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
+    const userAgent = this.getUserAgent(req);
 
     await this.trackingService.trackEmailOpen(trackingId, ipAddress, userAgent);
 
@@ -100,5 +98,10 @@ export class TrackingController {
       clicks: clickStats,
       emails: emailStats,
     };
+  }
+
+  private getUserAgent(req: Request): string | undefined {
+    const userAgent = req.headers['user-agent'];
+    return typeof userAgent === 'string' ? userAgent : undefined;
   }
 }

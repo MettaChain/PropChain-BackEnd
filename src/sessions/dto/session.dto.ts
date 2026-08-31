@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class SessionDto {

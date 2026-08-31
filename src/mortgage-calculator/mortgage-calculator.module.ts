@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Module } from '@nestjs/common';
 import { MortgageCalculatorController } from './mortgage-calculator.controller';
 import { MortgageCalculatorService } from './mortgage-calculator.service';
