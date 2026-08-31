@@ -79,6 +79,7 @@ export class CacheMonitoringService {
 
     const avgResponseTime =
       this.metrics.responseTimes.length > 0
+      this.metrics.responseTimes.length > 0
         ? this.metrics.responseTimes.reduce(
             (total, responseTime) => total + responseTime,
             0,

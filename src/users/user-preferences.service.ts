@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import {
   CreateUserPreferencesDto,
@@ -201,7 +202,7 @@ export function shouldDeliverNotificationFromPrefs(
     quietHoursStart?: string | null;
     quietHoursEnd?: string | null;
     timezone?: string | null;
-    perEventSettings?: Record<string, any> | null;
+    perEventSettings?: Prisma.InputJsonValue | null;
   },
   eventType: string,
   channel: 'email' | 'sms' | 'push' | 'inApp',
@@ -216,8 +217,20 @@ export function shouldDeliverNotificationFromPrefs(
   if (!channelMap[channel]) return false;
 
   // 2. Per-event channel override (channel explicitly disabled for this event)
-  const perEvent = (prefs.perEventSettings as Record<string, any> | null) ?? {};
-  if (perEvent[eventType] && perEvent[eventType][channel] === false) return false;
+  const rawPerEvent = prefs.perEventSettings ?? {};
+  const perEvent =
+    rawPerEvent && typeof rawPerEvent === 'object' && !Array.isArray(rawPerEvent)
+      ? (rawPerEvent as Record<string, any>)
+      : {};
+  const eventOverride = perEvent[eventType];
+  if (
+    eventOverride &&
+    typeof eventOverride === 'object' &&
+    !Array.isArray(eventOverride) &&
+    eventOverride[channel] === false
+  ) {
+    return false;
+  }
 
   // 3. Event-type subscription — empty array means all events are allowed
   const subscribedTypes: string[] = prefs.notificationEventTypes ?? [];

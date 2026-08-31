@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
@@ -29,10 +29,10 @@ const NOTIFICATION_PREFERENCES_DEFAULTS = {
   quietHoursStart: null as string | null,
   quietHoursEnd: null as string | null,
   timezone: 'UTC',
-  perEventSettings: null as Record<string, unknown> | null,
+  perEventSettings: null as Prisma.InputJsonValue | null,
 };
 
-type NotificationMetadata = Record<string, unknown>;
+type NotificationMetadata = Prisma.InputJsonValue;
 
 @Injectable()
 export class NotificationsService {
@@ -87,77 +87,44 @@ export class NotificationsService {
         // #765 — Use the already-included user.preferences to avoid
         // redundant database round trips. If preferences do not exist,
         // use the schema defaults locally.
-        const prefs =
-          user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS;
+        const prefs = user.preferences ?? NOTIFICATION_PREFERENCES_DEFAULTS;
 
-        const canInApp = shouldDeliverNotificationFromPrefs(
-          prefs,
-          'TRANSACTION_UPDATE',
-          'inApp',
-        );
+        const canInApp = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'inApp');
 
-        const canEmail = shouldDeliverNotificationFromPrefs(
-          prefs,
-          'TRANSACTION_UPDATE',
-          'email',
-        );
+        const canEmail = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'email');
 
-        const canSms = shouldDeliverNotificationFromPrefs(
-          prefs,
-          'TRANSACTION_UPDATE',
-          'sms',
-        );
+        const canSms = shouldDeliverNotificationFromPrefs(prefs, 'TRANSACTION_UPDATE', 'sms');
 
         await Promise.all([
           canInApp
-            ? this.sendNotification(
-                user.id,
-                title,
-                message,
-                'TRANSACTION_UPDATE',
-                {
-                  transactionId: transaction.id,
-                  status: transaction.status,
-                },
-              )
+            ? this.sendNotification(user.id, title, message, 'TRANSACTION_UPDATE', {
+                transactionId: transaction.id,
+                status: transaction.status,
+              })
             : Promise.resolve(),
 
           canEmail
-            ? this.emailService.sendTransactionStatusEmail(
-                user.email,
-                transaction.status,
-                {
-                  transactionId: transaction.id,
-                  propertyTitle: transaction.property.title,
-                  propertyAddress: `${transaction.property.address}, ${transaction.property.city}, ${transaction.property.state} ${transaction.property.zipCode}`,
-                  buyerName: transaction.buyer.firstName
-                    ? `${transaction.buyer.firstName} ${transaction.buyer.lastName || ''}`
-                    : transaction.buyer.email,
-                  sellerName: transaction.seller.firstName
-                    ? `${transaction.seller.firstName} ${transaction.seller.lastName || ''}`
-                    : transaction.seller.email,
-                  amount: `$${Number(
-                    transaction.amount || 0,
-                  ).toLocaleString()}`,
-                  completionDate:
-                    transaction.status === 'COMPLETED'
-                      ? new Date().toLocaleDateString()
-                      : undefined,
-                  blockchainTxHash:
-                    transaction.blockchainHash || undefined,
-                  cancellationReason:
-                    transaction.cancellationReason || undefined,
-                  cancelledDate:
-                    transaction.status === 'CANCELLED'
-                      ? new Date().toLocaleDateString()
-                      : undefined,
-                },
-              )
+            ? this.emailService.sendTransactionStatusEmail(user.email, transaction.status, {
+                transactionId: transaction.id,
+                propertyTitle: transaction.property.title,
+                propertyAddress: `${transaction.property.address}, ${transaction.property.city}, ${transaction.property.state} ${transaction.property.zipCode}`,
+                buyerName: transaction.buyer.firstName
+                  ? `${transaction.buyer.firstName} ${transaction.buyer.lastName || ''}`
+                  : transaction.buyer.email,
+                sellerName: transaction.seller.firstName
+                  ? `${transaction.seller.firstName} ${transaction.seller.lastName || ''}`
+                  : transaction.seller.email,
+                amount: `$${Number(transaction.amount || 0).toLocaleString()}`,
+                completionDate:
+                  transaction.status === 'COMPLETED' ? new Date().toLocaleDateString() : undefined,
+                blockchainTxHash: transaction.blockchainHash || undefined,
+                cancellationReason: transaction.cancellationReason || undefined,
+                cancelledDate:
+                  transaction.status === 'CANCELLED' ? new Date().toLocaleDateString() : undefined,
+              })
             : Promise.resolve(),
 
-          canSms && user.phone
-            ? this.smsService.sendSms(user.phone, message)
-            : Promise.resolve(),
+          canSms && user.phone ? this.smsService.sendSms(user.phone, message) : Promise.resolve(),
         ]);
       }),
     );
@@ -188,19 +155,13 @@ export class NotificationsService {
     });
 
     if (user?.fcmToken) {
-      this.logger.log(
-        `Sending FCM notification to token: ${user.fcmToken}`,
-      );
+      this.logger.log(`Sending FCM notification to token: ${user.fcmToken}`);
 
       // In production, use Firebase Admin SDK:
       // admin.messaging().send(...)
     }
 
-    const delivered = await this.gateway.sendToUser(
-      userId,
-      'notification',
-      notification,
-    );
+    const delivered = await this.gateway.sendToUser(userId, 'notification', notification);
 
     if (delivered) {
       await this.prisma.notification.update({
@@ -295,11 +256,7 @@ export class NotificationsService {
     const deliveredIds: string[] = [];
 
     for (const notification of pending) {
-      const delivered = await this.gateway.sendToUser(
-        userId,
-        'notification',
-        notification,
-      );
+      const delivered = await this.gateway.sendToUser(userId, 'notification', notification);
 
       if (delivered) {
         deliveredIds.push(notification.id);
