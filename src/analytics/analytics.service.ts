@@ -1,6 +1,8 @@
 // @ts-nocheck
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from '../database/prisma.service';
 
 export interface RequestRecord {
   endpoint: string;
@@ -49,27 +51,133 @@ export interface ApiMonitoringStats {
   topUsers: UserUsageStats[];
 }
 
+/**
+ * Default retention period in days for request logs.
+ * Overridable via ANALYTICS_RETENTION_DAYS env var.
+ */
+const DEFAULT_RETENTION_DAYS = 7;
+
+/**
+ * Maximum number of records to buffer in memory before flushing to the database.
+ * This amortises per-request DB writes while bounding memory usage.
+ */
+const MAX_BUFFER_SIZE = 500;
+
+/**
+ * How often (ms) the buffer is flushed even if below MAX_BUFFER_SIZE.
+ */
+const FLUSH_INTERVAL_MS = 5_000;
+
 @Injectable()
-export class AnalyticsService {
-  private records: RequestRecord[] = [];
-  private readonly MAX_RECORDS = 50000;
+export class AnalyticsService implements OnModuleDestroy {
+  private readonly logger = new Logger(AnalyticsService.name);
+
+  /** Write buffer – flushed to the database in batches. */
+  private buffer: Array<{
+    endpoint: string;
+    method: string;
+    statusCode: number;
+    responseTime: number;
+    userId: string | null;
+    timestamp: Date;
+  }> = [];
+
+  /** Timer handle for periodic flushes. */
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Whether the service has been destroyed (stops flushes). */
+  private destroyed = false;
+
   // Slow endpoint threshold in ms
   private readonly SLOW_THRESHOLD_MS = 1000;
 
-  record(data: Omit<RequestRecord, 'timestamp'>): void {
-    this.records.push({ ...data, timestamp: new Date() });
-    if (this.records.length > this.MAX_RECORDS) {
-      this.records.shift();
+  /** Retention period in days – read once from env. */
+  private readonly retentionDays: number;
+
+  constructor(private readonly prisma: PrismaService) {
+    this.retentionDays = parseInt(
+      process.env.ANALYTICS_RETENTION_DAYS ?? String(DEFAULT_RETENTION_DAYS),
+      10,
+    );
+
+    // Start periodic flush timer
+    this.flushTimer = setInterval(() => {
+      this.flush().catch((err) => {
+        this.logger.error('Failed to flush analytics buffer', err.stack);
+      });
+    }, FLUSH_INTERVAL_MS);
+
+    // Allow the process to exit without waiting for the timer
+    if (this.flushTimer.unref) {
+      this.flushTimer.unref();
     }
   }
+
+  async onModuleDestroy(): Promise<void> {
+    this.destroyed = true;
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+    // Flush any remaining records before shutdown
+    await this.flush();
+  }
+
+  // ── Write path ──────────────────────────────────────────────────────────
+
+  record(data: Omit<RequestRecord, 'timestamp'>): void {
+    this.buffer.push({ ...data, timestamp: new Date() });
+
+    // Synchronous flush when buffer is full
+    if (this.buffer.length >= MAX_BUFFER_SIZE) {
+      // Fire-and-forget; the periodic timer also handles this,
+      // but we trigger eagerly to avoid exceeding the limit.
+      this.flush().catch((err) => {
+        this.logger.error('Failed to flush analytics buffer', err.stack);
+      });
+    }
+  }
+
+  /**
+   * Flush buffered records to the database in a single batch insert.
+   * Idempotent: no-ops when the buffer is empty.
+   */
+  async flush(): Promise<void> {
+    if (this.buffer.length === 0) return;
+
+    const records = this.buffer.splice(0, this.buffer.length);
+
+    try {
+      await this.prisma.requestLog.createMany({ data: records });
+    } catch (err) {
+      this.logger.error(`Failed to persist ${records.length} analytics records`, err.stack);
+      // Re-prepend the records so they are retried on the next flush
+      this.buffer.unshift(...records);
+    }
+  }
+
+  // ── Read path ───────────────────────────────────────────────────────────
 
   /**
    * Returns records within the given time window (minutes).
    * Defaults to last 60 minutes.
    */
-  private getWindowedRecords(windowMinutes = 60): RequestRecord[] {
+  private async getWindowedRecords(windowMinutes = 60): Promise<RequestRecord[]> {
     const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000);
-    return this.records.filter((r) => r.timestamp >= cutoff);
+
+    const rows = await this.prisma.requestLog.findMany({
+      where: { timestamp: { gte: cutoff } },
+      orderBy: { timestamp: 'asc' },
+    });
+
+    return rows.map((r) => ({
+      endpoint: r.endpoint,
+      method: r.method,
+      statusCode: r.statusCode,
+      responseTime: r.responseTime,
+      userId: r.userId,
+      timestamp: r.timestamp,
+    }));
   }
 
   private percentile(sorted: number[], p: number): number {
@@ -78,8 +186,8 @@ export class AnalyticsService {
     return sorted[Math.max(0, idx)];
   }
 
-  getStats(windowMinutes = 60): ApiMonitoringStats {
-    const records = this.getWindowedRecords(windowMinutes);
+  async getStats(windowMinutes = 60): Promise<ApiMonitoringStats> {
+    const records = await this.getWindowedRecords(windowMinutes);
     const total = records.length;
 
     if (total === 0) {
@@ -213,15 +321,18 @@ export class AnalyticsService {
   /**
    * Per-endpoint breakdown with full stats.
    */
-  getEndpointStats(windowMinutes = 60): EndpointStats[] {
-    return this.getStats(windowMinutes).topEndpoints;
+  async getEndpointStats(windowMinutes = 60): Promise<EndpointStats[]> {
+    const stats = await this.getStats(windowMinutes);
+    return stats.topEndpoints;
   }
 
   /**
    * Usage breakdown for a specific user.
    */
-  getUserStats(userId: string, windowMinutes = 60): UserUsageStats | null {
-    const records = this.getWindowedRecords(windowMinutes).filter((r) => r.userId === userId);
+  async getUserStats(userId: string, windowMinutes = 60): Promise<UserUsageStats | null> {
+    const records = (await this.getWindowedRecords(windowMinutes)).filter(
+      (r) => r.userId === userId,
+    );
     if (records.length === 0) return null;
 
     const errors = records.filter((r) => r.statusCode >= 400).length;
@@ -240,7 +351,32 @@ export class AnalyticsService {
     };
   }
 
-  reset(): void {
-    this.records = [];
+  /**
+   * Delete all request log records.
+   */
+  async reset(): Promise<void> {
+    this.buffer.splice(0, this.buffer.length);
+    await this.prisma.requestLog.deleteMany();
+  }
+
+  // ── Retention cleanup ───────────────────────────────────────────────────
+
+  /**
+   * Scheduled daily cleanup of request logs older than the retention period.
+   * Runs at 03:00 UTC to avoid overlap with CleanupService (02:00 UTC).
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async pruneExpiredRecords(): Promise<void> {
+    const cutoff = new Date(Date.now() - this.retentionDays * 24 * 60 * 60 * 1000);
+
+    const result = await this.prisma.requestLog.deleteMany({
+      where: { timestamp: { lt: cutoff } },
+    });
+
+    if (result.count > 0) {
+      this.logger.log(
+        `Pruned ${result.count} expired request log records (retention: ${this.retentionDays}d)`,
+      );
+    }
   }
 }

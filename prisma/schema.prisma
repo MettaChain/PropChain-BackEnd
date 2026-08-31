@@ -1631,6 +1631,25 @@ model SupportTicketNote {
   @@map("support_ticket_notes")
 }
 
+// ─── API Request Logs (analytics) ──────────────────────────────────────────
+// Durable store replacing the former in-memory RequestRecord[] in AnalyticsService.
+// Retention: ANALYTICS_RETENTION_DAYS (default 7 days). Cleaned by CleanupService.
+
+model RequestLog {
+  id           String   @id @default(uuid())
+  endpoint     String
+  method       String
+  statusCode   Int      @map("status_code")
+  responseTime Int      @map("response_time") // milliseconds
+  userId       String?  @map("user_id")
+  timestamp    DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([endpoint, timestamp])
+  @@index([userId, timestamp])
+  @@map("request_logs")
+}
+
 // ─── User relation additions ──────────────────────────────────────────────────
 
 // Note: Webhook, TourRequest, AgentAvailability, SupportTicket relations

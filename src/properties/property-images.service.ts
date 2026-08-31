@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { PrismaService } from '../database/prisma.service';
 import { PropertyImageResponse } from './dto/property-image.dto';
 import { DuplicateDetectionService } from '../duplicate-detection/duplicate-detection.service';
