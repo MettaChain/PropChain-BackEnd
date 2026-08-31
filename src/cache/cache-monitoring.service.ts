@@ -73,17 +73,12 @@ export class CacheMonitoringService {
    */
   getMetrics(): CacheMetrics {
     const hitRate =
-      this.metrics.totalRequests > 0
-        ? (this.metrics.hits / this.metrics.totalRequests) * 100
-        : 0;
+      this.metrics.totalRequests > 0 ? (this.metrics.hits / this.metrics.totalRequests) * 100 : 0;
 
     const avgResponseTime =
       this.metrics.responseTimes.length > 0
-      this.metrics.responseTimes.length > 0
-        ? this.metrics.responseTimes.reduce(
-            (total, responseTime) => total + responseTime,
-            0,
-          ) / this.metrics.responseTimes.length
+        ? this.metrics.responseTimes.reduce((total, responseTime) => total + responseTime, 0) /
+          this.metrics.responseTimes.length
         : 0;
 
     return {
@@ -124,9 +119,7 @@ export class CacheMonitoringService {
 
     // Alert if average response time is high.
     if (metrics.avgResponseTime > 100) {
-      alerts.push(
-        `⚠️ High average response time: ${metrics.avgResponseTime}ms`,
-      );
+      alerts.push(`⚠️ High average response time: ${metrics.avgResponseTime}ms`);
     }
 
     return alerts;
