@@ -26,6 +26,8 @@ module.exports = {
   testTimeout: 30000,
   passWithNoTests: true,
   testPathIgnorePatterns: ['/test/database/'],
+  // Allow Jest to transform uuid (v14+ ships ESM-only)
+  transformIgnorePatterns: ['node_modules/(?!uuid)'],
 
   // Issue #913 – Coverage thresholds. These are set to match the
   // current codebase baseline (which includes untested modules from
