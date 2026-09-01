@@ -140,6 +140,11 @@ export class TransactionResponseDto {
 export class TransactionListQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUUID()
   propertyId?: string;
 

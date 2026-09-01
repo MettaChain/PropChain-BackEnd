@@ -101,7 +101,7 @@ export class SearchService {
 
       const nextCursor =
         items.length === limit && items.length > 0
-          ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+          ? Buffer.from(items[items.length - 1].createdAt.toISOString()).toString('base64')
           : null;
 
       // Generate facets

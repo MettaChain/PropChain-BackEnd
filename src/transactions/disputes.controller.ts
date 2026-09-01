@@ -4,7 +4,7 @@ import { CreateDisputeDto, ResolveDisputeDto } from './dto/dispute.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { DisputeStatus } from '../types/prisma.types';
+import { DisputeStatus, UserRole } from '../types/prisma.types';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 
@@ -35,7 +35,7 @@ export class DisputesController {
   }
 
   @Patch(':id/resolve')
-  @Roles('ADMIN' as any)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Resolve a dispute (Admin only)' })
   @ApiResponse({ status: 200, description: 'Dispute resolved successfully' })
   resolve(@Req() req: any, @Param('id') id: string, @Body() dto: ResolveDisputeDto) {
@@ -43,7 +43,7 @@ export class DisputesController {
   }
 
   @Patch(':id/status')
-  @Roles('ADMIN' as any)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update dispute status (Admin only) (#564)' })
   @ApiResponse({ status: 200, description: 'Dispute status updated' })
   updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateDisputeStatusDto) {

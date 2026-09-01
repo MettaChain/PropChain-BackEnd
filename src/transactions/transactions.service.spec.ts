@@ -5,7 +5,11 @@ import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../database/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { TransactionAnalyticsGranularity, TransactionTypeDto } from './dto/transaction.dto';
+import {
+  TransactionAnalyticsGranularity,
+  TransactionStatusDto,
+  TransactionTypeDto,
+} from './dto/transaction.dto';
 import { CommissionsService } from '../commissions/commissions.service';
 import { TransactionFeesService } from './transaction-fees.service';
 import { TimelineService } from './timeline.service';
@@ -138,8 +142,8 @@ describe('TransactionsService', () => {
         propertyId: 'prop-1',
         buyerId: 'user-1',
         sellerId: 'user-2',
-        status: 'PENDING' as any,
-        type: 'SALE' as any,
+        status: TransactionStatusDto.PENDING,
+        type: TransactionTypeDto.SALE,
       });
 
       expect(prisma.transaction.findMany).toHaveBeenCalledWith(
@@ -160,7 +164,7 @@ describe('TransactionsService', () => {
       mockPrismaService.transaction.findMany.mockResolvedValue([]);
       mockPrismaService.transaction.count.mockResolvedValue(0);
 
-      await service.findAll({ page: 1, limit: 10, cursor } as any);
+      await service.findAll({ page: 1, limit: 10, cursor });
 
       expect(prisma.transaction.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -283,7 +287,7 @@ describe('TransactionsService', () => {
         status: 'COMPLETED',
       });
 
-      const result = await service.update('t-1', { status: 'COMPLETED' as any });
+      const result = await service.update('t-1', { status: TransactionStatusDto.COMPLETED });
 
       expect(result.status).toBe('COMPLETED');
       expect(mockCommissionsService.updateCommissionsStatus).toHaveBeenCalledWith(
@@ -295,9 +299,9 @@ describe('TransactionsService', () => {
     it('should throw NotFoundException if transaction not found', async () => {
       mockPrismaService.transaction.findUnique.mockResolvedValue(null);
 
-      await expect(service.update('nonexistent', { status: 'COMPLETED' as any })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('nonexistent', { status: TransactionStatusDto.COMPLETED }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -104,7 +104,7 @@ export class TransactionsService {
     try {
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
-      const cursor = (query as any).cursor as string | undefined;
+      const cursor = query.cursor;
       const skip = cursor ? undefined : (page - 1) * limit;
 
       const where: Prisma.TransactionWhereInput = {};
@@ -452,7 +452,7 @@ export class TransactionsService {
     // Audit log the transition (#557)
     await this.transactionAuditService.log(
       transactionId,
-      'STATUS_TRANSITION',
+      nextStatus,
       { status: currentStatus },
       { status: nextStatus },
       { actorId },

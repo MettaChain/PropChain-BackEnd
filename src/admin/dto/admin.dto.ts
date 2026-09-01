@@ -45,6 +45,10 @@ export class AdminUsersQueryDto {
   @Min(1)
   @Max(100)
   limit: number = 20;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 }
 
 export class AdminUpdateUserDto {
@@ -88,6 +92,10 @@ export class ModerationQueueQueryDto {
   @Min(1)
   @Max(100)
   limit: number = 20;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 }
 
 export class FlagPropertyDto {
@@ -141,6 +149,10 @@ export class TransactionMonitoringQueryDto {
   @Min(1)
   @Max(100)
   limit: number = 20;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 }
 
 export class UpdateTransactionStatusDto {

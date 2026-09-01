@@ -11,38 +11,38 @@ import { SearchFacetsService } from './search-facets.service';
 describe('SearchService', () => {
   let service: SearchService;
   let prisma: { property: { findMany: jest.Mock } };
-  let geographicService: jest.Mocked<SearchGeographicService>;
-  let filtersService: jest.Mocked<SearchFiltersService>;
-  let autocompleteService: jest.Mocked<SearchAutocompleteService>;
-  let analyticsService: jest.Mocked<SearchAnalyticsService>;
-  let historyService: jest.Mocked<SearchHistoryService>;
-  let facetsService: jest.Mocked<SearchFacetsService>;
+  let geographicService: jest.Mocked<Partial<SearchGeographicService>>;
+  let filtersService: jest.Mocked<Partial<SearchFiltersService>>;
+  let autocompleteService: jest.Mocked<Partial<SearchAutocompleteService>>;
+  let analyticsService: jest.Mocked<Partial<SearchAnalyticsService>>;
+  let historyService: jest.Mocked<Partial<SearchHistoryService>>;
+  let facetsService: jest.Mocked<Partial<SearchFacetsService>>;
 
   beforeEach(async () => {
     prisma = { property: { findMany: jest.fn().mockResolvedValue([]) } };
     geographicService = {
       applyGeographicFilter: jest.fn().mockResolvedValue({}),
-    } as any;
+    };
     filtersService = {
       applyFilters: jest.fn().mockResolvedValue({}),
       getSavedFilters: jest.fn().mockResolvedValue([]),
       saveFilter: jest.fn().mockResolvedValue({ id: '1' }),
-    } as any;
+    };
     autocompleteService = {
       getSuggestions: jest.fn().mockResolvedValue(['suggestion1']),
-    } as any;
+    };
     analyticsService = {
       recordSearch: jest.fn().mockResolvedValue('query-id-1'),
       recordSearchError: jest.fn().mockResolvedValue(undefined),
       getAnalytics: jest.fn().mockResolvedValue({ totalSearches: 0 }),
       getPopularSearches: jest.fn().mockResolvedValue(['popular']),
-    } as any;
+    };
     historyService = {
       record: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    };
     facetsService = {
       buildFacets: jest.fn().mockResolvedValue({}),
-    } as any;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -106,7 +106,9 @@ describe('SearchService', () => {
     });
 
     it('should record analytics error on failure', async () => {
-      analyticsService.recordSearch.mockRejectedValueOnce(new Error('analytics fail'));
+      jest
+        .spyOn(analyticsService, 'recordSearch')
+        .mockRejectedValueOnce(new Error('analytics fail'));
 
       await expect(service.searchProperties('user-1', { query: 'test' })).rejects.toThrow(
         'analytics fail',

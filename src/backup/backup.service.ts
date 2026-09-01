@@ -64,7 +64,7 @@ export class BackupService implements OnModuleInit {
       }),
       this.prisma.databaseBackup.count({
         where: {
-          OR: [{ status: 'RUNNING' as any }, { restoreStatus: 'RUNNING' as any }],
+          OR: [{ status: BackupStatus.RUNNING }, { restoreStatus: RestoreStatus.RUNNING }],
         },
       }),
       this.prisma.databaseBackup.count(),
@@ -107,7 +107,7 @@ export class BackupService implements OnModuleInit {
   }
 
   async createManualBackup(initiatedById?: string) {
-    return this.createBackup('MANUAL' as any, initiatedById);
+    return this.createBackup(BackupTrigger.MANUAL, initiatedById);
   }
 
   async restoreBackup(backupId: string, restoredById?: string) {
@@ -128,7 +128,7 @@ export class BackupService implements OnModuleInit {
     await this.prisma.databaseBackup.update({
       where: { id: backupId },
       data: {
-        restoreStatus: 'RUNNING' as any,
+        restoreStatus: RestoreStatus.RUNNING,
         restoreError: null,
         restoredById: restoredById ?? null,
       },
@@ -140,7 +140,7 @@ export class BackupService implements OnModuleInit {
       const restored = await this.prisma.databaseBackup.update({
         where: { id: backupId },
         data: {
-          restoreStatus: 'COMPLETED' as any,
+          restoreStatus: RestoreStatus.COMPLETED,
           restoredAt: new Date(),
           restoreError: null,
           restoredById: restoredById ?? null,
@@ -154,7 +154,7 @@ export class BackupService implements OnModuleInit {
       await this.prisma.databaseBackup.update({
         where: { id: backupId },
         data: {
-          restoreStatus: 'FAILED' as any,
+          restoreStatus: RestoreStatus.FAILED,
           restoreError: message,
           restoredById: restoredById ?? null,
         },
@@ -200,7 +200,7 @@ export class BackupService implements OnModuleInit {
       data: {
         filename,
         filePath,
-        status: 'RUNNING' as any,
+        status: BackupStatus.RUNNING,
         trigger,
         initiatedById: initiatedById ?? null,
       },
@@ -215,7 +215,7 @@ export class BackupService implements OnModuleInit {
       const completed = await this.prisma.databaseBackup.update({
         where: { id: backup.id },
         data: {
-          status: 'COMPLETED' as any,
+          status: BackupStatus.COMPLETED,
           completedAt: new Date(),
           sizeBytes: BigInt(stats.size),
           checksum,
@@ -223,7 +223,7 @@ export class BackupService implements OnModuleInit {
         },
       });
 
-      if (trigger === ('SCHEDULED' as any)) {
+      if (trigger === BackupTrigger.SCHEDULED) {
         await this.prisma.backupScheduleConfig.update({
           where: { id: DEFAULT_SCHEDULE_ID },
           data: { lastRunAt: new Date() },
@@ -238,7 +238,7 @@ export class BackupService implements OnModuleInit {
       await this.prisma.databaseBackup.update({
         where: { id: backup.id },
         data: {
-          status: 'FAILED' as any,
+          status: BackupStatus.FAILED,
           completedAt: new Date(),
           errorMessage: message,
         },
@@ -279,7 +279,7 @@ export class BackupService implements OnModuleInit {
       while (attempt < maxRetries && !success) {
         attempt++;
         try {
-          await this.createBackup('SCHEDULED' as any);
+          await this.createBackup(BackupTrigger.SCHEDULED);
           success = true;
         } catch (error) {
           const errorMessage = this.toErrorMessage(error);
@@ -335,7 +335,7 @@ export class BackupService implements OnModuleInit {
   private async enforceRetentionPolicy() {
     const schedule = await this.getScheduleConfig();
     const backups = await this.prisma.databaseBackup.findMany({
-      where: { status: 'COMPLETED' as any },
+      where: { status: BackupStatus.COMPLETED },
       orderBy: { createdAt: 'desc' },
       skip: schedule.retentionCount,
     });
@@ -355,7 +355,7 @@ export class BackupService implements OnModuleInit {
     const activeJobs = await this.prisma.databaseBackup.count({
       where: {
         id: excludedBackupId ? { not: excludedBackupId } : undefined,
-        OR: [{ status: 'RUNNING' as any }, { restoreStatus: 'RUNNING' as any }],
+        OR: [{ status: BackupStatus.RUNNING }, { restoreStatus: RestoreStatus.RUNNING }],
       },
     });
 

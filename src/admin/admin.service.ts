@@ -109,7 +109,7 @@ export class AdminService {
   async listUsers(query: AdminUsersQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (query as any).cursor ? undefined : (page - 1) * limit;
+    const skip = query.cursor ? undefined : (page - 1) * limit;
 
     const where: any = {
       role: query.role,
@@ -122,8 +122,8 @@ export class AdminService {
         : undefined,
     };
 
-    if ((query as any).cursor) {
-      where.createdAt = { lt: new Date(Buffer.from((query as any).cursor, 'base64').toString()) };
+    if (query.cursor) {
+      where.createdAt = { lt: new Date(Buffer.from(query.cursor, 'base64').toString()) };
     }
 
     const [items, total] = await Promise.all([
@@ -148,10 +148,10 @@ export class AdminService {
 
     const nextCursor =
       items.length === limit
-        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+        ? Buffer.from(items[items.length - 1].createdAt.toISOString()).toString('base64')
         : null;
 
-    return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
+    return { total, page, limit, items, nextCursor, previousCursor: query.cursor || null };
   }
 
   async updateUser(userId: string, payload: AdminUpdateUserDto, actorId?: string) {
@@ -240,14 +240,14 @@ export class AdminService {
   async getModerationQueue(query: ModerationQueueQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (query as any).cursor ? undefined : (page - 1) * limit;
+    const skip = query.cursor ? undefined : (page - 1) * limit;
 
     const where: any = {
       status: query.status ?? PropertyStatus.PENDING,
     };
 
-    if ((query as any).cursor) {
-      where.createdAt = { lt: new Date(Buffer.from((query as any).cursor, 'base64').toString()) };
+    if (query.cursor) {
+      where.createdAt = { lt: new Date(Buffer.from(query.cursor, 'base64').toString()) };
     }
 
     const [items, total] = await Promise.all([
@@ -272,10 +272,10 @@ export class AdminService {
 
     const nextCursor =
       items.length === limit
-        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+        ? Buffer.from(items[items.length - 1].createdAt.toISOString()).toString('base64')
         : null;
 
-    return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
+    return { total, page, limit, items, nextCursor, previousCursor: query.cursor || null };
   }
 
   async approveProperty(propertyId: string) {
@@ -348,7 +348,7 @@ export class AdminService {
   async monitorTransactions(query: TransactionMonitoringQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (query as any).cursor ? undefined : (page - 1) * limit;
+    const skip = query.cursor ? undefined : (page - 1) * limit;
 
     const where: any = {
       status: query.status,
@@ -356,8 +356,8 @@ export class AdminService {
       propertyId: query.propertyId,
     };
 
-    if ((query as any).cursor) {
-      where.createdAt = { lt: new Date(Buffer.from((query as any).cursor, 'base64').toString()) };
+    if (query.cursor) {
+      where.createdAt = { lt: new Date(Buffer.from(query.cursor, 'base64').toString()) };
     }
 
     const [items, total] = await Promise.all([
@@ -383,10 +383,10 @@ export class AdminService {
 
     const nextCursor =
       items.length === limit
-        ? Buffer.from((items[items.length - 1] as any).createdAt.toISOString()).toString('base64')
+        ? Buffer.from(items[items.length - 1].createdAt.toISOString()).toString('base64')
         : null;
 
-    return { total, page, limit, items, nextCursor, previousCursor: (query as any).cursor || null };
+    return { total, page, limit, items, nextCursor, previousCursor: query.cursor || null };
   }
 
   async transactionMonitoringSummary() {

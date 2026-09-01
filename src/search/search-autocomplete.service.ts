@@ -80,7 +80,7 @@ export class SearchAutocompleteService {
    */
   private async getPropertySuggestions(query: string, limit: number): Promise<Suggestion[]> {
     try {
-      const properties = await (this.prisma as any).property.findMany({
+      const properties = await this.prisma.property.findMany({
         where: {
           deleted: false,
           OR: [
@@ -108,7 +108,9 @@ export class SearchAutocompleteService {
    */
   private async getLocationSuggestions(query: string, limit: number): Promise<Suggestion[]> {
     try {
-      const rows = await (this.prisma as any).$queryRaw`
+      const rows = await this.prisma.$queryRaw<
+        Array<{ city: string; state: string; zip_code: string }>
+      >`
         SELECT DISTINCT city, state, zip_code
         FROM properties
         WHERE deleted = false
@@ -120,7 +122,7 @@ export class SearchAutocompleteService {
         LIMIT ${limit}
       `;
 
-      return rows.map((r: any) => ({
+      return rows.map((r) => ({
         text: `${r.city}, ${r.state} ${r.zip_code}`.trim(),
         type: 'location' as const,
       }));
@@ -176,7 +178,7 @@ export class SearchAutocompleteService {
     if (!userId) return [];
 
     try {
-      const history = await (this.prisma as any).searchHistory.findMany({
+      const history = await this.prisma.searchHistory.findMany({
         where: {
           userId,
           query: { contains: query, mode: 'insensitive' },
@@ -206,7 +208,7 @@ export class SearchAutocompleteService {
    */
   private async getPopularSearchSuggestions(query: string, limit: number): Promise<Suggestion[]> {
     try {
-      const popular = await (this.prisma as any).popularSearch.findMany({
+      const popular = await this.prisma.popularSearch.findMany({
         where: {
           query: { contains: query, mode: 'insensitive' },
         },
@@ -329,13 +331,13 @@ export class SearchAutocompleteService {
 
   async recordSuggestionClick(suggestion: string, userId: string): Promise<void> {
     try {
-      await (this.prisma as any).searchHistory.upsert({
+      await this.prisma.searchHistory.upsert({
         where: { userId_query: { userId, query: suggestion } },
         update: { frequency: { increment: 1 }, lastSearched: new Date() },
         create: { userId, query: suggestion, frequency: 1 },
       });
 
-      await (this.prisma as any).popularSearch.upsert({
+      await this.prisma.popularSearch.upsert({
         where: { query: suggestion },
         update: { frequency: { increment: 1 }, lastUpdated: new Date() },
         create: { query: suggestion, frequency: 1, trend: 'stable' },
@@ -347,7 +349,7 @@ export class SearchAutocompleteService {
 
   async getPopularSearches(limit: number = 10): Promise<string[]> {
     try {
-      const rows = await (this.prisma as any).popularSearch.findMany({
+      const rows = await this.prisma.popularSearch.findMany({
         orderBy: { frequency: 'desc' },
         take: limit,
         select: { query: true },
@@ -371,7 +373,7 @@ export class SearchAutocompleteService {
 
   async getRecentSearches(userId: string, limit: number = 5): Promise<string[]> {
     try {
-      const rows = await (this.prisma as any).searchHistory.findMany({
+      const rows = await this.prisma.searchHistory.findMany({
         where: { userId },
         orderBy: { lastSearched: 'desc' },
         take: limit,

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TransactionStatus } from '../types/prisma.types';
 import { PrismaService } from '../database/prisma.service';
 
 export interface AuditContext {
@@ -21,7 +22,7 @@ export class TransactionAuditService {
 
   async log(
     transactionId: string,
-    action: string,
+    status: TransactionStatus,
     previousData: object | null,
     newData: object | null,
     ctx: AuditContext = {},
@@ -29,7 +30,7 @@ export class TransactionAuditService {
     return this.prisma.transactionHistory.create({
       data: {
         transactionId,
-        status: action as any,
+        status,
         actorId: ctx.actorId,
         notes: JSON.stringify({ previousData, newData }),
         metadata: {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { MilestoneStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CacheService } from '../cache/cache.service';
@@ -36,10 +37,10 @@ export class TransactionRemindersService {
 
     const milestones = await this.prisma.transactionMilestone.findMany({
       where: {
-        status: 'PENDING' as any,
+        status: MilestoneStatus.PENDING,
         expectedDate: { gte: now, lte: cutoff },
         reminderSentAt: null,
-      } as any,
+      },
       include: {
         transaction: {
           select: { buyerId: true, sellerId: true },
@@ -89,6 +90,6 @@ export class TransactionRemindersService {
 
   private async getUserOptOut(userId: string): Promise<boolean> {
     const prefs = await this.prisma.userPreferences.findUnique({ where: { userId } });
-    return (prefs as any)?.optOutReminders ?? false;
+    return prefs?.optOutReminders ?? false;
   }
 }
