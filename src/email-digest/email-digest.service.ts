@@ -92,7 +92,13 @@ export class EmailDigestService {
 
     if (notifications.length === 0) return;
 
-    const apiUrl = this.configService.get<string>('API_URL', 'http://localhost:3000/api');
+    const apiUrl = this.configService.get<string>('API_URL');
+    if (!apiUrl) {
+      throw new Error(
+        'API_URL environment variable is not set. Cannot generate digest unsubscribe link.',
+      );
+    }
+
     const unsubscribeUrl = `${apiUrl}/email-digest/unsubscribe?token=${unsubscribeToken}`;
 
     const html = this.buildDigestHtml(user.firstName, notifications, unsubscribeUrl);

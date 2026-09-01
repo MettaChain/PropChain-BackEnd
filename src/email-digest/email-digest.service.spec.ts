@@ -1,3 +1,11 @@
+jest.mock('@prisma/client', () => ({
+  ...jest.requireActual('@prisma/client'),
+  DigestFrequency: {
+    DAILY: 'DAILY',
+    WEEKLY: 'WEEKLY',
+  },
+}));
+
 import { EmailDigestService } from './email-digest.service';
 import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -26,10 +34,13 @@ describe('EmailDigestService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
       },
     };
+    emailService = { sendEmail: jest.fn().mockResolvedValue(undefined) };
+    configService = { get: jest.fn().mockReturnValue('https://api.propchain.example/api') };
+
     service = new EmailDigestService(
       prisma as unknown as PrismaService,
-      { sendEmail: jest.fn() } as unknown as EmailService,
-      { get: jest.fn().mockReturnValue('') } as unknown as ConfigService,
+      emailService as unknown as EmailService,
+      configService as unknown as ConfigService,
     );
   });
 
