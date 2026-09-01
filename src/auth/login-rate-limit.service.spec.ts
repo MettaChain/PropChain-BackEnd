@@ -103,9 +103,9 @@ describe('LoginRateLimitService', () => {
         .mockResolvedValueOnce({ unlockAt }); // getLockoutInfo detail
       const info = await service.getLockoutInfo(email);
       expect(info).not.toBeNull();
-      expect(info!.isLocked).toBe(true);
-      expect(info!.failedAttempts).toBe(5);
-      expect(info!.remainingLockoutMinutes).toBeGreaterThan(0);
+      expect(info?.isLocked).toBe(true);
+      expect(info?.failedAttempts).toBe(5);
+      expect(info?.remainingLockoutMinutes).toBeGreaterThan(0);
     });
   });
 });

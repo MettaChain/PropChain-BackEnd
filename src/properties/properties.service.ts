@@ -751,19 +751,25 @@ export class PropertiesService {
       throw new BadRequestException('Both lat and lng must be provided together');
     }
 
+    const lat = dto.lat;
+    const lng = dto.lng;
+    if (lat === undefined || lng === undefined) {
+      throw new BadRequestException('Both lat and lng must be provided together');
+    }
+
     const hasBoundingBox =
       dto.minLat !== undefined ||
       dto.maxLat !== undefined ||
       dto.minLng !== undefined ||
       dto.maxLng !== undefined;
 
-    if (hasLat && hasLng) {
+    if (lat !== undefined && lng !== undefined) {
       if (dto.radiusKm !== undefined) {
         // Approximate radius as bounding box (1 degree lat ≈ 111km)
         const latDelta = dto.radiusKm / 111;
-        const lngDelta = dto.radiusKm / (111 * Math.cos((dto.lat! * Math.PI) / 180));
-        where.latitude = { gte: dto.lat! - latDelta, lte: dto.lat! + latDelta };
-        where.longitude = { gte: dto.lng! - lngDelta, lte: dto.lng! + lngDelta };
+        const lngDelta = dto.radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+        where.latitude = { gte: lat - latDelta, lte: lat + latDelta };
+        where.longitude = { gte: lng - lngDelta, lte: lng + lngDelta };
       } else if (!hasBoundingBox) {
         throw new BadRequestException(
           'When providing lat/lng, either radiusKm or bounding box params (minLat/maxLat/minLng/maxLng) must also be provided',

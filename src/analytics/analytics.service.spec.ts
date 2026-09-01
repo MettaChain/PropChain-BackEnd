@@ -1,9 +1,17 @@
 import { AnalyticsService } from './analytics.service';
 import { PrismaService } from '../database/prisma.service';
 
+interface MockPrisma {
+  requestLog: {
+    createMany: jest.Mock;
+    findMany: jest.Mock;
+    deleteMany: jest.Mock;
+  };
+}
+
 describe('AnalyticsService', () => {
   let service: AnalyticsService;
-  let prisma: jest.Mocked<Partial<PrismaService>>;
+  let prisma: MockPrisma;
 
   /** Collects data passed to createMany for assertions. */
   let createManySink: any[];
@@ -19,7 +27,7 @@ describe('AnalyticsService', () => {
         }),
         findMany: jest.fn().mockResolvedValue([]),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-      } as any,
+      },
     };
 
     // Stub setInterval so the periodic flush timer doesn't run in tests
@@ -46,7 +54,7 @@ describe('AnalyticsService', () => {
         userId: null,
       });
 
-      expect(prisma.requestLog!.createMany).not.toHaveBeenCalled();
+      expect(prisma.requestLog.createMany).not.toHaveBeenCalled();
     });
 
     it('flushes to the database when buffer reaches MAX_BUFFER_SIZE', async () => {
@@ -62,7 +70,7 @@ describe('AnalyticsService', () => {
       }
 
       // flush() should have been triggered
-      expect(prisma.requestLog!.createMany).toHaveBeenCalled();
+      expect(prisma.requestLog.createMany).toHaveBeenCalled();
       expect(createManySink).toHaveLength(500);
     });
   });
@@ -86,7 +94,7 @@ describe('AnalyticsService', () => {
 
       await service.flush();
 
-      expect(prisma.requestLog!.createMany).toHaveBeenCalledTimes(1);
+      expect(prisma.requestLog.createMany).toHaveBeenCalledTimes(1);
       expect(createManySink).toHaveLength(2);
       expect(createManySink[0]).toMatchObject({
         endpoint: '/api/properties',
@@ -106,11 +114,11 @@ describe('AnalyticsService', () => {
 
     it('is a no-op when the buffer is empty', async () => {
       await service.flush();
-      expect(prisma.requestLog!.createMany).not.toHaveBeenCalled();
+      expect(prisma.requestLog.createMany).not.toHaveBeenCalled();
     });
 
     it('re-prepends records on DB failure for retry', async () => {
-      (prisma.requestLog!.createMany as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
+      prisma.requestLog.createMany.mockRejectedValueOnce(new Error('DB error'));
 
       service.record({
         endpoint: '/api/test',
@@ -126,8 +134,8 @@ describe('AnalyticsService', () => {
       expect((service as any).buffer).toHaveLength(1);
 
       // Reset mock to default and flush again
-      (prisma.requestLog!.createMany as jest.Mock).mockReset();
-      (prisma.requestLog!.createMany as jest.Mock).mockImplementation((args: any) => {
+      prisma.requestLog.createMany.mockReset();
+      prisma.requestLog.createMany.mockImplementation((args: any) => {
         createManySink.push(...args.data);
         return Promise.resolve({ count: args.data.length });
       });
@@ -144,7 +152,7 @@ describe('AnalyticsService', () => {
   describe('restart persistence', () => {
     it('getStats reads from the database, not from memory', async () => {
       const now = new Date();
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue([
+      prisma.requestLog.findMany.mockResolvedValue([
         {
           endpoint: '/api/properties',
           method: 'GET',
@@ -165,7 +173,7 @@ describe('AnalyticsService', () => {
 
       const stats = await service.getStats(60);
 
-      expect(prisma.requestLog!.findMany).toHaveBeenCalled();
+      expect(prisma.requestLog.findMany).toHaveBeenCalled();
       expect(stats.totalRequests).toBe(2);
       expect(stats.totalErrors).toBe(1);
       expect(stats.overallErrorRate).toBe(50);
@@ -183,7 +191,7 @@ describe('AnalyticsService', () => {
 
   describe('getEndpointStats()', () => {
     it('returns endpoint breakdown from database records', async () => {
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue([
+      prisma.requestLog.findMany.mockResolvedValue([
         {
           endpoint: '/api/properties',
           method: 'GET',
@@ -225,7 +233,7 @@ describe('AnalyticsService', () => {
   describe('getUserStats()', () => {
     it('returns usage stats for a specific user', async () => {
       const now = new Date();
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue([
+      prisma.requestLog.findMany.mockResolvedValue([
         {
           endpoint: '/api/properties',
           method: 'GET',
@@ -255,14 +263,14 @@ describe('AnalyticsService', () => {
       const stats = await service.getUserStats('user-1', 60);
 
       expect(stats).not.toBeNull();
-      expect(stats!.userId).toBe('user-1');
-      expect(stats!.requestCount).toBe(2);
-      expect(stats!.errorCount).toBe(1);
-      expect(stats!.avgResponseTime).toBe(300);
+      expect(stats?.userId).toBe('user-1');
+      expect(stats?.requestCount).toBe(2);
+      expect(stats?.errorCount).toBe(1);
+      expect(stats?.avgResponseTime).toBe(300);
     });
 
     it('returns null when no records exist for the user', async () => {
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue([]);
+      prisma.requestLog.findMany.mockResolvedValue([]);
 
       const stats = await service.getUserStats('nonexistent', 60);
       expect(stats).toBeNull();
@@ -283,7 +291,7 @@ describe('AnalyticsService', () => {
 
       await service.reset();
 
-      expect(prisma.requestLog!.deleteMany).toHaveBeenCalled();
+      expect(prisma.requestLog.deleteMany).toHaveBeenCalled();
     });
   });
 
@@ -291,13 +299,13 @@ describe('AnalyticsService', () => {
 
   describe('pruneExpiredRecords()', () => {
     it('deletes records older than the retention period', async () => {
-      (prisma.requestLog!.deleteMany as jest.Mock).mockResolvedValue({
+      prisma.requestLog.deleteMany.mockResolvedValue({
         count: 42,
       });
 
       await service.pruneExpiredRecords();
 
-      expect(prisma.requestLog!.deleteMany).toHaveBeenCalledWith({
+      expect(prisma.requestLog.deleteMany).toHaveBeenCalledWith({
         where: {
           timestamp: { lt: expect.any(Date) },
         },
@@ -309,7 +317,7 @@ describe('AnalyticsService', () => {
       // Replace logger.log for the duration of this test
       (service as any).logger = { log: logSpy, error: jest.fn() };
 
-      (prisma.requestLog!.deleteMany as jest.Mock).mockResolvedValue({
+      prisma.requestLog.deleteMany.mockResolvedValue({
         count: 10,
       });
 
@@ -335,7 +343,7 @@ describe('AnalyticsService', () => {
 
       await service.onModuleDestroy();
 
-      expect(prisma.requestLog!.createMany).toHaveBeenCalled();
+      expect(prisma.requestLog.createMany).toHaveBeenCalled();
       expect(clearInterval).toHaveBeenCalled();
     });
 
@@ -360,7 +368,7 @@ describe('AnalyticsService', () => {
   describe('getStats() aggregation', () => {
     it('computes slow endpoints correctly', async () => {
       const now = new Date();
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue([
+      prisma.requestLog.findMany.mockResolvedValue([
         {
           endpoint: '/api/slow',
           method: 'GET',
@@ -388,7 +396,7 @@ describe('AnalyticsService', () => {
 
     it('computes errorsByStatus correctly', async () => {
       const now = new Date();
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue([
+      prisma.requestLog.findMany.mockResolvedValue([
         {
           endpoint: '/a',
           method: 'GET',
@@ -450,7 +458,7 @@ describe('AnalyticsService', () => {
         timestamp: now,
       }));
 
-      (prisma.requestLog!.findMany as jest.Mock).mockResolvedValue(records);
+      prisma.requestLog.findMany.mockResolvedValue(records);
 
       const stats = await service.getStats(60);
 

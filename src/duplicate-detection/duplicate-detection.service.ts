@@ -515,13 +515,15 @@ export class DuplicateDetectionService {
 
     const propertyMatches = new Map<string, { property: any; matchedImages: string[] }>();
     for (const img of matchingImages) {
-      if (!propertyMatches.has(img.propertyId)) {
+      const existing = propertyMatches.get(img.propertyId);
+      if (existing) {
+        existing.matchedImages.push(img.id);
+      } else {
         propertyMatches.set(img.propertyId, {
           property: img.property,
-          matchedImages: [],
+          matchedImages: [img.id],
         });
       }
-      propertyMatches.get(img.propertyId)!.matchedImages.push(img.id);
     }
 
     return Array.from(propertyMatches.values());

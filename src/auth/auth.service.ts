@@ -382,16 +382,26 @@ export class AuthService {
       }
 
       if (hasTotpCode && user.twoFactorSecret) {
+        const totpCode = data.totpCode;
+        if (!totpCode) {
+          throw new UnauthorizedException('Two-factor authentication code required');
+        }
+
         const validCode = verifyTotpCode({
           secret: user.twoFactorSecret,
-          code: data.totpCode!,
+          code: totpCode,
         });
 
         if (!validCode) {
           throw new UnauthorizedException('Invalid two-factor authentication code');
         }
       } else if (hasBackupCode) {
-        const matchingBackupCode = verifyBackupCode(data.backupCode!, user.twoFactorBackupCodes);
+        const backupCode = data.backupCode;
+        if (!backupCode) {
+          throw new UnauthorizedException('Two-factor authentication code required');
+        }
+
+        const matchingBackupCode = verifyBackupCode(backupCode, user.twoFactorBackupCodes);
         if (!matchingBackupCode) {
           throw new UnauthorizedException('Invalid backup code');
         }

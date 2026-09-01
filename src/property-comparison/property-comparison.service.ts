@@ -78,7 +78,13 @@ export class PropertyComparisonService {
       throw new NotFoundException(`Properties not found: ${missing.join(', ')}`);
     }
 
-    const ordered = ids.map((id) => properties.find((p) => p.id === id)!);
+    const ordered = ids.map((id) => {
+      const property = properties.find((p) => p.id === id);
+      if (!property) {
+        throw new NotFoundException(`Property ${id} not found`);
+      }
+      return property;
+    });
 
     const comparison: FieldRow[] = COMPARABLE_FIELDS.map((field) =>
       this.buildFieldRow(field, ordered),

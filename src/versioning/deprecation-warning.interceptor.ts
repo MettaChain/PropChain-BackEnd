@@ -101,7 +101,10 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
     response.setHeader('Deprecation', 'true');
 
     if (meta?.sunsetDate) {
-      response.setHeader('Sunset', toHttpDate(meta.sunsetDate)!);
+      const sunset = toHttpDate(meta.sunsetDate);
+      if (sunset) {
+        response.setHeader('Sunset', sunset);
+      }
       const daysLeft = getSunsetCountdown(meta);
       if (daysLeft !== null) {
         response.setHeader('X-Sunset-Days-Remaining', String(daysLeft));
