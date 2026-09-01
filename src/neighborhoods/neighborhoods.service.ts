@@ -284,7 +284,10 @@ export class NeighborhoodsService {
       where: { id: neighborhoodId },
       select: { metadata: true },
     });
-    const metadata = (neighborhood!.metadata as Record<string, any>) || {};
+    if (!neighborhood) {
+      throw new NotFoundException(`Neighborhood ${neighborhoodId} not found`);
+    }
+    const metadata = (neighborhood.metadata as Record<string, any>) || {};
     return Array.isArray(metadata.scoreHistory) ? metadata.scoreHistory : [];
   }
 

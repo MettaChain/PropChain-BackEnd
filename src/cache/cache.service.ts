@@ -142,10 +142,9 @@ export class CacheService {
    * Tag a cache key for grouped invalidation
    */
   private tagKey(tag: string, key: string): void {
-    if (!this.cacheTagMap.has(tag)) {
-      this.cacheTagMap.set(tag, new Set());
-    }
-    this.cacheTagMap.get(tag)!.add(key);
+    const keys = this.cacheTagMap.get(tag) ?? new Set<string>();
+    keys.add(key);
+    this.cacheTagMap.set(tag, keys);
   }
 
   /**

@@ -127,10 +127,9 @@ export class NotificationsGateway
     }
 
     // Local tracking (fast-path cache)
-    if (!this.userSockets.has(userId)) {
-      this.userSockets.set(userId, new Set());
-    }
-    this.userSockets.get(userId)!.add(client.id);
+    const sockets = this.userSockets.get(userId) ?? new Set<string>();
+    sockets.add(client.id);
+    this.userSockets.set(userId, sockets);
     this.socketUsers.set(client.id, userId);
 
     // Socket.IO room (for local delivery via .to())
