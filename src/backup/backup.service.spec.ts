@@ -3,9 +3,21 @@ import { PrismaService } from '../database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { NotificationsService } from '../notifications/notifications.service';
 
+interface MockPrisma {
+  databaseBackup: {
+    findMany: jest.Mock;
+    count: jest.Mock;
+    findFirst: jest.Mock;
+  };
+  backupScheduleConfig: {
+    findUnique: jest.Mock;
+    upsert: jest.Mock;
+  };
+}
+
 describe('BackupService', () => {
   let service: BackupService;
-  let prisma: jest.Mocked<Partial<PrismaService>>;
+  let prisma: MockPrisma;
 
   beforeEach(() => {
     prisma = {
@@ -13,14 +25,17 @@ describe('BackupService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
-      } as any,
+      },
       backupScheduleConfig: {
         findUnique: jest.fn().mockResolvedValue({
-          id: 'default', enabled: false, cronExpression: '0 2 * * *',
-          retentionCount: 10, lastRunAt: null,
+          id: 'default',
+          enabled: false,
+          cronExpression: '0 2 * * *',
+          retentionCount: 10,
+          lastRunAt: null,
         }),
         upsert: jest.fn().mockResolvedValue({}),
-      } as any,
+      },
     };
     service = new BackupService(
       prisma as unknown as PrismaService,
