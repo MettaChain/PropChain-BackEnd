@@ -34,8 +34,8 @@ describe('DeprecationWarningInterceptor', () => {
       handle: jest.fn().mockReturnValue(of({ data: 'test' })),
     };
 
-    jest.spyOn(reflector, 'get').mockImplementation((key: string) => {
-      if (key === API_VERSION_KEY) return ApiVersionEnum.V1;
+    jest.spyOn(reflector, 'get').mockImplementation((metadataKey: unknown) => {
+      if (metadataKey === API_VERSION_KEY) return ApiVersionEnum.V1;
       return undefined;
     });
   });
@@ -86,8 +86,8 @@ describe('DeprecationWarningInterceptor', () => {
   });
 
   it('should apply deprecation headers when endpoint is marked with @Deprecated decorator', (done) => {
-    jest.spyOn(reflector, 'get').mockImplementation((key: string) => {
-      if (key === DEPRECATED_KEY) return true;
+    jest.spyOn(reflector, 'get').mockImplementation((metadataKey: unknown) => {
+      if (metadataKey === DEPRECATED_KEY) return true;
       return undefined;
     });
 
@@ -103,8 +103,8 @@ describe('DeprecationWarningInterceptor', () => {
   });
 
   it('should not add deprecation headers for active versions', (done) => {
-    jest.spyOn(reflector, 'get').mockImplementation((key: string) => {
-      if (key === API_VERSION_KEY) return ApiVersionEnum.V2;
+    jest.spyOn(reflector, 'get').mockImplementation((metadataKey: unknown) => {
+      if (metadataKey === API_VERSION_KEY) return ApiVersionEnum.V2;
       return undefined;
     });
 

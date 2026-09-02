@@ -209,7 +209,7 @@ export class SessionsService {
             }
           : null,
       ])
-      .filter(Boolean);
+      .filter((token): token is NonNullable<typeof token> => token !== null);
 
     if (blacklistedTokens.length > 0) {
       await this.prisma.blacklistedToken.createMany({
