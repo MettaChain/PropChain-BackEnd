@@ -15,7 +15,7 @@ export function validateAuditStorageConfig(): void {
   if (process.env.NODE_ENV === 'production' && AUDIT_ARCHIVE_STORAGE === 'local') {
     throw new Error(
       'AUDIT_ARCHIVE_STORAGE must not be "local" in production. ' +
-      'Set AUDIT_ARCHIVE_STORAGE=s3 and configure AUDIT_ARCHIVE_BUCKET.',
+        'Set AUDIT_ARCHIVE_STORAGE=s3 and configure AUDIT_ARCHIVE_BUCKET.',
     );
   }
 }

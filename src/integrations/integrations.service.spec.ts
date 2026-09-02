@@ -7,8 +7,15 @@ void PAYMENT_ADAPTER;
 
 describe('IntegrationsService', () => {
   let service: IntegrationsService;
-  const mlsAdapter = { searchListings: jest.fn().mockResolvedValue([]), getListing: jest.fn().mockResolvedValue(null) };
-  const crmAdapter = { createContact: jest.fn(), getContact: jest.fn().mockResolvedValue(null), syncContact: jest.fn() };
+  const mlsAdapter = {
+    searchListings: jest.fn().mockResolvedValue([]),
+    getListing: jest.fn().mockResolvedValue(null),
+  };
+  const crmAdapter = {
+    createContact: jest.fn(),
+    getContact: jest.fn().mockResolvedValue(null),
+    syncContact: jest.fn(),
+  };
   const paymentAdapter = { processPayment: jest.fn(), refundPayment: jest.fn() };
 
   beforeEach(() => {

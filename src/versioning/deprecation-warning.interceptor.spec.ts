@@ -1,5 +1,5 @@
 import { DeprecationWarningInterceptor } from './deprecation-warning.interceptor';
-import { ExecutionContext, CallHandler, GoneException } from '@nestjs/common';
+import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { of } from 'rxjs';
 import { DEPRECATED_KEY, API_VERSION_KEY } from './api-version.decorator';
@@ -19,19 +19,19 @@ describe('DeprecationWarningInterceptor', () => {
     interceptor = new DeprecationWarningInterceptor(reflector);
     mockSetHeader = jest.fn();
     mockResponse = { setHeader: mockSetHeader };
-    
+
     mockRequest = {};
 
     mockExecutionContext = {
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue(mockRequest),
-        getResponse: jest.fn().mockReturnValue(mockResponse)
+        getResponse: jest.fn().mockReturnValue(mockResponse),
       }),
-      getHandler: jest.fn()
+      getHandler: jest.fn(),
     };
 
     mockCallHandler = {
-      handle: jest.fn().mockReturnValue(of({ data: 'test' }))
+      handle: jest.fn().mockReturnValue(of({ data: 'test' })),
     };
 
     jest.spyOn(reflector, 'get').mockImplementation((key: string) => {
@@ -45,32 +45,44 @@ describe('DeprecationWarningInterceptor', () => {
   });
 
   it('should apply deprecation headers for deprecated API versions', (done) => {
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => {
-        expect(mockSetHeader).toHaveBeenCalledWith('Deprecation', 'true');
-        expect(mockSetHeader).toHaveBeenCalledWith('Sunset', expect.any(String));
-        expect(mockSetHeader).toHaveBeenCalledWith('Warning', expect.stringContaining('299 - "'));
-        expect(mockSetHeader).toHaveBeenCalledWith('X-Deprecation-Notice', expect.stringContaining('Minimum 90-day deprecation window'));
-        expect(mockSetHeader).toHaveBeenCalledWith('X-Migration-Guide', 'https://docs.propchain.io/migration');
-        done();
-      },
-      error: done
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => {
+          expect(mockSetHeader).toHaveBeenCalledWith('Deprecation', 'true');
+          expect(mockSetHeader).toHaveBeenCalledWith('Sunset', expect.any(String));
+          expect(mockSetHeader).toHaveBeenCalledWith('Warning', expect.stringContaining('299 - "'));
+          expect(mockSetHeader).toHaveBeenCalledWith(
+            'X-Deprecation-Notice',
+            expect.stringContaining('Minimum 90-day deprecation window'),
+          );
+          expect(mockSetHeader).toHaveBeenCalledWith(
+            'X-Migration-Guide',
+            'https://docs.propchain.io/migration',
+          );
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should add _deprecationInfo to response data for deprecated endpoints', (done) => {
     mockCallHandler.handle = jest.fn().mockReturnValue(of({}));
-    
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: (result) => {
-        expect(result._deprecationInfo).toBeDefined();
-        expect(result._deprecationInfo.deprecated).toBe(true);
-        expect(result._deprecationInfo.version).toBe(ApiVersionEnum.V1);
-        expect(result._deprecationInfo.migrationGuide).toBe('https://docs.propchain.io/migration');
-        done();
-      },
-      error: done
-    });
+
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (result) => {
+          expect(result._deprecationInfo).toBeDefined();
+          expect(result._deprecationInfo.deprecated).toBe(true);
+          expect(result._deprecationInfo.version).toBe(ApiVersionEnum.V1);
+          expect(result._deprecationInfo.migrationGuide).toBe(
+            'https://docs.propchain.io/migration',
+          );
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should apply deprecation headers when endpoint is marked with @Deprecated decorator', (done) => {
@@ -79,13 +91,15 @@ describe('DeprecationWarningInterceptor', () => {
       return undefined;
     });
 
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => {
-        expect(mockSetHeader).toHaveBeenCalledWith('Deprecation', 'true');
-        done();
-      },
-      error: done
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => {
+          expect(mockSetHeader).toHaveBeenCalledWith('Deprecation', 'true');
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should not add deprecation headers for active versions', (done) => {
@@ -94,13 +108,15 @@ describe('DeprecationWarningInterceptor', () => {
       return undefined;
     });
 
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => {
-        // Should not set deprecation header for active version v2
-        expect(mockSetHeader).not.toHaveBeenCalledWith('Deprecation', 'true');
-        done();
-      },
-      error: done
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => {
+          // Should not set deprecation header for active version v2
+          expect(mockSetHeader).not.toHaveBeenCalledWith('Deprecation', 'true');
+          done();
+        },
+        error: done,
+      });
   });
 });

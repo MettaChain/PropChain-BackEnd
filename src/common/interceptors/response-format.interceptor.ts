@@ -1,5 +1,3 @@
-
-
 /**
  * Response Format Interceptor
  * Standardizes all API responses into a consistent envelope format

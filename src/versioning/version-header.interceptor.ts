@@ -96,12 +96,17 @@ export class VersionHeaderInterceptor implements NestInterceptor {
       if (SUPPORTED_API_VERSIONS.includes(version)) {
         return version;
       }
+      // Version in URL path but not supported – flag it so intercept() can reject.
+      this.rejectUnsupported(version);
     }
 
     // 2. Check API-Version header
     const headerVersion = request.headers['api-version'] as ApiVersionEnum;
-    if (headerVersion && SUPPORTED_API_VERSIONS.includes(headerVersion)) {
-      return headerVersion;
+    if (headerVersion) {
+      if (SUPPORTED_API_VERSIONS.includes(headerVersion)) {
+        return headerVersion;
+      }
+      this.rejectUnsupported(headerVersion);
     }
 
     // 3. Check Accept header for version
@@ -112,9 +117,16 @@ export class VersionHeaderInterceptor implements NestInterceptor {
       if (SUPPORTED_API_VERSIONS.includes(version)) {
         return version;
       }
+      this.rejectUnsupported(version);
     }
 
     // 4. Return default version
     return DEFAULT_API_VERSION;
+  }
+
+  private rejectUnsupported(version: ApiVersionEnum): void {
+    throw new BadRequestException(
+      `API version "${version}" is not supported. Supported versions: ${SUPPORTED_API_VERSIONS.join(', ')}`,
+    );
   }
 }

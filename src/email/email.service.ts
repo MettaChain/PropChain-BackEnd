@@ -1,4 +1,3 @@
-
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
@@ -263,7 +262,11 @@ export class EmailService {
     if (options.language && options.template) {
       const lang = options.language;
       const i18nKey = `email.${options.template}`;
-      const translated = this.i18nService.translate(i18nKey, { userPreference: lang }, options.context);
+      const translated = this.i18nService.translate(
+        i18nKey,
+        { userPreference: lang },
+        options.context,
+      );
       if (translated !== i18nKey) {
         options.subject = options.subject || translated;
       }
@@ -347,7 +350,11 @@ export class EmailService {
     });
 
     const language = user?.languagePreference || 'en';
-    const translated = this.i18nService.translate(templateKey, { userPreference: language }, params);
+    const translated = this.i18nService.translate(
+      templateKey,
+      { userPreference: language },
+      params,
+    );
 
     await this.sendEmail({
       to,

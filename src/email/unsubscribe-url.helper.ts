@@ -8,7 +8,7 @@ export function buildUnsubscribeUrl(token: string, frontendUrl?: string): string
   if (!base) {
     throw new Error(
       'FRONTEND_URL environment variable is not set. ' +
-      'Cannot generate unsubscribe link without a valid base URL.',
+        'Cannot generate unsubscribe link without a valid base URL.',
     );
   }
   const trimmed = base.replace(/\/+$/, '');

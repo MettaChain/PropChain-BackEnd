@@ -25,19 +25,19 @@ import { ConsoleLogger, LogLevel } from '@nestjs/common';
 // Fields that must never appear in log output.
 const SENSITIVE_KEYS = new Set([
   'password',
-  'newPassword',
-  'currentPassword',
-  'confirmPassword',
+  'newpassword',
+  'currentpassword',
+  'confirmpassword',
   'token',
-  'refreshToken',
-  'accessToken',
+  'refreshtoken',
+  'accesstoken',
   'secret',
-  'apiKey',
-  'privateKey',
-  'creditCard',
+  'apikey',
+  'privatekey',
+  'creditcard',
   'cvv',
   'ssn',
-  'fcmToken',
+  'fcmtoken',
 ]);
 
 /**

@@ -15,9 +15,9 @@ describe('BackwardCompatibilityService', () => {
   describe('transform', () => {
     it('should return the same data if fromVersion equals toVersion', () => {
       const data = { id: 1, name: 'Test', email: 'test@example.com' };
-      
+
       const result = service.transform(data, ApiVersionEnum.V2, ApiVersionEnum.V2, 'user');
-      
+
       expect(result).toBe(data);
     });
 
@@ -29,7 +29,7 @@ describe('BackwardCompatibilityService', () => {
           email: 'john@example.com',
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-02T00:00:00.000Z',
-          trustScore: 85
+          trustScore: 85,
         };
 
         const result = service.transform(v2UserData, ApiVersionEnum.V2, ApiVersionEnum.V1, 'user');
@@ -37,7 +37,7 @@ describe('BackwardCompatibilityService', () => {
         expect(result).toEqual({
           id: 1,
           name: 'John Doe',
-          email: 'john@example.com'
+          email: 'john@example.com',
         });
         expect(result).not.toHaveProperty('createdAt');
         expect(result).not.toHaveProperty('updatedAt');
@@ -50,15 +50,20 @@ describe('BackwardCompatibilityService', () => {
           address: '123 Main St',
           price: 500000,
           createdAt: '2026-01-01T00:00:00.000Z',
-          verified: true
+          verified: true,
         };
 
-        const result = service.transform(v2PropertyData, ApiVersionEnum.V2, ApiVersionEnum.V1, 'property');
+        const result = service.transform(
+          v2PropertyData,
+          ApiVersionEnum.V2,
+          ApiVersionEnum.V1,
+          'property',
+        );
 
         expect(result).toEqual({
           id: 1,
           address: '123 Main St',
-          price: 500000
+          price: 500000,
         });
         expect(result).not.toHaveProperty('createdAt');
         expect(result).not.toHaveProperty('verified');
@@ -67,14 +72,14 @@ describe('BackwardCompatibilityService', () => {
       it('should transform arrays of V2 data to V1', () => {
         const v2Users = [
           { id: 1, name: 'John', email: 'john@example.com', createdAt: '2026-01-01' },
-          { id: 2, name: 'Jane', email: 'jane@example.com', createdAt: '2026-01-02' }
+          { id: 2, name: 'Jane', email: 'jane@example.com', createdAt: '2026-01-02' },
         ];
 
         const result = service.transform(v2Users, ApiVersionEnum.V2, ApiVersionEnum.V1, 'user');
 
         expect(result).toEqual([
           { id: 1, name: 'John', email: 'john@example.com' },
-          { id: 2, name: 'Jane', email: 'jane@example.com' }
+          { id: 2, name: 'Jane', email: 'jane@example.com' },
         ]);
       });
     });
@@ -84,7 +89,7 @@ describe('BackwardCompatibilityService', () => {
         const v1UserData = {
           id: 1,
           name: 'John Doe',
-          email: 'john@example.com'
+          email: 'john@example.com',
         };
 
         const result = service.transform(v1UserData, ApiVersionEnum.V1, ApiVersionEnum.V2, 'user');
@@ -99,9 +104,14 @@ describe('BackwardCompatibilityService', () => {
 
     it('should return original data if no transformer exists for the entity type', () => {
       const data = { id: 1, someField: 'value', anotherField: 'other' };
-      
-      const result = service.transform(data, ApiVersionEnum.V2, ApiVersionEnum.V1, 'unknown-entity');
-      
+
+      const result = service.transform(
+        data,
+        ApiVersionEnum.V2,
+        ApiVersionEnum.V1,
+        'unknown-entity',
+      );
+
       expect(result).toEqual(data);
     });
   });
@@ -145,7 +155,9 @@ describe('BackwardCompatibilityService', () => {
     });
 
     it('should return false for unknown entity types or fields', () => {
-      expect(service.fieldExistsInVersion('anyField', ApiVersionEnum.V1, 'unknown-entity')).toBe(false);
+      expect(service.fieldExistsInVersion('anyField', ApiVersionEnum.V1, 'unknown-entity')).toBe(
+        false,
+      );
       expect(service.fieldExistsInVersion('unknownField', ApiVersionEnum.V1, 'user')).toBe(false);
     });
   });
@@ -157,15 +169,15 @@ describe('BackwardCompatibilityService', () => {
         name: 'John',
         email: 'john@example.com',
         createdAt: '2026-01-01',
-        trustScore: 85
+        trustScore: 85,
       };
 
       const filteredForV1 = service.filterFieldsByVersion(userData, ApiVersionEnum.V1, 'user');
-      
+
       expect(filteredForV1).toEqual({
         id: 1,
         name: 'John',
-        email: 'john@example.com'
+        email: 'john@example.com',
       });
       expect(filteredForV1).not.toHaveProperty('createdAt');
       expect(filteredForV1).not.toHaveProperty('trustScore');

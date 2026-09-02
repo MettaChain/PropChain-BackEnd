@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { CacheService } from '../../src/cache/cache.service';
-import { CACHE_TTL, CACHE_TAGS } from '../../src/cache/cache.config';
+import { CACHE_TAGS } from '../../src/cache/cache.config';
 
 describe('CacheService e2e — core primitives (locks, TTL, tags)', () => {
   let app: INestApplication;
@@ -51,7 +51,7 @@ describe('CacheService e2e — core primitives (locks, TTL, tags)', () => {
       expect(firstAcquire).toBe(true);
 
       // Wait for lock to expire
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
 
       const secondAcquire = await cacheService.setNx(lockKey, 'locked', 1);
       expect(secondAcquire).toBe(true);
@@ -74,7 +74,7 @@ describe('CacheService e2e — core primitives (locks, TTL, tags)', () => {
       await cacheService.set(key, value, 1); // 1 second TTL
 
       // Wait for TTL to expire
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
 
       const retrieved = await cacheService.get(key);
       expect(retrieved).toBeUndefined();

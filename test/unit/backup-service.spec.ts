@@ -1,4 +1,9 @@
-jest.mock('@prisma/client', () => ({ PrismaClient: jest.fn().mockImplementation(() => ({})) }));
+jest.mock('@prisma/client', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => ({})),
+  BackupStatus: { RUNNING: 'RUNNING', COMPLETED: 'COMPLETED', FAILED: 'FAILED' },
+  BackupTrigger: { MANUAL: 'MANUAL', SCHEDULED: 'SCHEDULED' },
+  RestoreStatus: { IDLE: 'IDLE', RESTORING: 'RESTORING', COMPLETED: 'COMPLETED', FAILED: 'FAILED' },
+}));
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';

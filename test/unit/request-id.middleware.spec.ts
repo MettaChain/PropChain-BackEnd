@@ -1,4 +1,8 @@
-import { RequestIdMiddleware, REQUEST_ID_HEADER, requestIdStorage, getCurrentRequestId } from '../../src/common/request-id.middleware';
+import {
+  RequestIdMiddleware,
+  REQUEST_ID_HEADER,
+  getCurrentRequestId,
+} from '../../src/common/request-id.middleware';
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -95,9 +99,7 @@ describe('RequestIdMiddleware', () => {
     // Arrange
     const firstRequestId = 'first-request-id';
     const secondRequestId = 'second-request-id';
-    (uuidv4 as jest.Mock)
-      .mockReturnValueOnce(firstRequestId)
-      .mockReturnValueOnce(secondRequestId);
+    (uuidv4 as jest.Mock).mockReturnValueOnce(firstRequestId).mockReturnValueOnce(secondRequestId);
 
     const firstRequest = { headers: {} } as Request;
     const secondRequest = { headers: {} } as Request;
@@ -110,13 +112,13 @@ describe('RequestIdMiddleware', () => {
     // Act - start first request
     middleware.use(firstRequest, firstResponse, () => {
       firstCapturedId = getCurrentRequestId();
-      
+
       // Start second request while first is still in context
       middleware.use(secondRequest, secondResponse, () => {
         secondCapturedId = getCurrentRequestId();
         mockNext();
       });
-      
+
       mockNext();
     });
 

@@ -9,8 +9,14 @@ describe('DashboardService', () => {
   beforeEach(() => {
     prisma = {
       user: { findUnique: jest.fn().mockResolvedValue(null) } as any,
-      property: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) } as any,
-      transaction: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) } as any,
+      property: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      } as any,
+      transaction: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      } as any,
     };
     service = new DashboardService(prisma as unknown as PrismaService);
   });

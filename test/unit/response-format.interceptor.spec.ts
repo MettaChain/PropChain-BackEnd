@@ -12,7 +12,7 @@ describe('ResponseFormatInterceptor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     interceptor = new ResponseFormatInterceptor();
-    
+
     // Setup mocks
     mockResponse = {
       status: jest.fn(),
@@ -38,18 +38,20 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(of(rawData));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: (formattedResponse) => {
-        // Assert
-        expect(formattedResponse.success).toBe(true);
-        expect(formattedResponse.data).toEqual(rawData);
-        expect(formattedResponse.timestamp).toBeDefined();
-        // Should not have meta unless it's paginated
-        expect(formattedResponse.meta).toBeUndefined();
-        done();
-      },
-      error: done,
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (formattedResponse) => {
+          // Assert
+          expect(formattedResponse.success).toBe(true);
+          expect(formattedResponse.data).toEqual(rawData);
+          expect(formattedResponse.timestamp).toBeDefined();
+          // Should not have meta unless it's paginated
+          expect(formattedResponse.meta).toBeUndefined();
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should not wrap responses that already have the success field', (done) => {
@@ -62,14 +64,16 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(of(alreadyFormatted));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: (response) => {
-        // Assert - returns the exact same object without modification
-        expect(response).toEqual(alreadyFormatted);
-        done();
-      },
-      error: done,
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (response) => {
+          // Assert - returns the exact same object without modification
+          expect(response).toEqual(alreadyFormatted);
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should handle paginated responses with data and meta', (done) => {
@@ -86,17 +90,19 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(of(paginatedData));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: (formattedResponse) => {
-        // Assert
-        expect(formattedResponse.success).toBe(true);
-        expect(formattedResponse.data).toEqual(paginatedData.data);
-        expect(formattedResponse.meta).toEqual(paginatedData.meta);
-        expect(formattedResponse.timestamp).toBeDefined();
-        done();
-      },
-      error: done,
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (formattedResponse) => {
+          // Assert
+          expect(formattedResponse.success).toBe(true);
+          expect(formattedResponse.data).toEqual(paginatedData.data);
+          expect(formattedResponse.meta).toEqual(paginatedData.meta);
+          expect(formattedResponse.timestamp).toBeDefined();
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should validate and fill in missing pagination meta fields', (done) => {
@@ -110,19 +116,21 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(of(incompletePaginatedData));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: (formattedResponse) => {
-        // Assert
-        expect(formattedResponse.meta).toEqual({
-          page: 1, // Default
-          limit: 10, // Default
-          total: 15, // Provided
-          totalPages: 2, // Calculated from 15 / 10
-        });
-        done();
-      },
-      error: done,
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (formattedResponse) => {
+          // Assert
+          expect(formattedResponse.meta).toEqual({
+            page: 1, // Default
+            limit: 10, // Default
+            total: 15, // Provided
+            totalPages: 2, // Calculated from 15 / 10
+          });
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should handle regular (non-pagination) meta data by passing it through', (done) => {
@@ -138,15 +146,17 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(of(dataWithMeta));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: (formattedResponse) => {
-        // Assert - meta is preserved exactly as provided
-        expect(formattedResponse.success).toBe(true);
-        expect(formattedResponse.meta).toEqual(dataWithMeta.meta);
-        done();
-      },
-      error: done,
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (formattedResponse) => {
+          // Assert - meta is preserved exactly as provided
+          expect(formattedResponse.success).toBe(true);
+          expect(formattedResponse.meta).toEqual(dataWithMeta.meta);
+          done();
+        },
+        error: done,
+      });
   });
 
   it('should format HttpException errors correctly', (done) => {
@@ -155,43 +165,50 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(throwError(() => httpError));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => done.fail('Should have thrown an error'),
-      error: (formattedError) => {
-        // Assert
-        expect(formattedError.success).toBe(false);
-        expect(formattedError.message).toBe('Not found');
-        expect(formattedError.statusCode).toBe(404);
-        expect(formattedError.timestamp).toBeDefined();
-        expect(mockResponse.status).toHaveBeenCalledWith(404);
-        done();
-      },
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => done.fail('Should have thrown an error'),
+        error: (formattedError) => {
+          // Assert
+          expect(formattedError.success).toBe(false);
+          expect(formattedError.message).toBe('Not found');
+          expect(formattedError.statusCode).toBe(404);
+          expect(formattedError.timestamp).toBeDefined();
+          expect(mockResponse.status).toHaveBeenCalledWith(404);
+          done();
+        },
+      });
   });
 
   it('should extract errors field from HttpException response if present', (done) => {
     // Arrange - validation error with errors array
-    const validationError = new HttpException({
-      message: 'Validation failed',
-      errors: [
-        { field: 'email', message: 'Invalid email format' },
-        { field: 'password', message: 'Too short' },
-      ],
-    }, 400);
+    const validationError = new HttpException(
+      {
+        message: 'Validation failed',
+        errors: [
+          { field: 'email', message: 'Invalid email format' },
+          { field: 'password', message: 'Too short' },
+        ],
+      },
+      400,
+    );
     mockCallHandler.handle = jest.fn().mockReturnValue(throwError(() => validationError));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => done.fail('Should have thrown an error'),
-      error: (formattedError) => {
-        // Assert
-        expect(formattedError.success).toBe(false);
-        expect(formattedError.message).toBe('Validation failed');
-        expect(formattedError.errors).toEqual(validationError.getResponse().errors);
-        expect(formattedError.statusCode).toBe(400);
-        done();
-      },
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => done.fail('Should have thrown an error'),
+        error: (formattedError) => {
+          // Assert
+          expect(formattedError.success).toBe(false);
+          expect(formattedError.message).toBe('Validation failed');
+          expect(formattedError.errors).toEqual(validationError.getResponse().errors);
+          expect(formattedError.statusCode).toBe(400);
+          done();
+        },
+      });
   });
 
   it('should handle generic Error objects (non-HttpException)', (done) => {
@@ -200,17 +217,19 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(throwError(() => genericError));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => done.fail('Should have thrown an error'),
-      error: (formattedError) => {
-        // Assert - defaults to 500
-        expect(formattedError.success).toBe(false);
-        expect(formattedError.message).toBe('Something went wrong in the database');
-        expect(formattedError.statusCode).toBe(500);
-        expect(mockResponse.status).toHaveBeenCalledWith(500);
-        done();
-      },
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => done.fail('Should have thrown an error'),
+        error: (formattedError) => {
+          // Assert - defaults to 500
+          expect(formattedError.success).toBe(false);
+          expect(formattedError.message).toBe('Something went wrong in the database');
+          expect(formattedError.statusCode).toBe(500);
+          expect(mockResponse.status).toHaveBeenCalledWith(500);
+          done();
+        },
+      });
   });
 
   it('should use default error message for unknown error types', (done) => {
@@ -218,15 +237,17 @@ describe('ResponseFormatInterceptor', () => {
     mockCallHandler.handle = jest.fn().mockReturnValue(throwError(() => 'string error message'));
 
     // Act
-    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler).subscribe({
-      next: () => done.fail('Should have thrown an error'),
-      error: (formattedError) => {
-        // Assert
-        expect(formattedError.success).toBe(false);
-        expect(formattedError.message).toBe('Internal Server Error');
-        expect(formattedError.statusCode).toBe(500);
-        done();
-      },
-    });
+    interceptor
+      .intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: () => done.fail('Should have thrown an error'),
+        error: (formattedError) => {
+          // Assert
+          expect(formattedError.success).toBe(false);
+          expect(formattedError.message).toBe('Internal Server Error');
+          expect(formattedError.statusCode).toBe(500);
+          done();
+        },
+      });
   });
 });

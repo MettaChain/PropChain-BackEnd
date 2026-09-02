@@ -28,7 +28,7 @@ describe('AppLogger and logger utilities', () => {
     it('should update the correlation ID when set again', () => {
       setCorrelationId('first-id');
       expect(getCorrelationId()).toBe('first-id');
-      
+
       setCorrelationId('second-id');
       expect(getCorrelationId()).toBe('second-id');
     });
@@ -51,7 +51,7 @@ describe('AppLogger and logger utilities', () => {
       // Set production environment
       const originalNodeEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
-      
+
       const logger = new AppLogger('TestLogger');
       const sensitiveData = {
         password: 'secret123',
@@ -67,7 +67,7 @@ describe('AppLogger and logger utilities', () => {
         arrayOfObjects: [
           { password: 'first-pass', name: 'User 1' },
           { password: 'second-pass', name: 'User 2' },
-        ]
+        ],
       };
 
       // Act
@@ -75,7 +75,7 @@ describe('AppLogger and logger utilities', () => {
 
       // Parse the logged JSON
       const loggedEntry = JSON.parse(stdoutOutput[0]);
-      
+
       // Assert sensitive fields are redacted
       expect(loggedEntry.password).toBe('[REDACTED]');
       expect(loggedEntry.token).toBe('[REDACTED]');
@@ -96,23 +96,23 @@ describe('AppLogger and logger utilities', () => {
     it('should include correlationId in production logs when set', () => {
       const originalNodeEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
-      
+
       const correlationId = 'test-correlation-789';
       setCorrelationId(correlationId);
-      
+
       const logger = new AppLogger('ProductionLogger');
       logger.log('Production log message');
 
       const loggedEntry = JSON.parse(stdoutOutput[0]);
       expect(loggedEntry.correlationId).toBe(correlationId);
-      
+
       process.env.NODE_ENV = originalNodeEnv;
     });
 
     it('should include all required fields in production JSON logs', () => {
       const originalNodeEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
-      
+
       const logger = new AppLogger('JsonLogger');
       logger.error('Error occurred', { errorCode: 'TEST_ERROR', userId: 123 });
 
@@ -123,7 +123,7 @@ describe('AppLogger and logger utilities', () => {
       expect(loggedEntry.message).toBe('Error occurred');
       expect(loggedEntry.errorCode).toBe('TEST_ERROR');
       expect(loggedEntry.userId).toBe(123);
-      
+
       process.env.NODE_ENV = originalNodeEnv;
     });
   });

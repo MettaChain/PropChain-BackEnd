@@ -1,3 +1,5 @@
+import * as childProcess from 'child_process';
+import * as cron from 'cron';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as fs from 'fs';
@@ -13,11 +15,17 @@ jest.mock('child_process', () => {
   const original = jest.requireActual('child_process');
   return {
     ...original,
-    execFile: jest.fn((cmd: string, args: string[], callback: (error: any, stdout: string, stderr: string) => void) => {
-      // Simulate successful command execution for both backup and restore
-      callback(null, '', '');
-      return {};
-    }),
+    execFile: jest.fn(
+      (
+        cmd: string,
+        args: string[],
+        callback: (error: any, stdout: string, stderr: string) => void,
+      ) => {
+        // Simulate successful command execution for both backup and restore
+        callback(null, '', '');
+        return {};
+      },
+    ),
   };
 });
 
@@ -26,7 +34,6 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
   let backupService: BackupService;
   let prismaService: PrismaService;
   let testBackupFilePath: string;
-  let testBackupId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -87,7 +94,7 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
         retentionCount: 5,
       };
       const updatedSchedule = await backupService.updateSchedule(updateDto);
-      
+
       expect(updatedSchedule.enabled).toBe(true);
       expect(updatedSchedule.cronExpression).toBe('0 3 * * *');
       expect(updatedSchedule.retentionCount).toBe(5);
@@ -108,8 +115,8 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
       });
 
       // Update the schedule again to trigger refresh
-      const cronSpy = jest.spyOn(require('cron').CronJob.prototype, 'stop');
-      
+      const cronSpy = jest.spyOn(cron.CronJob.prototype, 'stop');
+
       await backupService.updateSchedule({
         enabled: true,
         cronExpression: '0 4 * * *',
@@ -123,7 +130,7 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
   describe('status reporting', () => {
     it('returns correct backup status with zero backups initially', async () => {
       const status = await backupService.getBackupStatus();
-      
+
       expect(status.totalBackups).toBe(0);
       expect(status.runningBackups).toBe(0);
       expect(status.latestBackup).toBeNull();
@@ -145,7 +152,7 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
       });
 
       const status = await backupService.getBackupStatus();
-      
+
       expect(status.totalBackups).toBe(1);
       expect(status.runningBackups).toBe(0);
       expect(status.latestBackup?.id).toBe(createdBackup.id);
@@ -171,7 +178,7 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
 
     it('getSchedule returns the current schedule configuration', async () => {
       const schedule = await backupService.getSchedule();
-      
+
       expect(schedule).toHaveProperty('id', 'default');
       expect(schedule).toHaveProperty('enabled');
       expect(schedule).toHaveProperty('cronExpression');
@@ -220,11 +227,10 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
           restoreStatus: 'IDLE',
         },
       });
-      testBackupId = backup.id;
 
       // Perform restore
       const restoredBackup = await backupService.restoreBackup(backup.id, 'test-user-id');
-      
+
       expect(restoredBackup.restoreStatus).toBe('COMPLETED');
       expect(restoredBackup.restoredById).toBe('test-user-id');
       expect(restoredBackup.restoredAt).toBeDefined();
@@ -262,7 +268,7 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
 
     it('throws ConflictException when another restore/backup is already running', async () => {
       // Create a backup with running restore status
-      const runningBackup = await prismaService.databaseBackup.create({
+      await prismaService.databaseBackup.create({
         data: {
           filename: 'running-restore.sql',
           filePath: testBackupFilePath,
@@ -292,12 +298,18 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
 
     it('handles restore failure correctly and updates database status', async () => {
       // Mock execFile to simulate failure
-      const execFileSpy = jest.spyOn(require('child_process'), 'execFile').mockImplementationOnce(
-        (cmd: string, args: string[], callback: (error: any, stdout: string, stderr: string) => void) => {
-          callback(new Error('psql command failed'), '', 'psql: error: connection failed');
-          return {};
-        },
-      );
+      const execFileSpy = jest
+        .spyOn(childProcess, 'execFile')
+        .mockImplementationOnce(
+          (
+            cmd: string,
+            args: string[],
+            callback: (error: any, stdout: string, stderr: string) => void,
+          ) => {
+            callback(new Error('psql command failed'), '', 'psql: error: connection failed');
+            return {};
+          },
+        );
 
       // Create a test backup
       const backup = await prismaService.databaseBackup.create({
@@ -329,10 +341,10 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
 
   describe('backup creation flow', () => {
     it('successfully creates a manual backup', async () => {
-      const execFileSpy = jest.spyOn(require('child_process'), 'execFile');
-      
+      const execFileSpy = jest.spyOn(childProcess, 'execFile');
+
       const backup = await backupService.createManualBackup('test-user-id');
-      
+
       expect(backup.status).toBe('COMPLETED');
       expect(backup.initiatedById).toBe('test-user-id');
       expect(execFileSpy).toHaveBeenCalled();
@@ -362,8 +374,8 @@ describe('BackupService e2e — schedule, status, and restore flows', () => {
       }
 
       // Create a new backup which should trigger retention policy
-      const newBackup = await backupService.createManualBackup('test-user-id');
-      
+      await backupService.createManualBackup('test-user-id');
+
       // Should only keep the latest 2 backups (total 3: the new one + 2 newest old ones)
       const allBackups = await prismaService.databaseBackup.findMany({
         orderBy: { createdAt: 'desc' },

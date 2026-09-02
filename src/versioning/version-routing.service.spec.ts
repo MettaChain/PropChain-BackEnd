@@ -16,9 +16,9 @@ describe('VersionRoutingService', () => {
     it('should wrap data with version metadata', () => {
       const data = { id: 1, name: 'Test' };
       const version = ApiVersionEnum.V2;
-      
+
       const result = service.versionedResponse(data, version);
-      
+
       expect(result.apiVersion).toBe(version);
       expect(result.data).toEqual(data);
       expect(result.timestamp).toBeDefined();
@@ -30,9 +30,9 @@ describe('VersionRoutingService', () => {
   describe('transformDataByVersion', () => {
     it('should return the same data if fromVersion equals toVersion', () => {
       const data = { id: 1, name: 'Test' };
-      
+
       const result = service.transformDataByVersion(data, ApiVersionEnum.V2, ApiVersionEnum.V2);
-      
+
       expect(result).toBe(data);
     });
 
@@ -50,14 +50,14 @@ describe('VersionRoutingService', () => {
   describe('getCompatibleVersions', () => {
     it('should return correct compatible versions for V1', () => {
       const compatibleVersions = service.getCompatibleVersions(ApiVersionEnum.V1);
-      
+
       expect(compatibleVersions).toEqual([ApiVersionEnum.V1]);
       expect(compatibleVersions).toHaveLength(1);
     });
 
     it('should return correct compatible versions for V2', () => {
       const compatibleVersions = service.getCompatibleVersions(ApiVersionEnum.V2);
-      
+
       expect(compatibleVersions).toContain(ApiVersionEnum.V2);
       expect(compatibleVersions).toContain(ApiVersionEnum.V1);
       expect(compatibleVersions).toHaveLength(2);
@@ -66,7 +66,7 @@ describe('VersionRoutingService', () => {
     it('should return an array with at least the version itself for unknown versions', () => {
       // @ts-ignore - testing with invalid version
       const compatibleVersions = service.getCompatibleVersions('v3' as ApiVersionEnum);
-      
+
       expect(compatibleVersions).toEqual(['v3']);
       expect(compatibleVersions).toContain('v3');
     });

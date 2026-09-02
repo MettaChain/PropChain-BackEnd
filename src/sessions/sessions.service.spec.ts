@@ -29,8 +29,8 @@ describe('SessionsService', () => {
   });
 
   it('createSession throws ConflictException when max sessions reached', async () => {
-    await expect(
-      service.createSession('user-1', 'jti-1', 'rjti-1'),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.createSession('user-1', 'jti-1', 'rjti-1')).rejects.toThrow(
+      ConflictException,
+    );
   });
 });

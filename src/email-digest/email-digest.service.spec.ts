@@ -21,6 +21,8 @@ interface MockPrisma {
 describe('EmailDigestService', () => {
   let service: EmailDigestService;
   let prisma: MockPrisma;
+  let emailService: { sendEmail: jest.Mock };
+  let configService: { get: jest.Mock };
 
   beforeEach(() => {
     prisma = {

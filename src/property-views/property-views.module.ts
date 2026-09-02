@@ -1,4 +1,3 @@
-
 import { Module } from '@nestjs/common';
 import { PropertyViewsController } from './property-views.controller';
 import { PropertyViewsService } from './property-views.service';

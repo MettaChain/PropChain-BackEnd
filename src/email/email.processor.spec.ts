@@ -18,7 +18,12 @@ describe('EmailProcessor', () => {
   it('process sends an email via mailerService', async () => {
     const job = {
       id: 'job-1',
-      data: { to: 'user@example.com', subject: 'Hello', template: 'welcome', context: { name: 'Alice' } },
+      data: {
+        to: 'user@example.com',
+        subject: 'Hello',
+        template: 'welcome',
+        context: { name: 'Alice' },
+      },
     } as unknown as Job;
 
     await processor.process(job);

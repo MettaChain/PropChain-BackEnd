@@ -93,9 +93,8 @@ describe('validateEnvironment', () => {
   });
 
   it('should log an error and exit with code 1 when JWT_SECRET is too short (less than 32 characters)', () => {
-    // Set all required variables, but JWT_SECRET is only 20 characters long
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
-    process.env.JWT_SECRET = 'tooshortsecretkey'; // 15 chars
+    process.env.JWT_SECRET = 'tooshortsecretx'; // 15 chars
     process.env.JWT_REFRESH_SECRET = 'thisisanotherlongenoughsecretkeythatis32charsmin';
 
     validateEnvironment();
@@ -108,10 +107,9 @@ describe('validateEnvironment', () => {
   });
 
   it('should log an error and exit with code 1 when JWT_REFRESH_SECRET is too short (less than 32 characters)', () => {
-    // Set all required variables, but JWT_REFRESH_SECRET is only 25 characters long
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
     process.env.JWT_SECRET = 'thisisalongenoughsecretkeythatis32charsmin';
-    process.env.JWT_REFRESH_SECRET = 'tooshortrefreshsecret'; // 20 chars
+    process.env.JWT_REFRESH_SECRET = 'tooshortrefreshsecre'; // 20 chars
 
     validateEnvironment();
 
@@ -123,10 +121,9 @@ describe('validateEnvironment', () => {
   });
 
   it('should log an error and exit with code 1 when both JWT secrets are too short', () => {
-    // Set all required variables, but both JWT secrets are too short
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
-    process.env.JWT_SECRET = 'tooshortsecretkey'; // 15 chars
-    process.env.JWT_REFRESH_SECRET = 'tooshortrefreshsecret'; // 20 chars
+    process.env.JWT_SECRET = 'tooshortsecretx'; // 15 chars
+    process.env.JWT_REFRESH_SECRET = 'tooshortrefreshsecre'; // 20 chars
 
     validateEnvironment();
 
@@ -139,8 +136,7 @@ describe('validateEnvironment', () => {
   });
 
   it('should log both missing variables and weak secrets in the same error message', () => {
-    // Missing DATABASE_URL, and JWT_SECRET is too short
-    process.env.JWT_SECRET = 'tooshortsecretkey'; // 15 chars
+    process.env.JWT_SECRET = 'tooshortsecretx'; // 15 chars
     process.env.JWT_REFRESH_SECRET = 'thisisanotherlongenoughsecretkeythatis32charsmin';
 
     validateEnvironment();

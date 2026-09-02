@@ -18,16 +18,8 @@ import {
   createSha256,
   generateReactivationToken,
 } from '../auth/security.utils';
-import {
-  CreateUserDto,
-  SearchUsersDto,
-  UpdatePreferencesDto,
-  UpdateUserDto,
-} from './dto/user.dto';
-import {
-  DeactivateAccountDto,
-  ReactivateAccountDto,
-} from './dto/deactivation.dto';
+import { CreateUserDto, SearchUsersDto, UpdatePreferencesDto, UpdateUserDto } from './dto/user.dto';
+import { DeactivateAccountDto, ReactivateAccountDto } from './dto/deactivation.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { SessionsService } from '../sessions/sessions.service';
@@ -104,17 +96,13 @@ export class UsersService implements OnModuleInit {
       lastActivityAt: user.lastActivityAt,
       statistics: {
         propertiesCount: user._count.properties,
-        transactionsCount:
-          user._count.buyerTransactions + user._count.sellerTransactions,
+        transactionsCount: user._count.buyerTransactions + user._count.sellerTransactions,
         accountAgeDays,
       },
     };
   }
 
-  async updateProfile(
-    userId: string,
-    data: UpdateProfileDto,
-  ): Promise<ProfileResponseDto> {
+  async updateProfile(userId: string, data: UpdateProfileDto): Promise<ProfileResponseDto> {
     if (data.email) {
       const existingUser = await this.prisma.user.findFirst({
         where: {
@@ -163,8 +151,7 @@ export class UsersService implements OnModuleInit {
     }
 
     if (data.contactHours !== undefined) {
-      updateData.contactHours =
-        data.contactHours as unknown as Prisma.InputJsonValue;
+      updateData.contactHours = data.contactHours as unknown as Prisma.InputJsonValue;
     }
 
     await this.prisma.user.update({
@@ -236,8 +223,7 @@ export class UsersService implements OnModuleInit {
     }
 
     const propertiesCount = user.properties.length;
-    const transactionsCount =
-      user.buyerTransactions.length + user.sellerTransactions.length;
+    const transactionsCount = user.buyerTransactions.length + user.sellerTransactions.length;
 
     const now = new Date();
     const createdAt = new Date(user.createdAt);
@@ -259,10 +245,7 @@ export class UsersService implements OnModuleInit {
     let referralCode: string;
 
     do {
-      referralCode = Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase();
+      referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     } while (
       await this.prisma.user.findUnique({
         where: { referralCode },
@@ -547,12 +530,8 @@ export class UsersService implements OnModuleInit {
     });
 
     this.logger.log(
-      `User ${userId} (${redactEmail(
-        user.email,
-      )}) deactivated. Scheduled deletion: ${
-        scheduledDeletionAt
-          ? scheduledDeletionAt.toISOString()
-          : 'None'
+      `User ${userId} (${redactEmail(user.email)}) deactivated. Scheduled deletion: ${
+        scheduledDeletionAt ? scheduledDeletionAt.toISOString() : 'None'
       }`,
     );
 
@@ -585,13 +564,10 @@ export class UsersService implements OnModuleInit {
       },
     });
 
-    this.logger.log(
-      `Reactivation token generated for user ${userId} (${user.email})`,
-    );
+    this.logger.log(`Reactivation token generated for user ${userId} (${user.email})`);
 
     return {
-      message:
-        'Reactivation token generated. Use the token to reactivate your account.',
+      message: 'Reactivation token generated. Use the token to reactivate your account.',
     };
   }
 
@@ -623,9 +599,7 @@ export class UsersService implements OnModuleInit {
         },
       });
 
-      throw new BadRequestException(
-        'Reactivation token has expired. Please request a new one.',
-      );
+      throw new BadRequestException('Reactivation token has expired. Please request a new one.');
     }
 
     const providedHash = createSha256(data.token);
@@ -670,9 +644,7 @@ export class UsersService implements OnModuleInit {
       },
     });
 
-    this.logger.log(
-      `User ${userId} (${redactEmail(user.email)}) reactivated`,
-    );
+    this.logger.log(`User ${userId} (${redactEmail(user.email)}) reactivated`);
 
     return updatedUser;
   }
@@ -844,25 +816,23 @@ export class UsersService implements OnModuleInit {
     const userIds = usersToDelete.map((user) => user.id);
     const userEmails = usersToDelete.map((user) => user.email);
 
-    const result = await this.prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        await tx.loginAttempt.deleteMany({
-          where: {
-            email: {
-              in: userEmails,
-            },
+    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.loginAttempt.deleteMany({
+        where: {
+          email: {
+            in: userEmails,
           },
-        });
+        },
+      });
 
-        return tx.user.deleteMany({
-          where: {
-            id: {
-              in: userIds,
-            },
+      return tx.user.deleteMany({
+        where: {
+          id: {
+            in: userIds,
           },
-        });
-      },
-    );
+        },
+      });
+    });
 
     this.logger.log(`Deleted ${result.count} deactivated users`);
 
