@@ -9,8 +9,11 @@ describe('validateEnvironment', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-    // Reset process.env to original state before each test
+    // Reset process.env to a clean state without any required vars
     process.env = { ...originalEnv };
+    delete process.env.DATABASE_URL;
+    delete process.env.JWT_SECRET;
+    delete process.env.JWT_REFRESH_SECRET;
   });
 
   afterAll(() => {
