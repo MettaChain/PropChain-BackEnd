@@ -36,6 +36,29 @@ const RETRYABLE_ERROR_CODES = new Set([
 ]);
 
 /**
+ * Scrub literal values, PII, and raw parameters from SQL query strings before logging.
+ * Replaces $n placeholders, quoted string literals, emails, IP addresses, and phone numbers.
+ *
+ * Issue #1252 – Slow-query logging PII redaction.
+ */
+export function scrubQuery(query: string): string {
+  if (!query) return '';
+  return query
+    // Replace $n parameter placeholders ($1, $2, etc.)
+    .replace(/\$\d+/g, '?')
+    // Replace single-quoted string literals: '...'
+    .replace(/'(?:[^'\\]|\\.)*'/g, '?')
+    // Replace emails (e.g. user@example.com)
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '?')
+    // Replace IPv4 addresses (e.g. 192.168.1.1)
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '?')
+    // Replace IPv6 addresses (e.g. 2001:0db8:85a3::8a2e:0370:7334)
+    .replace(/\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g, '?')
+    // Replace phone numbers (international/local formats, at least 7 digits)
+    .replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g, '?');
+}
+
+/**
  * Determines whether the given Prisma / Postgres error is transient and safe
  * to retry.
  */
@@ -119,13 +142,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // repeatedly within a short window. Classification lives in n1-detector.ts.
     const n1Detector = n1DetectionEnabled ? new N1Detector(n1OptionsFromEnv()) : null;
 
+    // Issue #1252 – Verbose query logging is gated to non-production with explicit opt-in
+    const isVerboseQueryLoggingEnabled =
+      !isProduction &&
+      (process.env.VERBOSE_QUERY_LOGGING === 'true' ||
+        process.env.ENABLE_QUERY_LOGGING === 'true');
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this as any).$on('query', (event: { query: string; params: string; duration: number }) => {
       const { duration, query } = event;
 
       if (duration >= slowThreshold) {
-        // Sanitise query – never log raw params to avoid leaking PII (#917 requirement)
-        const sanitised = query.replace(/\$\d+/g, '?').substring(0, 300);
+        // Sanitise query – never log raw params or literal PII (#917 & #1252)
+        const sanitised = scrubQuery(query).substring(0, 300);
         this.logger.warn(
           `[SlowQuery] ${duration}ms (threshold: ${slowThreshold}ms) – ${sanitised}`,
         );
@@ -139,8 +168,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         } catch {
           // metrics module not available
         }
-      } else if (!isProduction) {
-        this.logger.debug(`[Query] ${duration}ms`);
+      } else if (isVerboseQueryLoggingEnabled) {
+        const sanitised = scrubQuery(query).substring(0, 300);
+        this.logger.debug(`[Query] ${duration}ms – ${sanitised}`);
       }
 
       if (n1Detector) {

@@ -26,6 +26,10 @@ describe('WebhooksService', () => {
       webhookDeliveryLog: {
         create: jest.fn().mockResolvedValue({ id: 'dl-1' }),
         findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
+      },
+      activityLog: {
+        create: jest.fn().mockResolvedValue({ id: 'act-1' }),
         findUnique: jest.fn().mockResolvedValue(null),
         update: jest.fn(),
       },
@@ -248,6 +252,64 @@ describe('WebhooksService', () => {
     it('should throw NotFoundException when webhook not found', async () => {
       prisma.webhook.findFirst.mockResolvedValue(null);
       await expect(service.findOne('bad-id', 'user-1')).rejects.toThrow();
+    });
+  });
+
+  describe('rotateSecret', () => {
+    it('rotates secret, updates db, records audit log, and returns new secret', async () => {
+      const existing = { id: 'wh-1', userId: 'user-1', secret: 'old-secret' };
+      prisma.webhook.findFirst.mockResolvedValue(existing);
+      prisma.webhook.update.mockImplementation(async ({ data }: any) => ({
+        ...existing,
+        ...data,
+      }));
+
+      const result = await service.rotateSecret('wh-1', 'user-1');
+
+      expect(result.secret).toBeDefined();
+      expect(result.secret).not.toBe('old-secret');
+      expect(prisma.webhook.update).toHaveBeenCalledWith({
+        where: { id: 'wh-1' },
+        data: { secret: result.secret },
+      });
+      expect(prisma.activityLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'user-1',
+          action: 'WEBHOOK_SECRET_ROTATED',
+          entityType: 'WEBHOOK',
+          entityId: 'wh-1',
+        }),
+      });
+    });
+
+    it('throws NotFoundException when rotating non-existent webhook', async () => {
+      prisma.webhook.findFirst.mockResolvedValue(null);
+      await expect(service.rotateSecret('bad-id', 'user-1')).rejects.toThrow();
+    });
+  });
+
+  describe('Retry Backoff Schedule (#1256)', () => {
+    it('maps attempts to correct 0-based delays', () => {
+      expect(service.getRetryDelay(1)).toBe(1000);
+      expect(service.getRetryDelay(2)).toBe(5000);
+      expect(service.getRetryDelay(3)).toBe(15000);
+      expect(service.getRetryDelay(4)).toBe(60000);
+      expect(service.getRetryDelay(5)).toBe(300000);
+      expect(service.getRetryDelay(99)).toBe(300000);
+    });
+  });
+
+  describe('pruneOldDeliveryLogs', () => {
+    it('deletes delivery logs older than specified retention days', async () => {
+      const res = await service.pruneOldDeliveryLogs(30);
+      expect(prisma.webhookDeliveryLog.deleteMany).toHaveBeenCalledWith({
+        where: {
+          createdAt: {
+            lt: expect.any(Date),
+          },
+        },
+      });
+      expect(res.count).toBe(5);
     });
   });
 
