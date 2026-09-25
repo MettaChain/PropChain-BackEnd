@@ -20,7 +20,7 @@ export class ApiDocsController {
    */
   @Get('openapi.json')
   getOpenApiSpec(@Res() res: Response) {
-    // This will be populated by setupSwagger
+    // Populated by setupOpenAPIEndpoint (called from bootstrap in main.ts)
     const spec = (res.req.app as AppWithOpenApiDoc).openAPIDocument;
 
     if (spec) {

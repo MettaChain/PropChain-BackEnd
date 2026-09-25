@@ -15,6 +15,7 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { N1Detector, isN1DetectionEnabled, n1OptionsFromEnv } from './n1-detector';
 
 const POOL_SIZE_DEFAULT = 10;
 const POOL_TIMEOUT_MS = 10_000;
@@ -105,9 +106,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // In development we emit all log levels; in production only errors/warnings.
+    // Issue #911 – N+1 detection is on by default outside production and can
+    // be opted into in production with DB_N1_DETECTION=true (see .env.example).
+    const n1DetectionEnabled = isN1DetectionEnabled();
+
+    // In development we emit all log levels; in production only errors/warnings,
+    // plus query events when N+1 detection has been opted into.
     const logLevels = isProduction
-      ? (['error', 'warn'] as const)
+      ? n1DetectionEnabled
+        ? (['error', 'warn', 'query'] as const)
+        : (['error', 'warn'] as const)
       : (['error', 'warn', 'info', 'query'] as const);
 
     super({
@@ -130,14 +138,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // ── Query event logging & slow query detection (#917) ─────────────────
     const slowThreshold = isProduction ? SLOW_QUERY_THRESHOLD_PROD : SLOW_QUERY_THRESHOLD_DEV;
 
-    // Issue #911 – N+1 detection: track how many queries are fired in a short
-    // rolling window per table.  If the same table is queried more than the
-    // N1_REPETITION_THRESHOLD times within N1_WINDOW_MS milliseconds we emit a
-    // warning so the pattern can be caught in development before it reaches
-    // production.
-    const N1_WINDOW_MS = 100;
-    const N1_REPETITION_THRESHOLD = 5;
-    const queryWindow: Map<string, number[]> = new Map();
+    // Issue #911 – N+1 detection: the same query shape hitting the same table
+    // repeatedly within a short window. Classification lives in n1-detector.ts.
+    const n1Detector = n1DetectionEnabled ? new N1Detector(n1OptionsFromEnv()) : null;
 
     // Issue #1252 – Verbose query logging is gated to non-production with explicit opt-in
     const isVerboseQueryLoggingEnabled =
@@ -170,26 +173,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.logger.debug(`[Query] ${duration}ms – ${sanitised}`);
       }
 
-      // Issue #911 – N+1 detection (development + staging only; skipped in
-      // production to avoid overhead in hot paths).
-      if (!isProduction) {
-        // Extract the primary table name from the query (heuristic: first word
-        // after SELECT/INSERT/UPDATE/DELETE ... FROM/INTO/UPDATE).
-        const tableMatch = query.match(/(?:FROM|INTO|UPDATE)\s+"?(\w+)"?/i);
-        if (tableMatch) {
-          const table = tableMatch[1];
-          const now = Date.now();
-          const timestamps = (queryWindow.get(table) ?? []).filter((t) => now - t < N1_WINDOW_MS);
-          timestamps.push(now);
-          queryWindow.set(table, timestamps);
-
-          if (timestamps.length === N1_REPETITION_THRESHOLD) {
-            const sanitised = scrubQuery(query).substring(0, 200);
-            this.logger.warn(
-              `[N+1 Detected] Table "${table}" queried ${timestamps.length} times ` +
-                `within ${N1_WINDOW_MS}ms. Possible N+1 pattern. Last query: ${sanitised}`,
-            );
-          }
+      if (n1Detector) {
+        const detection = n1Detector.record(query);
+        if (detection) {
+          const sanitised = query.replace(/\$\d+/g, '?').substring(0, 200);
+          this.logger.warn(
+            `[N+1 Detected] Table "${detection.table}" queried ${detection.count} times ` +
+              `within ${detection.windowMs}ms. Possible N+1 pattern. Last query: ${sanitised}`,
+          );
         }
       }
     });

@@ -10,7 +10,7 @@ import { RateLimitGuard } from './auth/guards/rate-limit.guard';
 import { RateLimitService } from './auth/rate-limit.service';
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 import { ResponseFormatInterceptor } from './common/interceptors/response-format.interceptor';
-import { setupSwagger } from './config/swagger.config';
+import { setupOpenAPIEndpoint, setupSwagger } from './config/swagger.config';
 import { validateEnvironment } from './utils/validate-env';
 // Issue #914 – Structured JSON logging in production, pretty-print in dev
 import { AppLogger } from './common/logger';
@@ -161,8 +161,9 @@ async function bootstrap() {
   const rateLimitService = app.get(RateLimitService);
   app.useGlobalGuards(new RateLimitGuard(reflector, rateLimitService));
 
-  // Setup Swagger documentation
-  setupSwagger(app);
+  // Setup Swagger documentation and serve the same spec at /api/openapi.json
+  const openApiDocument = setupSwagger(app);
+  setupOpenAPIEndpoint(app, openApiDocument);
 
   app.enableShutdownHooks();
 
