@@ -8,6 +8,52 @@ import { INestApplication, Logger } from '@nestjs/common';
 
 const logger = new Logger('SwaggerConfig');
 
+/** Route prefix of the Swagger UI (no leading slash). */
+export const SWAGGER_DOCS_PATH = 'api/docs';
+
+/** Servers advertised in the spec (and allowed as connect-src on the docs page). */
+export const SWAGGER_SERVERS = [
+  { url: 'http://localhost:3000', description: 'Development Server' },
+  { url: 'https://api.propchain.io', description: 'Production Server' },
+];
+
+/** Content-Security-Policy applied to every non-docs route (see main.ts). */
+export const DEFAULT_CONTENT_SECURITY_POLICY =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'";
+
+/** True when the request path is the Swagger UI or one of its assets. */
+export function isSwaggerDocsPath(path: string): boolean {
+  const docsRoot = `/${SWAGGER_DOCS_PATH}`;
+  return path === docsRoot || path.startsWith(`${docsRoot}/`) || path.startsWith(`${docsRoot}-`);
+}
+
+/**
+ * CSP for the Swagger UI route. Scripts are still restricted to 'self' (all
+ * assets are served locally); only what Swagger UI v5 needs on top of the
+ * default policy is added: data: images used by swagger-ui.css, and
+ * connect-src for the servers listed in the spec so "Try it out" works.
+ */
+export function buildDocsContentSecurityPolicy(serverUrls: string[] = []): string {
+  const origins = new Set<string>();
+  for (const url of serverUrls) {
+    try {
+      origins.add(new URL(url).origin);
+    } catch {
+      // relative server URLs are covered by 'self'
+    }
+  }
+  return [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    `connect-src ${["'self'", ...origins].join(' ')}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+}
+
 interface AppWithOpenApiDoc {
   openAPIDocument?: OpenAPIObject;
 }
@@ -54,8 +100,6 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
       },
       'api-version',
     )
-    .addServer('http://localhost:3000', 'Development Server')
-    .addServer('https://api.propchain.io', 'Production Server')
     .addTag('Authentication', 'User authentication and authorization')
     .addTag('Users', 'User management endpoints')
     .addTag('Properties', 'Property management endpoints')
@@ -78,15 +122,18 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
     .addTag('Analytics', 'Analytics and reporting endpoints')
     .build();
 
+  config.servers = SWAGGER_SERVERS.map(({ url, description }) => ({ url, description }));
+
   const document = SwaggerModule.createDocument(app, config);
 
   // Setup Swagger UI at /api/docs
-  SwaggerModule.setup('api/docs', app, document, {
+  SwaggerModule.setup(SWAGGER_DOCS_PATH, app, document, {
     swaggerOptions: {
-      persistAuthorizationData: true,
+      persistAuthorization: true,
       displayRequestDuration: true,
       filter: true,
-      showRequestHeaders: true,
+      // Disable the badge that calls out to validator.swagger.io
+      validatorUrl: null,
       supportedSubmitMethods: ['get', 'post', 'put', 'patch', 'delete'],
       docExpansion: 'list',
       defaultModelsExpandDepth: 1,
@@ -127,10 +174,10 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
         color: #00d4ff;
       }
     `,
-    customJs: [
-      'https://cdn.jsdelivr.net/npm/swagger-ui-dist@3/swagger-ui.js',
-      'https://cdn.jsdelivr.net/npm/swagger-ui-dist@3/swagger-ui-standalone-preset.js',
-    ],
+    // No customJs: Swagger UI v5 assets (bundle, preset, init script, CSS) are
+    // served from the local swagger-ui-dist package under /api/docs, so the
+    // page works with the strict CSP from buildDocsContentSecurityPolicy and
+    // makes no external requests.
   });
 
   logger.log('Swagger UI available at http://localhost:3000/api/docs');
