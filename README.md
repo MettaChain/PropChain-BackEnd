@@ -196,6 +196,11 @@ npm run migrate
 npm run db:seed
 ```
 
+Seeding is scoped by `SEED_ENV` (default `development`). Re-running the same
+scope is idempotent because the completed scope is marked in the database.
+Set `SEED_RESET=true` only when a destructive reset is intended. Production
+seeding is blocked unless `SEED_ALLOW_IN_PRODUCTION=true` is set explicitly.
+
 ## 🏃 Running the App
 
 ```bash

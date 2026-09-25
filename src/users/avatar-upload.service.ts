@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { isAbsolute, join, relative, resolve } from 'path';
 import { createHash } from 'crypto';
 import { matchesMagicBytes } from '../common/security/magic-bytes';
+import sharp from 'sharp';
 
 // Multer type definition
 interface MulterFile {
@@ -69,7 +70,7 @@ export class AvatarUploadService {
     }
     await fs.writeFile(resolvedOriginalPath, file.buffer);
 
-    // Generate different sizes (simplified version - in production you'd use sharp)
+    // Generate the actual resized variants so returned URLs represent usable sizes.
     await this.generateAvatarSizes(originalPath, userDir, filename);
 
     // Generate URLs
@@ -201,21 +202,17 @@ export class AvatarUploadService {
     userDir: string,
     filename: string,
   ): Promise<{ small: string; medium: string; large: string }> {
-    // Simplified version - in production you'd use sharp library for actual resizing
-    // For now, we'll just copy the original file with different prefixes
-    const sizes = { small: 'small_', medium: 'medium_', large: 'large_' };
+    const sizes = { small: 64, medium: 128, large: 256 };
     const result: { small: string; medium: string; large: string } = {
       small: '',
       medium: '',
       large: '',
     };
 
-    for (const [size, prefix] of Object.entries(sizes)) {
-      const sizePath = join(userDir, `${prefix}${filename}`);
+    for (const [size, width] of Object.entries(sizes)) {
+      const sizePath = join(userDir, `${size}_${filename}`);
       try {
-        // In production, you'd use sharp to actually resize the image
-        // For now, just copy the original
-        await fs.copyFile(originalPath, sizePath);
+        await sharp(originalPath).resize({ width, height: width, fit: 'cover' }).toFile(sizePath);
         result[size as keyof typeof result] = sizePath;
       } catch (error) {
         this.logger.error(`Error creating ${size} avatar size:`, error);
