@@ -125,57 +125,57 @@ The application uses environment variables for configuration. Copy `.env.example
 
 ### Environment Variables
 
-| Variable                          | Description                              | Default                             |
-| :-------------------------------- | :--------------------------------------- | :---------------------------------- |
-| `DATABASE_URL`                    | PostgreSQL connection string             | Required                            |
-| `PORT`                            | Server port                              | 3000                                |
-| `NODE_ENV`                        | Environment mode                         | development                         |
-| `FRONTEND_URL`                    | Frontend application URL for email links | http://localhost:3000               |
-| `JWT_SECRET`                      | JWT signing secret                       | Required                            |
-| `JWT_REFRESH_SECRET`              | JWT refresh token secret                 | Required                            |
-| `JWT_ACCESS_EXPIRES_IN`           | Access token expiration                  | 15m                                 |
-| `JWT_REFRESH_EXPIRES_IN`          | Refresh token expiration                 | 7d                                  |
-| `BCRYPT_ROUNDS`                   | Password hashing rounds                  | 12                                  |
-| `PASSWORD_HISTORY_LIMIT`          | Password history limit                   | 5                                   |
-| `PASSWORD_MIN_LENGTH`             | Minimum password length                  | 8                                   |
-| `PASSWORD_REQUIRE_UPPERCASE`      | Require uppercase in password            | true                                |
-| `PASSWORD_REQUIRE_LOWERCASE`      | Require lowercase in password            | true                                |
-| `PASSWORD_REQUIRE_DIGIT`          | Require digit in password                | true                                |
-| `PASSWORD_REQUIRE_SPECIAL`        | Require special char in password         | true                                |
-| `PASSWORD_SPECIAL_CHARS`          | Allowed special characters               | !@#$%^&*()_+-=...                   |
-| `FRONTEND_URL`                    | Frontend application URL for email links | http://localhost:3000               |
-| `RECAPTCHA_SECRET`                | Google reCAPTCHA v3 private key          | Required                            |
-| `CAPTCHA_THRESHOLD`               | Minimum reCAPTCHA score to pass          | 0.5                                 |
-| `BASE_URL`                        | Root URL of this API server              | http://localhost:3000               |
-| `API_URL`                         | Full API base URL for email links        | http://localhost:3000/api           |
-| `AVATAR_UPLOAD_DIR`               | Directory for user avatar uploads        | ./uploads/avatars                   |
-| `AVATAR_MAX_FILE_SIZE`            | Max avatar file size in bytes            | 5242880                             |
-| `CORS_ORIGINS`                    | Comma-separated allowed origins          | http://localhost:3000               |
-| `DEBUG_PII`                       | Enable PII debugging in auth logs        | false                               |
-| `EMAIL_VERIFICATION_EXPIRES_IN`   | Email verification token TTL             | 24h                                 |
-| `GOOGLE_CLIENT_ID`                | Google OAuth2 client ID                  | —                                   |
-| `GOOGLE_CLIENT_SECRET`            | Google OAuth2 client secret              | —                                   |
-| `GOOGLE_CALLBACK_URL`             | Google OAuth2 callback URL               | /api/auth/google/callback           |
-| `BLOCKCHAIN_ENABLED`              | Enable blockchain integration            | true                                |
-| `BLOCKCHAIN_NETWORK`              | Ethereum network                         | sepolia                             |
+| Variable                          | Description                                                | Default                             |
+| :-------------------------------- | :--------------------------------------------------------- | :---------------------------------- |
+| `DATABASE_URL`                    | PostgreSQL connection string                               | Required                            |
+| `PORT`                            | Server port                                                | 3000                                |
+| `NODE_ENV`                        | Environment mode                                           | development                         |
+| `FRONTEND_URL`                    | Frontend application URL for email links                   | http://localhost:3000               |
+| `JWT_SECRET`                      | JWT signing secret                                         | Required                            |
+| `JWT_REFRESH_SECRET`              | JWT refresh token secret                                   | Required                            |
+| `JWT_ACCESS_EXPIRES_IN`           | Access token expiration                                    | 15m                                 |
+| `JWT_REFRESH_EXPIRES_IN`          | Refresh token expiration                                   | 7d                                  |
+| `BCRYPT_ROUNDS`                   | Password hashing rounds                                    | 12                                  |
+| `PASSWORD_HISTORY_LIMIT`          | Password history limit                                     | 5                                   |
+| `PASSWORD_MIN_LENGTH`             | Minimum password length                                    | 8                                   |
+| `PASSWORD_REQUIRE_UPPERCASE`      | Require uppercase in password                              | true                                |
+| `PASSWORD_REQUIRE_LOWERCASE`      | Require lowercase in password                              | true                                |
+| `PASSWORD_REQUIRE_DIGIT`          | Require digit in password                                  | true                                |
+| `PASSWORD_REQUIRE_SPECIAL`        | Require special char in password                           | true                                |
+| `PASSWORD_SPECIAL_CHARS`          | Allowed special characters                                 | !@#$%^&\*()\_+-=...                 |
+| `FRONTEND_URL`                    | Frontend application URL for email links                   | http://localhost:3000               |
+| `RECAPTCHA_SECRET`                | Google reCAPTCHA v3 private key                            | Required                            |
+| `CAPTCHA_THRESHOLD`               | Minimum reCAPTCHA score to pass                            | 0.5                                 |
+| `BASE_URL`                        | Root URL of this API server                                | http://localhost:3000               |
+| `API_URL`                         | Full API base URL for email links                          | http://localhost:3000/api           |
+| `AVATAR_UPLOAD_DIR`               | Directory for user avatar uploads                          | ./uploads/avatars                   |
+| `AVATAR_MAX_FILE_SIZE`            | Max avatar file size in bytes                              | 5242880                             |
+| `CORS_ORIGINS`                    | Comma-separated allowed origins                            | http://localhost:3000               |
+| `DEBUG_PII`                       | Enable PII debugging in auth logs                          | false                               |
+| `EMAIL_VERIFICATION_EXPIRES_IN`   | Email verification token TTL                               | 24h                                 |
+| `GOOGLE_CLIENT_ID`                | Google OAuth2 client ID                                    | —                                   |
+| `GOOGLE_CLIENT_SECRET`            | Google OAuth2 client secret                                | —                                   |
+| `GOOGLE_CALLBACK_URL`             | Google OAuth2 callback URL                                 | /api/auth/google/callback           |
+| `BLOCKCHAIN_ENABLED`              | Enable blockchain integration                              | true                                |
+| `BLOCKCHAIN_NETWORK`              | Ethereum network                                           | sepolia                             |
 | `BLOCKCHAIN_RPC_URL`              | Ethereum RPC endpoint (validated at boot)                  | —                                   |
 | `BLOCKCHAIN_CONTRACT_ADDRESS`     | Smart contract address (EIP-55 checksum validated at boot) | —                                   |
-| `BLOCKCHAIN_PRIVATE_KEY`          | Wallet private key for signing (validated at boot)           | —                                   |
-| `BACKUP_STORAGE_PATH`             | Directory for DB backup files            | ./backups                           |
-| `PG_DUMP_PATH`                    | Path to pg_dump binary                   | pg_dump                             |
-| `PSQL_PATH`                       | Path to psql binary                      | psql                                |
-| `PROPERTY_IMAGES_UPLOAD_DIR`      | Directory for property images            | ./uploads/properties                |
-| `PROPERTY_IMAGE_MAX_SIZE`         | Max property image size in bytes         | 10485760                            |
-| `PROPERTY_IMAGE_MAX_PER_PROPERTY` | Max images per property                  | 30                                  |
-| `GEOCODING_PROVIDER`              | Geocoding provider (nominatim/google)    | nominatim                           |
-| `NOMINATIM_BASE_URL`              | Nominatim API base URL                   | https://nominatim.openstreetmap.org |
-| `GEOCODING_USER_AGENT`            | User agent for geocoding requests        | PropChain-Backend/1.0               |
-| `GEOCODING_TIMEOUT_MS`            | Geocoding request timeout (ms)           | 5000                                |
-| `GOOGLE_GEOCODING_API_KEY`        | Google Geocoding API key (optional)      | —                                   |
-| `FRAUD_ALERT_RECIPIENTS`          | Comma-separated fraud alert emails       | —                                   |
-| `CACHE_WARMING_ENABLED`           | Enable cache warming on startup          | false                               |
-| `CACHE_WARMING_INTERVAL`          | Cache warming interval (ms)              | —                                   |
-| `TEST_DATABASE_URL`               | PostgreSQL URL for integration tests     | —                                   |
+| `BLOCKCHAIN_PRIVATE_KEY`          | Wallet private key for signing (validated at boot)         | —                                   |
+| `BACKUP_STORAGE_PATH`             | Directory for DB backup files                              | ./backups                           |
+| `PG_DUMP_PATH`                    | Path to pg_dump binary                                     | pg_dump                             |
+| `PSQL_PATH`                       | Path to psql binary                                        | psql                                |
+| `PROPERTY_IMAGES_UPLOAD_DIR`      | Directory for property images                              | ./uploads/properties                |
+| `PROPERTY_IMAGE_MAX_SIZE`         | Max property image size in bytes                           | 10485760                            |
+| `PROPERTY_IMAGE_MAX_PER_PROPERTY` | Max images per property                                    | 30                                  |
+| `GEOCODING_PROVIDER`              | Geocoding provider (nominatim/google)                      | nominatim                           |
+| `NOMINATIM_BASE_URL`              | Nominatim API base URL                                     | https://nominatim.openstreetmap.org |
+| `GEOCODING_USER_AGENT`            | User agent for geocoding requests                          | PropChain-Backend/1.0               |
+| `GEOCODING_TIMEOUT_MS`            | Geocoding request timeout (ms)                             | 5000                                |
+| `GOOGLE_GEOCODING_API_KEY`        | Google Geocoding API key (optional)                        | —                                   |
+| `FRAUD_ALERT_RECIPIENTS`          | Comma-separated fraud alert emails                         | —                                   |
+| `CACHE_WARMING_ENABLED`           | Enable cache warming on startup                            | false                               |
+| `CACHE_WARMING_INTERVAL`          | Cache warming interval (ms)                                | —                                   |
+| `TEST_DATABASE_URL`               | PostgreSQL URL for integration tests                       | —                                   |
 
 ## 🗄️ Database Setup
 
@@ -189,6 +189,11 @@ npm run migrate
 # (Optional) Seed database
 npm run db:seed
 ```
+
+Seeding is scoped by `SEED_ENV` (default `development`). Re-running the same
+scope is idempotent because the completed scope is marked in the database.
+Set `SEED_RESET=true` only when a destructive reset is intended. Production
+seeding is blocked unless `SEED_ALLOW_IN_PRODUCTION=true` is set explicitly.
 
 ## 🏃 Running the App
 

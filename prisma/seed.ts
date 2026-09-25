@@ -12,6 +12,17 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+const seedEnvironment = process.env.SEED_ENV || 'development';
+const seedMarkerEmail = `seed-marker-${seedEnvironment}@propchain.local`;
+
+function assertSeedingAllowed(): void {
+  if (process.env.NODE_ENV === 'production' && process.env.SEED_ALLOW_IN_PRODUCTION !== 'true') {
+    throw new Error(
+      'Database seeding is disabled in production. Set SEED_ALLOW_IN_PRODUCTION=true to override.',
+    );
+  }
+}
+
 const CITIES = [
   { city: 'New York', state: 'NY' },
   { city: 'Los Angeles', state: 'CA' },
@@ -720,59 +731,80 @@ function generateBlockchainHash(): string {
 }
 
 async function main() {
+  assertSeedingAllowed();
   console.log('🌱 Starting comprehensive database seeding...');
 
-  // Clean existing data (in reverse dependency order)
-  console.log('🧹 Cleaning existing data...');
-  await prisma.openHouseRsvp.deleteMany();
-  await prisma.openHouse.deleteMany();
-  await prisma.transactionNote.deleteMany();
-  await prisma.transactionMilestone.deleteMany();
-  await prisma.transactionHistory.deleteMany();
-  await prisma.transactionTaxStrategy.deleteMany();
-  await prisma.dispute.deleteMany();
-  await prisma.commission.deleteMany();
-  await prisma.propertyAgent.deleteMany();
-  await prisma.propertyFavorite.deleteMany();
-  await prisma.propertyView.deleteMany();
-  await prisma.propertyAmenity.deleteMany();
-  await prisma.propertyDuplicate.deleteMany();
-  await prisma.propertyImage.deleteMany();
-  await prisma.documentVersion.deleteMany();
-  await prisma.document.deleteMany();
-  await prisma.transaction.deleteMany();
-  await prisma.neighborhoodSchool.deleteMany();
-  await prisma.neighborhoodAmenity.deleteMany();
-  await prisma.neighborhood.deleteMany();
-  await prisma.property.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.fraudInvestigationNote.deleteMany();
-  await prisma.fraudAlert.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.loginHistory.deleteMany();
-  await prisma.loginAttempt.deleteMany();
-  await prisma.passwordResetToken.deleteMany();
-  await prisma.blacklistedToken.deleteMany();
-  await prisma.passwordHistory.deleteMany();
-  await prisma.apiKey.deleteMany();
-  await prisma.activityLog.deleteMany();
-  await prisma.userPreferences.deleteMany();
-  await prisma.savedFilter.deleteMany();
-  await prisma.searchAnalytics.deleteMany();
-  await prisma.searchHistory.deleteMany();
-  await prisma.popularSearch.deleteMany();
-  await prisma.searchSuggestion.deleteMany();
-  await prisma.emailEngagement.deleteMany();
-  await prisma.emailBounce.deleteMany();
-  await prisma.digestPreference.deleteMany();
-  await prisma.linkClick.deleteMany();
-  await prisma.verificationDocument.deleteMany();
-  await prisma.exportJob.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.databaseBackup.deleteMany();
-  await prisma.backupScheduleConfig.deleteMany();
+  const existingMarker = await prisma.user.findUnique({ where: { email: seedMarkerEmail } });
+  if (existingMarker && process.env.SEED_RESET !== 'true') {
+    console.log(
+      `ℹ️ Seed environment '${seedEnvironment}' already exists; skipping duplicate fixtures.`,
+    );
+    return;
+  }
 
-  console.log('🧹 Cleaned all existing data');
+  // Clean existing data only when explicitly requested.
+  if (process.env.SEED_RESET === 'true') {
+    console.log('🧹 Cleaning existing data...');
+    await prisma.openHouseRsvp.deleteMany();
+    await prisma.openHouse.deleteMany();
+    await prisma.transactionNote.deleteMany();
+    await prisma.transactionMilestone.deleteMany();
+    await prisma.transactionHistory.deleteMany();
+    await prisma.transactionTaxStrategy.deleteMany();
+    await prisma.dispute.deleteMany();
+    await prisma.commission.deleteMany();
+    await prisma.propertyAgent.deleteMany();
+    await prisma.propertyFavorite.deleteMany();
+    await prisma.propertyView.deleteMany();
+    await prisma.propertyAmenity.deleteMany();
+    await prisma.propertyDuplicate.deleteMany();
+    await prisma.propertyImage.deleteMany();
+    await prisma.documentVersion.deleteMany();
+    await prisma.document.deleteMany();
+    await prisma.transaction.deleteMany();
+    await prisma.neighborhoodSchool.deleteMany();
+    await prisma.neighborhoodAmenity.deleteMany();
+    await prisma.neighborhood.deleteMany();
+    await prisma.property.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.fraudInvestigationNote.deleteMany();
+    await prisma.fraudAlert.deleteMany();
+    await prisma.session.deleteMany();
+    await prisma.loginHistory.deleteMany();
+    await prisma.loginAttempt.deleteMany();
+    await prisma.passwordResetToken.deleteMany();
+    await prisma.blacklistedToken.deleteMany();
+    await prisma.passwordHistory.deleteMany();
+    await prisma.apiKey.deleteMany();
+    await prisma.activityLog.deleteMany();
+    await prisma.userPreferences.deleteMany();
+    await prisma.savedFilter.deleteMany();
+    await prisma.searchAnalytics.deleteMany();
+    await prisma.searchHistory.deleteMany();
+    await prisma.popularSearch.deleteMany();
+    await prisma.searchSuggestion.deleteMany();
+    await prisma.emailEngagement.deleteMany();
+    await prisma.emailBounce.deleteMany();
+    await prisma.digestPreference.deleteMany();
+    await prisma.linkClick.deleteMany();
+    await prisma.verificationDocument.deleteMany();
+    await prisma.exportJob.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.databaseBackup.deleteMany();
+    await prisma.backupScheduleConfig.deleteMany();
+
+    console.log('🧹 Cleaned all existing data');
+  }
+
+  await prisma.user.create({
+    data: {
+      email: seedMarkerEmail,
+      password: await bcrypt.hash('seed-marker', 10),
+      firstName: 'Seed',
+      lastName: seedEnvironment,
+      isVerified: true,
+    },
+  });
 
   // --- Create Users ---
   console.log('👤 Creating users...');
