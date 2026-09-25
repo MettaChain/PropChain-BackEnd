@@ -39,6 +39,11 @@ export class WebhooksController {
     return this.webhooksService.getDeliveries(id, user.id);
   }
 
+  @Post(':id/rotate-secret')
+  rotateSecret(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.webhooksService.rotateSecret(id, user.id);
+  }
+
   @Post(':id/verify')
   verifyChallenge(
     @Param('id') id: string,

@@ -96,6 +96,35 @@ export class WebhooksService {
     });
   }
 
+  async rotateSecret(id: string, userId: string) {
+    const webhook = await this.findOne(id, userId);
+    const newSecret = crypto.randomBytes(32).toString('hex');
+    const updated = await this.prisma.webhook.update({
+      where: { id: webhook.id },
+      data: { secret: newSecret },
+    });
+
+    // Issue #1255 – Record secret rotation in audit log
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId,
+          action: 'WEBHOOK_SECRET_ROTATED',
+          entityType: 'WEBHOOK',
+          entityId: id,
+          description: `Rotated secret for webhook ${id}`,
+          metadata: { webhookId: id, rotatedAt: new Date().toISOString() },
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to audit webhook secret rotation: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+
+    return { ...updated, secret: newSecret };
+  }
+
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
     await this.prisma.webhook.delete({ where: { id } });
@@ -229,6 +258,35 @@ export class WebhooksService {
 
     for (const delivery of pendingRetries) {
       if (!delivery.webhook || delivery.webhook.status !== 'ACTIVE') continue;
+      await this.deliverWebhook(delivery.webhook, delivery.eventType, delivery.payload as object, delivery);
+    }
+  }
+
+  /**
+   * Prune old WebhookDeliveryLog rows older than retentionDays (Issue #1256).
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async pruneOldDeliveryLogs(retentionDays = 30) {
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const result = await this.prisma.webhookDeliveryLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+    this.logger.log(
+      `Pruned ${result.count} webhook delivery log(s) older than ${retentionDays} days`,
+    );
+    return result;
+  }
+
+  /**
+   * Helper to compute retry delay using 0-based mapping (Issue #1256).
+   */
+  getRetryDelay(nextAttempt: number): number {
+    const delayIndex = Math.min(
+      Math.max(0, nextAttempt - 1),
+      this.RETRY_DELAYS_MS.length - 1,
+    );
+    return this.RETRY_DELAYS_MS[delayIndex];
+  }
       if (this.webhookQueue) {
         await this.webhookQueue.add('deliver-webhook', {
           deliveryId: delivery.id,
@@ -295,7 +353,37 @@ export class WebhooksService {
       return;
     }
 
-    const body = JSON.stringify({ event: eventType, payload, timestamp: new Date().toISOString() });
+  private async deliverWebhook(
+    webhook: any,
+    eventType: string,
+    payload: object,
+    existingDelivery?: any,
+  ) {
+    let delivery =
+      existingDelivery ??
+      (await this.prisma.webhookDeliveryLog.create({
+        data: {
+          webhookId: webhook.id,
+          eventType,
+          payload,
+          status: 'PENDING',
+          maxAttempts: this.MAX_ATTEMPTS,
+        },
+      }));
+
+    const eventId =
+      (payload as any)?.eventId || (payload as any)?.id || delivery.id;
+    const idempotencyKey =
+      (payload as any)?.id
+        ? `${webhook.id}:${eventType}:${(payload as any).id}`
+        : delivery.id;
+
+    const body = JSON.stringify({
+      event: eventType,
+      eventId,
+      payload,
+      timestamp: new Date().toISOString(),
+    });
     const signature = this.sign(body, webhook.secret);
 
     try {
@@ -306,6 +394,8 @@ export class WebhooksService {
           'X-Webhook-Signature': signature,
           'X-Webhook-Event': eventType,
           'X-Webhook-Delivery-Id': delivery.id,
+          'X-Webhook-Event-Id': eventId,
+          'X-Webhook-Idempotency-Key': idempotencyKey,
         },
         body,
         signal: AbortSignal.timeout(30000),
@@ -322,6 +412,7 @@ export class WebhooksService {
             responseBody: responseText.substring(0, 2000),
             attempts: delivery.attempts + 1,
             deliveredAt: new Date(),
+            nextRetryAt: null,
           },
         });
         this.logger.log(`Webhook delivered: ${eventType} to ${webhook.url}`);
@@ -333,6 +424,9 @@ export class WebhooksService {
       const shouldRetry = nextAttempt < this.MAX_ATTEMPTS;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
+      // Issue #1256 – 0-based retry backoff delay mapping
+      const delayMs = this.getRetryDelay(nextAttempt);
+
       await this.prisma.webhookDeliveryLog.update({
         where: { id: delivery.id },
         data: {
@@ -340,6 +434,7 @@ export class WebhooksService {
           attempts: nextAttempt,
           error: errorMessage,
           responseBody: errorMessage.substring(0, 2000),
+          nextRetryAt: shouldRetry ? new Date(Date.now() + delayMs) : null,
           nextRetryAt: shouldRetry
             ? new Date(
                 Date.now() +

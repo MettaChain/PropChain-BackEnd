@@ -15,6 +15,7 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { N1Detector, isN1DetectionEnabled, n1OptionsFromEnv } from './n1-detector';
 
 const POOL_SIZE_DEFAULT = 10;
 const POOL_TIMEOUT_MS = 10_000;
@@ -33,6 +34,29 @@ const RETRYABLE_ERROR_CODES = new Set([
   '40P01', // Deadlock detected
   '57P03', // Database is shutting down
 ]);
+
+/**
+ * Scrub literal values, PII, and raw parameters from SQL query strings before logging.
+ * Replaces $n placeholders, quoted string literals, emails, IP addresses, and phone numbers.
+ *
+ * Issue #1252 – Slow-query logging PII redaction.
+ */
+export function scrubQuery(query: string): string {
+  if (!query) return '';
+  return query
+    // Replace $n parameter placeholders ($1, $2, etc.)
+    .replace(/\$\d+/g, '?')
+    // Replace single-quoted string literals: '...'
+    .replace(/'(?:[^'\\]|\\.)*'/g, '?')
+    // Replace emails (e.g. user@example.com)
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '?')
+    // Replace IPv4 addresses (e.g. 192.168.1.1)
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '?')
+    // Replace IPv6 addresses (e.g. 2001:0db8:85a3::8a2e:0370:7334)
+    .replace(/\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g, '?')
+    // Replace phone numbers (international/local formats, at least 7 digits)
+    .replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g, '?');
+}
 
 /**
  * Determines whether the given Prisma / Postgres error is transient and safe
@@ -82,9 +106,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // In development we emit all log levels; in production only errors/warnings.
+    // Issue #911 – N+1 detection is on by default outside production and can
+    // be opted into in production with DB_N1_DETECTION=true (see .env.example).
+    const n1DetectionEnabled = isN1DetectionEnabled();
+
+    // In development we emit all log levels; in production only errors/warnings,
+    // plus query events when N+1 detection has been opted into.
     const logLevels = isProduction
-      ? (['error', 'warn'] as const)
+      ? n1DetectionEnabled
+        ? (['error', 'warn', 'query'] as const)
+        : (['error', 'warn'] as const)
       : (['error', 'warn', 'info', 'query'] as const);
 
     super({
@@ -107,22 +138,23 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // ── Query event logging & slow query detection (#917) ─────────────────
     const slowThreshold = isProduction ? SLOW_QUERY_THRESHOLD_PROD : SLOW_QUERY_THRESHOLD_DEV;
 
-    // Issue #911 – N+1 detection: track how many queries are fired in a short
-    // rolling window per table.  If the same table is queried more than the
-    // N1_REPETITION_THRESHOLD times within N1_WINDOW_MS milliseconds we emit a
-    // warning so the pattern can be caught in development before it reaches
-    // production.
-    const N1_WINDOW_MS = 100;
-    const N1_REPETITION_THRESHOLD = 5;
-    const queryWindow: Map<string, number[]> = new Map();
+    // Issue #911 – N+1 detection: the same query shape hitting the same table
+    // repeatedly within a short window. Classification lives in n1-detector.ts.
+    const n1Detector = n1DetectionEnabled ? new N1Detector(n1OptionsFromEnv()) : null;
+
+    // Issue #1252 – Verbose query logging is gated to non-production with explicit opt-in
+    const isVerboseQueryLoggingEnabled =
+      !isProduction &&
+      (process.env.VERBOSE_QUERY_LOGGING === 'true' ||
+        process.env.ENABLE_QUERY_LOGGING === 'true');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this as any).$on('query', (event: { query: string; params: string; duration: number }) => {
       const { duration, query } = event;
 
       if (duration >= slowThreshold) {
-        // Sanitise query – never log raw params to avoid leaking PII (#917 requirement)
-        const sanitised = query.replace(/\$\d+/g, '?').substring(0, 300);
+        // Sanitise query – never log raw params or literal PII (#917 & #1252)
+        const sanitised = scrubQuery(query).substring(0, 300);
         this.logger.warn(
           `[SlowQuery] ${duration}ms (threshold: ${slowThreshold}ms) – ${sanitised}`,
         );
@@ -136,30 +168,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         } catch {
           // metrics module not available
         }
-      } else if (!isProduction) {
-        this.logger.debug(`[Query] ${duration}ms`);
+      } else if (isVerboseQueryLoggingEnabled) {
+        const sanitised = scrubQuery(query).substring(0, 300);
+        this.logger.debug(`[Query] ${duration}ms – ${sanitised}`);
       }
 
-      // Issue #911 – N+1 detection (development + staging only; skipped in
-      // production to avoid overhead in hot paths).
-      if (!isProduction) {
-        // Extract the primary table name from the query (heuristic: first word
-        // after SELECT/INSERT/UPDATE/DELETE ... FROM/INTO/UPDATE).
-        const tableMatch = query.match(/(?:FROM|INTO|UPDATE)\s+"?(\w+)"?/i);
-        if (tableMatch) {
-          const table = tableMatch[1];
-          const now = Date.now();
-          const timestamps = (queryWindow.get(table) ?? []).filter((t) => now - t < N1_WINDOW_MS);
-          timestamps.push(now);
-          queryWindow.set(table, timestamps);
-
-          if (timestamps.length === N1_REPETITION_THRESHOLD) {
-            const sanitised = query.replace(/\$\d+/g, '?').substring(0, 200);
-            this.logger.warn(
-              `[N+1 Detected] Table "${table}" queried ${timestamps.length} times ` +
-                `within ${N1_WINDOW_MS}ms. Possible N+1 pattern. Last query: ${sanitised}`,
-            );
-          }
+      if (n1Detector) {
+        const detection = n1Detector.record(query);
+        if (detection) {
+          const sanitised = query.replace(/\$\d+/g, '?').substring(0, 200);
+          this.logger.warn(
+            `[N+1 Detected] Table "${detection.table}" queried ${detection.count} times ` +
+              `within ${detection.windowMs}ms. Possible N+1 pattern. Last query: ${sanitised}`,
+          );
         }
       }
     });

@@ -93,8 +93,8 @@ jobs:
           sleep 2
         done
 
-    - name: Sync Prisma schema to test database
-      run: npx prisma db push --skip-generate --accept-data-loss
+    - name: Apply Prisma migrations to test database
+      run: npx prisma migrate deploy
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
 

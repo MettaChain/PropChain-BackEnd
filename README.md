@@ -11,7 +11,12 @@ A modern, scalable backend API for real estate transactions built with NestJS an
 - **Document Management** - Store and manage property-related documents
 - **Role-Based Access Control** - USER, AGENT, ADMIN roles with route protection
 - **Clean Architecture** - Modular, testable, and maintainable code structure
-- **CI/CD Ready** - Automated testing and deployment pipeline
+- **Fraud Detection** - Login and listing risk rules with alerts and auto-block
+- **Search** - Filters, facets, autocomplete and privacy-aware analytics
+- **Real-time Notifications** - WebSocket, in-app and SMS delivery
+- **Blockchain Recording** - On-chain transaction recording
+- **Operations** - Scheduled backups, audit retention, Redis caching, Prometheus metrics, K8s health probes
+- **CI/CD Pipeline** - Lint, migration safety, tests, coverage and build jobs (see [Deployment & CI](#-deployment--ci))
 
 ## 🔐 Role-Based Access Control (RBAC)
 
@@ -40,7 +45,7 @@ getAllUsers() {
 
 New users are automatically assigned the `USER` role upon registration.
 
-## � Password Reset
+## 🔑 Password Reset
 
 The application provides secure password reset functionality via email:
 
@@ -77,11 +82,12 @@ POST /auth/password-reset/reset
 - **Rate Limiting**: Previous tokens invalidated on new request
 - **Blocked User Protection**: No emails sent to blocked accounts
 
-## �📋 Prerequisites
+## 📋 Prerequisites
 
 - Node.js >= 18.0.0
 - PostgreSQL >= 14
-- npm >= 8.0.0
+- npm >= 10.0.0
+- Redis >= 6 (cache, WebSocket presence, BullMQ queues)
 
 ## 🛠️ Installation
 
@@ -125,57 +131,57 @@ The application uses environment variables for configuration. Copy `.env.example
 
 ### Environment Variables
 
-| Variable                          | Description                              | Default                             |
-| :-------------------------------- | :--------------------------------------- | :---------------------------------- |
-| `DATABASE_URL`                    | PostgreSQL connection string             | Required                            |
-| `PORT`                            | Server port                              | 3000                                |
-| `NODE_ENV`                        | Environment mode                         | development                         |
-| `FRONTEND_URL`                    | Frontend application URL for email links | http://localhost:3000               |
-| `JWT_SECRET`                      | JWT signing secret                       | Required                            |
-| `JWT_REFRESH_SECRET`              | JWT refresh token secret                 | Required                            |
-| `JWT_ACCESS_EXPIRES_IN`           | Access token expiration                  | 15m                                 |
-| `JWT_REFRESH_EXPIRES_IN`          | Refresh token expiration                 | 7d                                  |
-| `BCRYPT_ROUNDS`                   | Password hashing rounds                  | 12                                  |
-| `PASSWORD_HISTORY_LIMIT`          | Password history limit                   | 5                                   |
-| `PASSWORD_MIN_LENGTH`             | Minimum password length                  | 8                                   |
-| `PASSWORD_REQUIRE_UPPERCASE`      | Require uppercase in password            | true                                |
-| `PASSWORD_REQUIRE_LOWERCASE`      | Require lowercase in password            | true                                |
-| `PASSWORD_REQUIRE_DIGIT`          | Require digit in password                | true                                |
-| `PASSWORD_REQUIRE_SPECIAL`        | Require special char in password         | true                                |
-| `PASSWORD_SPECIAL_CHARS`          | Allowed special characters               | !@#$%^&*()_+-=...                   |
-| `FRONTEND_URL`                    | Frontend application URL for email links | http://localhost:3000               |
-| `RECAPTCHA_SECRET`                | Google reCAPTCHA v3 private key          | Required                            |
-| `CAPTCHA_THRESHOLD`               | Minimum reCAPTCHA score to pass          | 0.5                                 |
-| `BASE_URL`                        | Root URL of this API server              | http://localhost:3000               |
-| `API_URL`                         | Full API base URL for email links        | http://localhost:3000/api           |
-| `AVATAR_UPLOAD_DIR`               | Directory for user avatar uploads        | ./uploads/avatars                   |
-| `AVATAR_MAX_FILE_SIZE`            | Max avatar file size in bytes            | 5242880                             |
-| `CORS_ORIGINS`                    | Comma-separated allowed origins          | http://localhost:3000               |
-| `DEBUG_PII`                       | Enable PII debugging in auth logs        | false                               |
-| `EMAIL_VERIFICATION_EXPIRES_IN`   | Email verification token TTL             | 24h                                 |
-| `GOOGLE_CLIENT_ID`                | Google OAuth2 client ID                  | —                                   |
-| `GOOGLE_CLIENT_SECRET`            | Google OAuth2 client secret              | —                                   |
-| `GOOGLE_CALLBACK_URL`             | Google OAuth2 callback URL               | /api/auth/google/callback           |
-| `BLOCKCHAIN_ENABLED`              | Enable blockchain integration            | true                                |
-| `BLOCKCHAIN_NETWORK`              | Ethereum network                         | sepolia                             |
+| Variable                          | Description                                                | Default                             |
+| :-------------------------------- | :--------------------------------------------------------- | :---------------------------------- |
+| `DATABASE_URL`                    | PostgreSQL connection string                               | Required                            |
+| `PORT`                            | Server port                                                | 3000                                |
+| `NODE_ENV`                        | Environment mode                                           | development                         |
+| `FRONTEND_URL`                    | Frontend application URL for email links                   | http://localhost:3000               |
+| `JWT_SECRET`                      | JWT signing secret                                         | Required                            |
+| `JWT_REFRESH_SECRET`              | JWT refresh token secret                                   | Required                            |
+| `JWT_ACCESS_EXPIRES_IN`           | Access token expiration                                    | 15m                                 |
+| `JWT_REFRESH_EXPIRES_IN`          | Refresh token expiration                                   | 7d                                  |
+| `BCRYPT_ROUNDS`                   | Password hashing rounds                                    | 12                                  |
+| `PASSWORD_HISTORY_LIMIT`          | Password history limit                                     | 5                                   |
+| `PASSWORD_MIN_LENGTH`             | Minimum password length                                    | 8                                   |
+| `PASSWORD_REQUIRE_UPPERCASE`      | Require uppercase in password                              | true                                |
+| `PASSWORD_REQUIRE_LOWERCASE`      | Require lowercase in password                              | true                                |
+| `PASSWORD_REQUIRE_DIGIT`          | Require digit in password                                  | true                                |
+| `PASSWORD_REQUIRE_SPECIAL`        | Require special char in password                           | true                                |
+| `PASSWORD_SPECIAL_CHARS`          | Allowed special characters                                 | !@#$%^&\*()\_+-=...                 |
+| `FRONTEND_URL`                    | Frontend application URL for email links                   | http://localhost:3000               |
+| `RECAPTCHA_SECRET`                | Google reCAPTCHA v3 private key                            | Required                            |
+| `CAPTCHA_THRESHOLD`               | Minimum reCAPTCHA score to pass                            | 0.5                                 |
+| `BASE_URL`                        | Root URL of this API server                                | http://localhost:3000               |
+| `API_URL`                         | Full API base URL for email links                          | http://localhost:3000/api           |
+| `AVATAR_UPLOAD_DIR`               | Directory for user avatar uploads                          | ./uploads/avatars                   |
+| `AVATAR_MAX_FILE_SIZE`            | Max avatar file size in bytes                              | 5242880                             |
+| `CORS_ORIGINS`                    | Comma-separated allowed origins                            | http://localhost:3000               |
+| `DEBUG_PII`                       | Enable PII debugging in auth logs                          | false                               |
+| `EMAIL_VERIFICATION_EXPIRES_IN`   | Email verification token TTL                               | 24h                                 |
+| `GOOGLE_CLIENT_ID`                | Google OAuth2 client ID                                    | —                                   |
+| `GOOGLE_CLIENT_SECRET`            | Google OAuth2 client secret                                | —                                   |
+| `GOOGLE_CALLBACK_URL`             | Google OAuth2 callback URL                                 | /api/auth/google/callback           |
+| `BLOCKCHAIN_ENABLED`              | Enable blockchain integration                              | true                                |
+| `BLOCKCHAIN_NETWORK`              | Ethereum network                                           | sepolia                             |
 | `BLOCKCHAIN_RPC_URL`              | Ethereum RPC endpoint (validated at boot)                  | —                                   |
 | `BLOCKCHAIN_CONTRACT_ADDRESS`     | Smart contract address (EIP-55 checksum validated at boot) | —                                   |
-| `BLOCKCHAIN_PRIVATE_KEY`          | Wallet private key for signing (validated at boot)           | —                                   |
-| `BACKUP_STORAGE_PATH`             | Directory for DB backup files            | ./backups                           |
-| `PG_DUMP_PATH`                    | Path to pg_dump binary                   | pg_dump                             |
-| `PSQL_PATH`                       | Path to psql binary                      | psql                                |
-| `PROPERTY_IMAGES_UPLOAD_DIR`      | Directory for property images            | ./uploads/properties                |
-| `PROPERTY_IMAGE_MAX_SIZE`         | Max property image size in bytes         | 10485760                            |
-| `PROPERTY_IMAGE_MAX_PER_PROPERTY` | Max images per property                  | 30                                  |
-| `GEOCODING_PROVIDER`              | Geocoding provider (nominatim/google)    | nominatim                           |
-| `NOMINATIM_BASE_URL`              | Nominatim API base URL                   | https://nominatim.openstreetmap.org |
-| `GEOCODING_USER_AGENT`            | User agent for geocoding requests        | PropChain-Backend/1.0               |
-| `GEOCODING_TIMEOUT_MS`            | Geocoding request timeout (ms)           | 5000                                |
-| `GOOGLE_GEOCODING_API_KEY`        | Google Geocoding API key (optional)      | —                                   |
-| `FRAUD_ALERT_RECIPIENTS`          | Comma-separated fraud alert emails       | —                                   |
-| `CACHE_WARMING_ENABLED`           | Enable cache warming on startup          | false                               |
-| `CACHE_WARMING_INTERVAL`          | Cache warming interval (ms)              | —                                   |
-| `TEST_DATABASE_URL`               | PostgreSQL URL for integration tests     | —                                   |
+| `BLOCKCHAIN_PRIVATE_KEY`          | Wallet private key for signing (validated at boot)         | —                                   |
+| `BACKUP_STORAGE_PATH`             | Directory for DB backup files                              | ./backups                           |
+| `PG_DUMP_PATH`                    | Path to pg_dump binary                                     | pg_dump                             |
+| `PSQL_PATH`                       | Path to psql binary                                        | psql                                |
+| `PROPERTY_IMAGES_UPLOAD_DIR`      | Directory for property images                              | ./uploads/properties                |
+| `PROPERTY_IMAGE_MAX_SIZE`         | Max property image size in bytes                           | 10485760                            |
+| `PROPERTY_IMAGE_MAX_PER_PROPERTY` | Max images per property                                    | 30                                  |
+| `GEOCODING_PROVIDER`              | Geocoding provider (nominatim/google)                      | nominatim                           |
+| `NOMINATIM_BASE_URL`              | Nominatim API base URL                                     | https://nominatim.openstreetmap.org |
+| `GEOCODING_USER_AGENT`            | User agent for geocoding requests                          | PropChain-Backend/1.0               |
+| `GEOCODING_TIMEOUT_MS`            | Geocoding request timeout (ms)                             | 5000                                |
+| `GOOGLE_GEOCODING_API_KEY`        | Google Geocoding API key (optional)                        | —                                   |
+| `FRAUD_ALERT_RECIPIENTS`          | Comma-separated fraud alert emails                         | —                                   |
+| `CACHE_WARMING_ENABLED`           | Enable cache warming on startup                            | false                               |
+| `CACHE_WARMING_INTERVAL`          | Cache warming interval (ms)                                | —                                   |
+| `TEST_DATABASE_URL`               | PostgreSQL URL for integration tests                       | —                                   |
 
 ## 🗄️ Database Setup
 
@@ -203,50 +209,160 @@ npm run start:prod
 
 ## 🧪 Testing
 
-```bash
-# Unit tests
-npm test
+Jest picks up every `*.spec.ts` file under `src/` and `test/` (`jest.config.js`).
 
-# Test coverage
-npm run test:cov
+| Command                 | What it runs                                                              |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `npm test`              | All unit + e2e specs (excludes `test/database/`)                          |
+| `npm run test:database` | DB-backed suites in `test/database/`, serially (`--runInBand`)            |
+| `npm run test:all`      | `npm test` then `test:database`. **This is what CI runs**                 |
+| `npm run test:cov`      | Tests with coverage; fails below the thresholds in `jest.config.js`       |
+| `npm run test:watch`    | Watch mode                                                                |
+| `npm run test:debug`    | Run Jest under the Node inspector                                         |
+| `npm run check:i18n`    | Translation key symmetry check (`src/i18n/translations.symmetry.spec.ts`) |
 
-# Watch mode
-npm run test:watch
+Test layout:
+
+```
+src/**/*.spec.ts     # unit tests next to the code
+test/unit/           # cross-module unit tests
+test/e2e/            # HTTP-level tests (admin API, documents, disputes, auth…)
+test/database/       # integration tests against a real Postgres (TEST_DATABASE_URL)
+test/{admin,auth,backup,cache,sessions,transactions,users}/  # feature suites
 ```
 
-For database-backed integration tests, set `TEST_DATABASE_URL` to a dedicated test database. Helper utilities are available in `test/database/prisma-test-helpers.ts` to clean fixtures and reset seeded state between suites.
+For database-backed tests, set `TEST_DATABASE_URL` to a dedicated test database. `test/database/prisma-test-helpers.ts` cleans fixtures and resets seeded state between suites.
+
+**Coverage thresholds** (enforced by `test:cov`) are a global baseline of 24% statements / 16% branches / 17% functions / 24% lines, with stricter per-module floors for `src/auth/`, `src/documents/`, `src/sessions/` and others. See `jest.config.js`.
+
+> Note: `jest.config.js` lists `/test/database/` in `testPathIgnorePatterns`, which also applies when that path is passed on the CLI. Check that `npm run test:database` actually executes suites (`npx jest test/database --listTests`) before relying on it.
 
 ## 📁 Project Structure
 
+The full architecture write-up is in [docs/architecture.md](docs/architecture.md).
+
 ```
 src/
-├── database/           # Database configuration and Prisma service
-├── users/              # User management module
-├── properties/         # Property listings module
-├── app.module.ts       # Main application module
-├── app.controller.ts   # App controller with health check
-└── main.ts             # Application entry point
+├── main.ts                 # Bootstrap: Swagger (/api/docs), metrics listener, global pipes
+├── app.module.ts           # Root module: wires feature modules, global filters & interceptors
+├── app.controller.ts
+│
+├── auth/                   # JWT + refresh tokens, API keys, MFA, login rate limiting, RBAC guards
+├── users/                  # Profiles, preferences, avatars, KYC docs, activity logs, CSV import, search
+├── sessions/               # Active session listing & revocation
+├── properties/             # Listings, images, geocoding, expiry, tax strategy (properties/tax)
+├── transactions/           # Transaction lifecycle, disputes, timeline, cancellation, audit
+├── documents/              # Upload, versioning, signed download URLs, expiry
+├── blockchain/             # On-chain recording, contracts, blockchain audit trail
+├── commissions/            # Agent commission calculation
+├── trust-score/            # User trust score + leaderboard
+├── fraud/                  # Fraud rules, alerts, auto-block
+├── admin/                  # Admin back office + BullMQ queue management
+├── search/                 # Property search, facets, autocomplete, analytics
+├── notifications/          # In-app, WebSocket presence, SMS
+├── email/                  # Email service, BullMQ mail processor, templates, provider webhooks
+├── backup/                 # pg_dump backups, schedule, retention, restore
+├── archive/                # Data archival strategy (#919)
+├── audit/                  # Audit history retention / pruning
+├── cache/                  # Redis cache, warming, invalidation, metrics
+├── …                       # every other module is listed in the Modules table below
+│
+├── common/                 # Filters, interceptors, logger, request-id middleware, security utils
+├── config/                 # Swagger/OpenAPI config & API docs controller
+├── database/               # PrismaService, cleanup cron (#920)
+├── i18n/                   # Translations + localized errors (#964)
+├── versioning/             # API versioning, deprecation headers
+└── types/, utils/          # Shared types and helpers
 
 prisma/
-├── schema.prisma       # Database schema
-└── seed.ts             # Database seeding
+├── schema.prisma           # Database schema
+├── migrations/             # Migration history (validated in CI)
+└── seed.ts                 # Seed data
+
+scripts/
+├── setup.sh                # One-command dev onboarding (#926)
+├── validate-migrations.ts  # Blocks destructive migrations (CI)
+└── benchmark.ts            # API benchmark (benchmark workflow)
+
+test/                       # Unit, e2e and DB integration suites
+docs/                       # Guides & runbooks
 ```
+
+## 🧩 Modules
+
+Status: ✅ imported by `AppModule` (directly or transitively) · ⚠️ code exists but the module is **not imported anywhere**, so its routes and jobs are inactive.
+
+| Module                | Purpose                                                                         | Base route(s)                         | Status | Docs                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------- | ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin`               | Admin back office: users, moderation, fraud, backups, archive, API keys, queues | `/admin/*`                            | ✅     | [README](src/admin/README.md)                                                                                                                     |
+| `analytics`           | Request/usage analytics                                                         | `/analytics`                          | ✅     |                                                                                                                                                   |
+| `archive`             | Data archival strategy & restore                                                | via `/admin/archive/*`                | ✅     |                                                                                                                                                   |
+| `audit`               | Daily archive + prune of history tables (365 days)                              | (cron only)                           | ✅     | [README](src/audit/README.md)                                                                                                                     |
+| `auth`                | Login, JWT/refresh, API keys, MFA, rate limiting, RBAC                          | `/auth`, `/admin/rate-limits`         | ✅     | [Auth & Users](docs/Auth_and_User_APIs.md), [Login rate limiting](docs/LOGIN_RATE_LIMITING.md), [RBAC matrix](docs/RBAC_Permission_Matrix.md)     |
+| `backup`              | `pg_dump` backups, schedule, retention, restore                                 | via `/admin/backups/*`                | ✅     | [README](src/backup/README.md)                                                                                                                    |
+| `blockchain`          | On-chain recording & contract integration                                       | `/blockchain`                         | ✅     | [Integration guide](docs/Blockchain_Integration_Guide.md), [Recording](docs/Blockchain_Recording.md), [Quickstart](docs/QUICKSTART_BLOCKCHAIN.md) |
+| `cache`               | Global Redis cache, warming, invalidation, stats                                | `/cache`                              | ✅     | [README](src/cache/README.md)                                                                                                                     |
+| `commissions`         | Agent commissions                                                               | `/commissions`                        | ✅     |                                                                                                                                                   |
+| `common`              | Filters, interceptors, logger, middleware                                       | n/a                                   | ✅     | [Coding patterns](docs/CODING_PATTERNS.md)                                                                                                        |
+| `config`              | Swagger / OpenAPI setup, API docs                                               | `/api/docs`                           | ✅     |                                                                                                                                                   |
+| `content`             | CMS-style content                                                               | `/content`                            | ⚠️     |                                                                                                                                                   |
+| `dashboard`           | User dashboard stats                                                            | `/dashboard`                          | ✅     |                                                                                                                                                   |
+| `database`            | Prisma service, expired-record cleanup cron                                     | n/a                                   | ✅     | [Optimize queries](docs/Optimize_Queries.md)                                                                                                      |
+| `documents`           | Uploads, versions, signed download URLs, expiry                                 | `/documents`                          | ✅     | [Document metadata](docs/Document_Metadata.md), [CDN for assets](docs/CDN_for_Assets.md)                                                          |
+| `duplicate-detection` | Duplicate listing detection & merge                                             | `/properties/duplicates`              | ⚠️     |                                                                                                                                                   |
+| `email`               | Email service, `mail` queue processor, templates, provider webhooks             | `/webhooks/email`                     | ✅     | [Templates](docs/Email_Templates.md), [Campaigns](docs/Email_Campaigns.md)                                                                        |
+| `email-digest`        | Scheduled digest emails                                                         | `/email-digest`                       | ⚠️     |                                                                                                                                                   |
+| `favorites`           | Saved properties                                                                | `/favorites`                          | ✅     |                                                                                                                                                   |
+| `fraud`               | Fraud rules, alerts, auto-block                                                 | via `/admin/fraud/*`                  | ✅     | [README](src/fraud/README.md)                                                                                                                     |
+| `health`              | Kubernetes probes                                                               | `/healthz`, `/readyz`, `/startupz`    | ✅     |                                                                                                                                                   |
+| `i18n`                | Translations, localized errors                                                  | n/a                                   | ✅     |                                                                                                                                                   |
+| `integrations`        | External integration adapters                                                   | `/integrations`                       | ✅     | [Adapters](docs/integration-adapters.md)                                                                                                          |
+| `metrics`             | Prometheus metrics                                                              | `/metrics` (+ `METRICS_PORT`)         | ✅     | [Monitor performance](docs/Monitor_Performance.md)                                                                                                |
+| `mortgage-calculator` | Mortgage calculations                                                           | `/mortgage-calculator`                | ✅     |                                                                                                                                                   |
+| `neighborhoods`       | Neighborhood data                                                               | `/neighborhoods`                      | ⚠️     |                                                                                                                                                   |
+| `notifications`       | In-app + WebSocket + SMS notifications                                          | `/notifications`, WS `/notifications` | ✅     | [README](src/notifications/README.md)                                                                                                             |
+| `open-house`          | Open-house scheduling                                                           | `/open-house`                         | ✅     |                                                                                                                                                   |
+| `properties`          | Listings, images, geocoding, expiry, tax strategies                             | `/properties`                         | ✅     | [README](src/properties/README.md), [Tax strategy](docs/Tax_Strategy_Suggestions.md)                                                              |
+| `property-comparison` | Side-by-side comparison                                                         | `/property-comparison`                | ✅     |                                                                                                                                                   |
+| `property-views`      | View tracking                                                                   | `/property-views`                     | ✅     |                                                                                                                                                   |
+| `reports`             | Report scheduling utilities (no Nest module)                                    | n/a                                   | n/a    | [Generate reports](docs/Generate_Reports.md)                                                                                                      |
+| `search`              | Property search, facets, autocomplete, analytics                                | `/search`                             | ✅     | [README](src/search/README.md), [Analytics privacy](docs/Search_Analytics_Privacy.md)                                                             |
+| `sessions`            | Session listing & revocation                                                    | `/sessions`                           | ✅     |                                                                                                                                                   |
+| `support-tickets`     | Support ticketing                                                               | `/support-tickets`                    | ✅     | [Handle support](docs/Handle_Support.md)                                                                                                          |
+| `tracing`             | Request tracing interceptor                                                     | n/a                                   | ⚠️     |                                                                                                                                                   |
+| `tracking`            | Event tracking                                                                  | `/track`                              | ✅     |                                                                                                                                                   |
+| `transactions`        | Transactions, disputes, timeline, audit                                         | `/transactions`, `/disputes`          | ✅     | [README](src/transactions/README.md)                                                                                                              |
+| `trust-score`         | Trust score & leaderboard                                                       | `/trust-score`                        | ✅     |                                                                                                                                                   |
+| `users`               | Profiles, preferences, avatars, verification, activity logs, CSV import, search | `/users/*`, `/admin/activity-logs`    | ✅     | [Users](docs/users.md), [User management](docs/User_Management.md), [Audit logs](docs/View_Audit_Logs.md), [Avatars](src/users/README-AVATAR.md)  |
+| `versioning`          | API versioning & deprecation headers                                            | n/a                                   | ✅     | [API versioning](docs/API_VERSIONING.md)                                                                                                          |
+| `webhooks`            | Outbound signed webhooks with retry/backoff                                     | `/webhooks`                           | ⚠️     | [README](src/webhooks/README.md)                                                                                                                  |
+
+More guides: [DEVELOPMENT.md](docs/DEVELOPMENT.md), [SECURITY.md](docs/SECURITY.md), [LOAD_TESTS.md](docs/LOAD_TESTS.md), [Rate-limit incident runbook](docs/INCIDENT_RUNBOOK_RATE_LIMIT.md), [CHANGELOG guide](docs/CHANGELOG_GUIDE.md).
 
 ## 🔧 Available Scripts
 
-| Command                  | Description                          |
-| ------------------------ | ------------------------------------ |
-| `npm run build`          | Build the application                |
-| `npm run start:dev`      | Start in development mode with watch |
-| `npm run start:prod`     | Start in production mode             |
-| `npm run lint`           | Run ESLint with auto-fix             |
-| `npm run format`         | Format code with Prettier            |
-| `npm test`               | Run tests                            |
-| `npm run test:cov`       | Run tests with coverage              |
-| `npm run migrate`        | Run database migrations              |
-| `npm run migrate:deploy` | Deploy migrations to production      |
-| `npm run db:generate`    | Generate Prisma Client               |
-| `npm run db:studio`      | Open Prisma Studio                   |
+| Command                                      | Description                                          |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `bash scripts/setup.sh`                      | One-command local environment setup                  |
+| `npm run build`                              | Compile with `nest build` (cleans `dist/` first)     |
+| `npm run start`                              | Start once                                           |
+| `npm run start:dev`                          | Start in watch mode                                  |
+| `npm run start:debug`                        | Watch mode with debugger                             |
+| `npm run start:prod`                         | Run compiled `dist/main`                             |
+| `npm run lint`                               | ESLint with `--fix` over `src` and `test`            |
+| `npm run format`                             | Prettier over `src` and `test`                       |
+| `npm test` / `npm run test:*`                | See [Testing](#-testing)                             |
+| `npm run check:i18n`                         | Translation key symmetry check                       |
+| `npm run migrate`                            | `prisma migrate dev`                                 |
+| `npm run migrate:deploy`                     | `prisma migrate deploy` (production)                 |
+| `npm run migrate:reset`                      | Drop and re-apply all migrations (**destroys data**) |
+| `npm run db:generate`                        | Generate Prisma Client                               |
+| `npm run db:seed` / `npm run seed`           | Seed the database                                    |
+| `npm run db:studio`                          | Open Prisma Studio                                   |
+| `npx ts-node scripts/validate-migrations.ts` | Check migrations for destructive changes             |
+| `npx ts-node scripts/benchmark.ts`           | Run API benchmarks against a running app             |
+
+A Husky **pre-commit** hook runs `lint-staged`: `eslint --fix --max-warnings=0` + Prettier on staged `*.ts`, and Prettier on `*.json` / `*.md`.
 
 ## 📊 Database Schema
 
@@ -257,69 +373,83 @@ prisma/
 - **Transaction** - Property transactions with blockchain integration
 - **Document** - Property-related documents and files
 
-## Module Docs
-
-- **Properties module:** [src/properties/README.md](src/properties/README.md#L1)
-- **Transactions module:** [src/transactions/README.md](src/transactions/README.md#L1)
-- **Auth & Users:** [docs/Auth_and_User_APIs.md](docs/Auth_and_User_APIs.md#L1)
+The authoritative schema is [prisma/schema.prisma](prisma/schema.prisma). It also covers sessions, fraud alerts, webhooks, backups, notifications, search analytics and more.
 
 ## 🔐 Environment Variables
 
-Create a `.env` file based on `.env.example`:
+Create a `.env` file based on `.env.example` (`.env.local` takes precedence if present):
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/propchain
 PORT=3000
-JWT_SECRET=your-secret-key
+JWT_SECRET=your-secret-key            # at least 32 chars
+JWT_REFRESH_SECRET=your-refresh-key   # at least 32 chars
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
-## 🚢 Deployment
+Module-specific variables (fraud, webhooks, SMS, backups, cache, audit archive) are documented in each module's README.
 
-The CI/CD pipeline is configured in `.github/workflows/ci.yml`:
+## 🚢 Deployment & CI
 
-- **Develop branch** → Deploys to staging
-- **Main branch** → Deploys to production
+### GitHub Actions
+
+| Workflow                                           | Jobs                                                                                                                                                                                                                                                                                                   | Trigger                                                               |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| [`ci.yml`](.github/workflows/ci.yml)               | `lint` (ESLint, zero warnings) · `validate-migrations` (`scripts/validate-migrations.ts`) · `test` (Postgres 15 service → `prisma db push` → `npm run test:all` → `npm run test:cov`) · `build` (needs the three above; uploads `dist/`) · `deploy-staging` (`develop`) · `deploy-production` (`main`) | ⚠️ **Currently disabled.** The `on:` block is commented out           |
+| [`benchmark.yml`](.github/workflows/benchmark.yml) | Boots the app against Postgres 15 + Redis 7, runs `scripts/benchmark.ts`, uploads results, comments on the PR                                                                                                                                                                                          | ⚠️ **Currently disabled** (was: PRs, weekly Monday 06:00 UTC, manual) |
+
+All jobs use Node 20. The deploy jobs are **placeholders** (`echo` only). No real deployment is automated yet.
+
+Until CI is re-enabled, run the same checks locally before opening a PR:
+
+```bash
+npm ci
+npm run lint -- --max-warnings=0
+npx ts-node scripts/validate-migrations.ts
+npm run test:all
+npm run test:cov
+npm run build
+```
+
+### Docker
+
+See [Docker Workflow](#-docker-workflow-1175) above. The image entrypoint (`docker-entrypoint.sh`) runs `prisma migrate deploy` before `node dist/main`.
 
 ### Manual Deployment
 
 ```bash
-# Build for production
+npm ci
 npm run build
-
-# Run migrations
 npm run migrate:deploy
-
-# Start application
 npm run start:prod
 ```
 
+Runtime requirements beyond Node: PostgreSQL, Redis (cache, presence, BullMQ), and `pg_dump`/`psql` on the PATH if backups are used.
+
 ## 📝 API Endpoints
+
+Routes are served **without a global prefix** (e.g. `/properties`, not `/api/properties`). The complete, always-current reference is the Swagger UI:
+
+- `GET /api/docs`: Swagger UI
+- `GET /api/openapi.json`: OpenAPI spec
 
 ### Health Check
 
-- `GET /api/health` - Application health status
+- `GET /healthz`: liveness
+- `GET /readyz`: readiness
+- `GET /startupz`: startup probe
+- `GET /metrics`: Prometheus metrics (served on `METRICS_PORT` instead when set)
 
-### Users
+### Users & Properties
 
-- `POST /api/users` - Create user
-- `GET /api/users` - List all users
-- `GET /api/users/:id` - Get user by ID
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
-
-### Properties
-
-- `POST /api/properties` - Create property
-- `GET /api/properties` - List all properties
-- `GET /api/properties/:id` - Get property by ID
-- `PUT /api/properties/:id` - Update property
-- `DELETE /api/properties/:id` - Delete property
+See the [module table](#-modules) for base routes, and [docs/Auth_and_User_APIs.md](docs/Auth_and_User_APIs.md) / [src/properties/README.md](src/properties/README.md) for details.
 
 ### Tax Strategy Suggestions
 
-- `GET /api/transactions/:transactionId/tax-strategies` - List tax strategy suggestions for a transaction
-- `POST /api/transactions/:transactionId/tax-strategies` - Create a tax strategy suggestion
-- `PATCH /api/transactions/:transactionId/tax-strategies/:strategyId` - Update a tax strategy suggestion
+- `GET /transactions/:transactionId/tax-strategies` - List tax strategy suggestions for a transaction
+- `POST /transactions/:transactionId/tax-strategies` - Create a tax strategy suggestion
+- `PATCH /transactions/:transactionId/tax-strategies/:strategyId` - Update a tax strategy suggestion
 
 Tax strategy suggestions are informational only and are not legal or tax advice. See [docs/Tax_Strategy_Suggestions.md](docs/Tax_Strategy_Suggestions.md) for usage details.
 
@@ -364,4 +494,4 @@ npm run check:tsconfig-strict
 npm run build
 ```
 
-CI: A GitHub Actions workflow (`.github/workflows/ci.yml`) now runs `npm run lint` and `npm run build` on pushes and PRs to `main` to validate the stricter compilation and linting rules.
+CI: `.github/workflows/ci.yml` defines lint (zero warnings), migration validation, tests and build jobs, but its triggers are **currently commented out**. See [Deployment & CI](#-deployment--ci).

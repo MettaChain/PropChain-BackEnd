@@ -55,9 +55,26 @@ class MockJwtAuthGuard implements CanActivate {
 class FakePrismaService {
   webhooks = new Map<string, any>();
   deliveryLogs = new Map<string, any>();
+  activityLogs = new Map<string, any>();
 
   async $connect() {}
   async $disconnect() {}
+
+  activityLog = {
+    create: async ({ data }: any) => {
+      const id = `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const record = { id, ...data, createdAt: new Date() };
+      this.activityLogs.set(id, record);
+      return record;
+    },
+    findMany: async ({ where }: any) => {
+      let items = Array.from(this.activityLogs.values());
+      if (where?.userId) items = items.filter((a) => a.userId === where.userId);
+      if (where?.entityId) items = items.filter((a) => a.entityId === where.entityId);
+      if (where?.action) items = items.filter((a) => a.action === where.action);
+      return items;
+    },
+  } as any;
 
   webhook = {
     create: async ({ data }: any) => {
@@ -439,6 +456,89 @@ describe('Webhook workflow (e2e)', () => {
     expect(sig1).toBe(sig2);
   });
 
+  describe('Secret Rotation (#1255)', () => {
+    it('rotates secret, returns new secret once, records audit, and rejects old signature', async () => {
+      // 1. Create a webhook
+      const createRes = await request(app.getHttpServer())
+        .post('/webhooks')
+        .set('Authorization', 'Bearer valid')
+        .send({
+          url: `http://127.0.0.1:${receiverPort}/rotation-test`,
+          eventTypes: ['TRANSACTION_COMPLETED'],
+          description: 'Rotation test webhook',
+        })
+        .expect(201);
+
+      const webhookId = createRes.body.id;
+      const initialSecret = createRes.body.secret;
+      expect(initialSecret).toBeDefined();
+
+      // 2. Rotate secret via POST /webhooks/:id/rotate-secret
+      const rotateRes = await request(app.getHttpServer())
+        .post(`/webhooks/${webhookId}/rotate-secret`)
+        .set('Authorization', 'Bearer valid')
+        .expect(201);
+
+      const newSecret = rotateRes.body.secret;
+      expect(newSecret).toBeDefined();
+      expect(newSecret).not.toBe(initialSecret);
+      expect(newSecret.length).toBeGreaterThanOrEqual(32);
+
+      // 3. Verify audit log was recorded
+      const auditLogs = await fakePrisma.activityLog.findMany({
+        where: { entityId: webhookId, action: 'WEBHOOK_SECRET_ROTATED' },
+      });
+      expect(auditLogs.length).toBeGreaterThanOrEqual(1);
+      expect(auditLogs[0].userId).toBe(TEST_USER_ID);
+      expect(auditLogs[0].entityType).toBe('WEBHOOK');
+
+      // 4. Trigger delivery and verify it is signed with the NEW secret, NOT the old secret
+      capturedRequests = [];
+      const service = app.get(WebhooksService);
+      await service.trigger('TRANSACTION_COMPLETED', { txId: 'tx-123', amount: 5000 });
+
+      const postRequest = capturedRequests.find((r) => r.method === 'POST');
+      expect(postRequest).toBeDefined();
+
+      const deliveredSignature = postRequest!.headers['x-webhook-signature'];
+      expect(deliveredSignature).toBeDefined();
+
+      // Verify delivery includes idempotency key header (#1256)
+      expect(postRequest!.headers['x-webhook-idempotency-key']).toBeDefined();
+
+      // Recompute with NEW secret -> matches
+      const expectedNewSignature = crypto
+        .createHmac('sha256', newSecret)
+        .update(postRequest!.body)
+        .digest('hex');
+      expect(deliveredSignature).toBe(expectedNewSignature);
+
+      // Recompute with OLD secret -> does NOT match (old signatures rejected)
+      const expectedOldSignature = crypto
+        .createHmac('sha256', initialSecret)
+        .update(postRequest!.body)
+        .digest('hex');
+      expect(deliveredSignature).not.toBe(expectedOldSignature);
+    });
+  });
+
+  describe('Retry Backoff Schedule (#1256)', () => {
+    it('uses 0-based delay mapping matching documented backoff schedule', () => {
+      const service = app.get(WebhooksService);
+
+      // Attempt 1 (1st retry): 1,000ms (1s)
+      expect(service.getRetryDelay(1)).toBe(1000);
+      // Attempt 2 (2nd retry): 5,000ms (5s)
+      expect(service.getRetryDelay(2)).toBe(5000);
+      // Attempt 3 (3rd retry): 15,000ms (15s)
+      expect(service.getRetryDelay(3)).toBe(15000);
+      // Attempt 4 (4th retry): 60,000ms (60s)
+      expect(service.getRetryDelay(4)).toBe(60000);
+      // Attempt 5 (5th retry): 300,000ms (300s)
+      expect(service.getRetryDelay(5)).toBe(300000);
+      // Out of bounds / capped at last
+      expect(service.getRetryDelay(6)).toBe(300000);
+    });
   it('rejects registration of internal, private, and cloud metadata URLs (SSRF protection #1253)', async () => {
     const blockedUrls = [
       'http://169.254.169.254/latest/meta-data',

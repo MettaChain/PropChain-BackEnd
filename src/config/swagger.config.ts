@@ -58,7 +58,7 @@ interface AppWithOpenApiDoc {
   openAPIDocument?: OpenAPIObject;
 }
 
-export function setupSwagger(app: INestApplication): void {
+export function setupSwagger(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
     .setTitle('PropChain API')
     .setDescription('Blockchain-Powered Real Estate Platform API Documentation')
@@ -181,28 +181,35 @@ export function setupSwagger(app: INestApplication): void {
   });
 
   logger.log('Swagger UI available at http://localhost:3000/api/docs');
+
+  return document;
 }
 
 /**
- * Generate OpenAPI JSON at /api/docs-json endpoint
+ * Expose the generated OpenAPI document at GET /api/openapi.json.
+ *
+ * ApiDocsController reads the spec from the underlying Express app
+ * (`req.app.openAPIDocument`), so it must be attached to the HTTP adapter's
+ * instance rather than to the Nest application wrapper. Pass the document
+ * returned by setupSwagger so both endpoints serve the same spec; if omitted,
+ * a minimal document is generated.
  */
-export function setupOpenAPIEndpoint(app: INestApplication): void {
-  const config = new DocumentBuilder()
-    .setTitle('PropChain API')
-    .setDescription('Blockchain-Powered Real Estate Platform API')
-    .setVersion('2.0.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-      },
-      'access-token',
-    )
-    .build();
+export function setupOpenAPIEndpoint(app: INestApplication, document?: OpenAPIObject): OpenAPIObject {
+  const spec =
+    document ??
+    SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder()
+        .setTitle('PropChain API')
+        .setDescription('Blockchain-Powered Real Estate Platform API')
+        .setVersion('2.0.0')
+        .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
+        .build(),
+    );
 
-  const document = SwaggerModule.createDocument(app, config);
+  const httpApp = app.getHttpAdapter().getInstance() as AppWithOpenApiDoc;
+  httpApp.openAPIDocument = spec;
 
-  // Store document in app for access via endpoint
-  (app as unknown as AppWithOpenApiDoc).openAPIDocument = document;
+  logger.log('OpenAPI spec available at /api/openapi.json');
+  return spec;
 }

@@ -151,8 +151,9 @@ async function bootstrap() {
   const rateLimitService = app.get(RateLimitService);
   app.useGlobalGuards(new RateLimitGuard(reflector, rateLimitService));
 
-  // Setup Swagger documentation
-  setupSwagger(app);
+  // Setup Swagger documentation and serve the same spec at /api/openapi.json
+  const openApiDocument = setupSwagger(app);
+  setupOpenAPIEndpoint(app, openApiDocument);
 
   app.enableShutdownHooks();
 
