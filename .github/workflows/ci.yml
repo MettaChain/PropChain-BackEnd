@@ -23,6 +23,10 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    # Fail if tsconfig.json / tsconfig.app.json weaken strict mode
+    - name: Check TypeScript strict flags
+      run: npm run check:tsconfig-strict
+
     # Issue #924 – Fail CI on any ESLint warning or error
     - name: Run ESLint (zero warnings allowed)
       run: npm run lint -- --max-warnings=0

@@ -344,7 +344,8 @@ For support, email support@propchain.com or join our Slack channel
 ## Developer Requirements — TypeScript & Linting
 
 - **TypeScript strict mode:** The project now enables `strict` TypeScript checks. The base config is in [tsconfig.json](tsconfig.json#L1).
-- **Key compiler flags enforced:** `noImplicitAny`, `strictNullChecks` and related strict checks are enabled for app builds via [tsconfig.app.json](tsconfig.app.json#L1).
+- **Key compiler flags enforced:** `strict`, `noImplicitAny`, `strictNullChecks`, `useUnknownInCatchVariables` and `noImplicitOverride` are enabled for app builds via [tsconfig.app.json](tsconfig.app.json#L1), which must not override them to `false`. Only `strictPropertyInitialization` is relaxed (NestJS DI-injected properties).
+- **Guard:** `npm run check:tsconfig-strict` ([scripts/check-tsconfig-strict.js](scripts/check-tsconfig-strict.js)) fails if either config weakens these flags; CI runs it in the lint job.
 - **ESLint rules:** `@typescript-eslint/no-explicit-any` is set to `error` and explicit boundary/return types are encouraged via `@typescript-eslint/explicit-module-boundary-types` and `@typescript-eslint/explicit-function-return-type` (set to `warn`). See [.eslintrc.js](.eslintrc.js#L1).
 
 Local checks before committing/pushing:
@@ -355,6 +356,9 @@ npm ci
 
 # Run linter (auto-fixable issues)
 npm run lint
+
+# Verify tsconfig strict flags are intact
+npm run check:tsconfig-strict
 
 # Build to verify TypeScript strict checks
 npm run build

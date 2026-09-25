@@ -11,6 +11,7 @@ import { RateLimitService } from './auth/rate-limit.service';
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 import { ResponseFormatInterceptor } from './common/interceptors/response-format.interceptor';
 import { setupSwagger } from './config/swagger.config';
+import { createSecurityHeadersMiddleware } from './config/security-headers';
 import { validateEnvironment } from './utils/validate-env';
 // Issue #914 – Structured JSON logging in production, pretty-print in dev
 import { AppLogger } from './common/logger';
@@ -73,19 +74,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'API-Version', 'api-key', 'x-api-key'],
   });
 
-  // Security headers middleware
-  app.use((req: any, res: any, next: any) => {
-    res.setHeader(
-      'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
-    );
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    next();
-  });
+  // Security headers middleware (CSP is relaxed only for the Swagger UI route)
+  app.use(createSecurityHeadersMiddleware());
 
   // Issue #964 / #1234 – Localize validation messages using the request's
   // Accept-Language (and optional user preference) captured by middleware
