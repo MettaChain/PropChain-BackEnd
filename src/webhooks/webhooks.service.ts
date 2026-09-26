@@ -24,6 +24,22 @@ export class WebhooksService {
     process.env.WEBHOOK_TRIGGER_RATE_LIMIT ?? '60',
     10,
   );
+
+  /**
+   * Warn (rather than reject) when an event payload exceeds this many bytes so
+   * operators can spot oversized deliveries without dropping legitimate data.
+   */
+  private readonly MAX_PAYLOAD_BYTES = parseInt(
+    process.env.WEBHOOK_MAX_PAYLOAD_BYTES ?? '65536',
+    10,
+  );
+
+  /** Default retention for delivery logs, overridable via env (issue #1295). */
+  private readonly DEFAULT_DELIVERY_LOG_RETENTION_DAYS = parseInt(
+    process.env.CLEANUP_WEBHOOK_LOG_DAYS ?? '30',
+    10,
+  );
+
   private readonly webhookTriggerTimestamps = new Map<string, number[]>();
 
   constructor(
@@ -45,6 +61,27 @@ export class WebhooksService {
     }
     timestamps.push(now);
     this.webhookTriggerTimestamps.set(webhookId, timestamps);
+    return false;
+  }
+
+  /**
+   * Emit a size warning when a payload is larger than the configured cap.
+   * Returns true when the payload was flagged.
+   */
+  warnIfPayloadTooLarge(eventType: string, webhookId: string, payload: object): boolean {
+    let size = 0;
+    try {
+      size = Buffer.byteLength(JSON.stringify(payload) ?? '', 'utf8');
+    } catch {
+      return false;
+    }
+
+    if (size > this.MAX_PAYLOAD_BYTES) {
+      this.logger.warn(
+        `Webhook ${webhookId} received oversized "${eventType}" payload (${size} bytes > ${this.MAX_PAYLOAD_BYTES} byte cap)`,
+      );
+      return true;
+    }
     return false;
   }
 
@@ -152,6 +189,8 @@ export class WebhooksService {
         continue;
       }
 
+      this.warnIfPayloadTooLarge(eventType, webhook.id, payload);
+
       if (this.webhookQueue) {
         const delivery = await this.prisma.webhookDeliveryLog.create({
           data: {
@@ -244,6 +283,70 @@ export class WebhooksService {
     });
   }
 
+  /**
+   * Re-send a previously stored event payload (issue #1295).
+   *
+   * The original delivery is kept untouched and a new delivery log row is
+   * created for the replay. Because the payload is unchanged, the idempotency
+   * key sent to the subscriber (`X-Webhook-Idempotency-Key`) is identical to
+   * the original delivery, letting receivers de-duplicate re-sends.
+   */
+  async replay(webhookId: string, userId: string, deliveryId: string) {
+    const webhook = await this.findOne(webhookId, userId);
+
+    const delivery = await this.prisma.webhookDeliveryLog.findFirst({
+      where: { id: deliveryId, webhookId },
+    });
+
+    if (!delivery) {
+      throw new NotFoundException('Webhook delivery not found');
+    }
+
+    if (webhook.status !== 'ACTIVE') {
+      throw new BadRequestException('Cannot replay a delivery for an inactive webhook');
+    }
+
+    this.warnIfPayloadTooLarge(delivery.eventType, webhook.id, delivery.payload as object);
+
+    if (this.webhookQueue) {
+      const replayLog = await this.prisma.webhookDeliveryLog.create({
+        data: {
+          webhookId: webhook.id,
+          eventType: delivery.eventType,
+          payload: delivery.payload as object,
+          status: 'PENDING',
+          maxAttempts: this.MAX_ATTEMPTS,
+        },
+      });
+
+      await this.webhookQueue.add(
+        'deliver-webhook',
+        {
+          deliveryId: replayLog.id,
+          webhookId: webhook.id,
+          eventType: delivery.eventType,
+          payload: delivery.payload,
+        },
+        { attempts: this.MAX_ATTEMPTS, removeOnComplete: true },
+      );
+
+      return {
+        replayed: true,
+        sourceDeliveryId: delivery.id,
+        deliveryId: replayLog.id,
+        eventType: delivery.eventType,
+      };
+    }
+
+    await this.deliverWebhook(webhook, delivery.eventType, delivery.payload as object);
+
+    return {
+      replayed: true,
+      sourceDeliveryId: delivery.id,
+      eventType: delivery.eventType,
+    };
+  }
+
   @Cron(CronExpression.EVERY_MINUTE)
   async retryFailedDeliveries() {
     const now = new Date();
@@ -258,35 +361,7 @@ export class WebhooksService {
 
     for (const delivery of pendingRetries) {
       if (!delivery.webhook || delivery.webhook.status !== 'ACTIVE') continue;
-      await this.deliverWebhook(delivery.webhook, delivery.eventType, delivery.payload as object, delivery);
-    }
-  }
 
-  /**
-   * Prune old WebhookDeliveryLog rows older than retentionDays (Issue #1256).
-   */
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async pruneOldDeliveryLogs(retentionDays = 30) {
-    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-    const result = await this.prisma.webhookDeliveryLog.deleteMany({
-      where: { createdAt: { lt: cutoff } },
-    });
-    this.logger.log(
-      `Pruned ${result.count} webhook delivery log(s) older than ${retentionDays} days`,
-    );
-    return result;
-  }
-
-  /**
-   * Helper to compute retry delay using 0-based mapping (Issue #1256).
-   */
-  getRetryDelay(nextAttempt: number): number {
-    const delayIndex = Math.min(
-      Math.max(0, nextAttempt - 1),
-      this.RETRY_DELAYS_MS.length - 1,
-    );
-    return this.RETRY_DELAYS_MS[delayIndex];
-  }
       if (this.webhookQueue) {
         await this.webhookQueue.add('deliver-webhook', {
           deliveryId: delivery.id,
@@ -309,6 +384,32 @@ export class WebhooksService {
         });
       }
     }
+  }
+
+  /**
+   * Prune old WebhookDeliveryLog rows older than retentionDays.
+   *
+   * Retention defaults to `CLEANUP_WEBHOOK_LOG_DAYS` (issue #1295) so pruning
+   * can be tuned alongside the rest of the CleanupService retention windows.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async pruneOldDeliveryLogs(retentionDays = this.DEFAULT_DELIVERY_LOG_RETENTION_DAYS) {
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const result = await this.prisma.webhookDeliveryLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+    this.logger.log(
+      `Pruned ${result.count} webhook delivery log(s) older than ${retentionDays} days`,
+    );
+    return result;
+  }
+
+  /**
+   * Helper to compute retry delay using 0-based mapping (Issue #1256).
+   */
+  getRetryDelay(nextAttempt: number): number {
+    const delayIndex = Math.min(Math.max(0, nextAttempt - 1), this.RETRY_DELAYS_MS.length - 1);
+    return this.RETRY_DELAYS_MS[delayIndex];
   }
 
   async deliverWebhook(
@@ -353,30 +454,10 @@ export class WebhooksService {
       return;
     }
 
-  private async deliverWebhook(
-    webhook: any,
-    eventType: string,
-    payload: object,
-    existingDelivery?: any,
-  ) {
-    let delivery =
-      existingDelivery ??
-      (await this.prisma.webhookDeliveryLog.create({
-        data: {
-          webhookId: webhook.id,
-          eventType,
-          payload,
-          status: 'PENDING',
-          maxAttempts: this.MAX_ATTEMPTS,
-        },
-      }));
-
-    const eventId =
-      (payload as any)?.eventId || (payload as any)?.id || delivery.id;
-    const idempotencyKey =
-      (payload as any)?.id
-        ? `${webhook.id}:${eventType}:${(payload as any).id}`
-        : delivery.id;
+    const eventId = (payload as any)?.eventId || (payload as any)?.id || delivery.id;
+    const idempotencyKey = (payload as any)?.id
+      ? `${webhook.id}:${eventType}:${(payload as any).id}`
+      : delivery.id;
 
     const body = JSON.stringify({
       event: eventType,
@@ -435,13 +516,6 @@ export class WebhooksService {
           error: errorMessage,
           responseBody: errorMessage.substring(0, 2000),
           nextRetryAt: shouldRetry ? new Date(Date.now() + delayMs) : null,
-          nextRetryAt: shouldRetry
-            ? new Date(
-                Date.now() +
-                  (this.RETRY_DELAYS_MS[nextAttempt] ||
-                    this.RETRY_DELAYS_MS[this.RETRY_DELAYS_MS.length - 1]),
-              )
-            : null,
         },
       });
 

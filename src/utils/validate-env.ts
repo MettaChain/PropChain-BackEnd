@@ -20,6 +20,59 @@ export function isCaptchaRequired(): boolean {
   return process.env.CAPTCHA_BYPASS !== 'true';
 }
 
+/**
+ * Validate blockchain configuration when BLOCKCHAIN_ENABLED=true (#1178).
+ *
+ * Blockchain support is opt-in: when disabled this returns no errors and the
+ * rest of the environment validation is unaffected. When enabled it requires a
+ * real RPC endpoint, a checksummed (non-zero) contract address, and a 32-byte
+ * private key so misconfiguration fails fast at boot.
+ */
+export function validateBlockchainEnvironment(): string[] {
+  const errors: string[] = [];
+
+  if (process.env.BLOCKCHAIN_ENABLED !== 'true') {
+    return errors;
+  }
+
+  const contractAddress = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
+  if (!contractAddress) {
+    errors.push('BLOCKCHAIN_CONTRACT_ADDRESS is required when BLOCKCHAIN_ENABLED=true');
+  } else if (/^0x0{40}$/i.test(contractAddress)) {
+    errors.push('BLOCKCHAIN_CONTRACT_ADDRESS must not be the zero address');
+  } else {
+    let checksumOk = false;
+    try {
+      checksumOk = Web3.utils.toChecksumAddress(contractAddress) === contractAddress;
+    } catch {
+      checksumOk = false;
+    }
+    if (!checksumOk) {
+      errors.push(
+        'BLOCKCHAIN_CONTRACT_ADDRESS must be a valid EIP-55 checksummed address (checksum mismatch)',
+      );
+    }
+  }
+
+  const rpcUrl = process.env.BLOCKCHAIN_RPC_URL;
+  if (!rpcUrl) {
+    errors.push('BLOCKCHAIN_RPC_URL is required when BLOCKCHAIN_ENABLED=true');
+  } else if (/placeholder|your[_-]|example\.com/i.test(rpcUrl)) {
+    errors.push('BLOCKCHAIN_RPC_URL must be a real endpoint (placeholder value detected)');
+  } else if (!/^https?:\/\//i.test(rpcUrl)) {
+    errors.push('BLOCKCHAIN_RPC_URL must be a valid http(s) URL');
+  }
+
+  const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
+  if (!privateKey) {
+    errors.push('BLOCKCHAIN_PRIVATE_KEY is required when BLOCKCHAIN_ENABLED=true');
+  } else if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
+    errors.push('BLOCKCHAIN_PRIVATE_KEY must be a 0x-prefixed 32-byte hex string');
+  }
+
+  return errors;
+}
+
 export function validateEnvironment(): void {
   const MISSING: string[] = [];
   const WEAK: string[] = [];

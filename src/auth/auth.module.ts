@@ -13,6 +13,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { RolesGuard } from './guards/roles.guard';
+import { KeyPermissionsGuard } from './guards/key-permissions.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { RateLimitHeadersInterceptor } from './interceptors/rate-limit-headers.interceptor';
 import { RateLimitAdminController } from './controllers/rate-limit-admin.controller';
@@ -28,6 +29,7 @@ import { FraudModule } from '../fraud/fraud.module';
     RateLimitService,
     JwtAuthGuard,
     ApiKeyAuthGuard,
+    KeyPermissionsGuard,
     RolesGuard,
     RateLimitGuard,
     RateLimitHeadersInterceptor,
@@ -37,6 +39,7 @@ import { FraudModule } from '../fraud/fraud.module';
     AuthService,
     ApiKeyAnalyticsService,
     RolesGuard,
+    KeyPermissionsGuard,
     LoginRateLimitService,
     RateLimitService,
     RateLimitGuard,

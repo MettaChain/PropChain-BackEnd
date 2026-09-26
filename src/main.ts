@@ -10,7 +10,7 @@ import { RateLimitGuard } from './auth/guards/rate-limit.guard';
 import { RateLimitService } from './auth/rate-limit.service';
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 import { ResponseFormatInterceptor } from './common/interceptors/response-format.interceptor';
-import { setupSwagger } from './config/swagger.config';
+import { setupSwagger, setupOpenAPIEndpoint } from './config/swagger.config';
 import { createSecurityHeadersMiddleware } from './config/security-headers';
 import { validateEnvironment } from './utils/validate-env';
 // Issue #914 – Structured JSON logging in production, pretty-print in dev
@@ -81,26 +81,34 @@ async function bootstrap() {
   // Accept-Language (and optional user preference) captured by middleware
   // into AsyncLocalStorage. exceptionFactory has no Request; the store bridges it.
   const { I18nService } = await import('./i18n/i18n.service');
-  const { getRequestLanguageContext, runWithRequestLanguage } = await import(
-    './common/request-language.store'
-  );
+  const { getRequestLanguageContext, runWithRequestLanguage } =
+    await import('./common/request-language.store');
   const i18n = app.get(I18nService);
 
-  app.use((req: { headers: Record<string, string | string[] | undefined>; user?: { languagePreference?: string | null } }, _res: unknown, next: () => void) => {
-    const accept =
-      typeof req.headers['accept-language'] === 'string'
-        ? req.headers['accept-language']
-        : undefined;
-    const xLang =
-      typeof req.headers['x-language'] === 'string' ? req.headers['x-language'] : undefined;
-    runWithRequestLanguage(
-      {
-        acceptLanguageHeader: accept ?? null,
-        userPreference: req.user?.languagePreference ?? xLang ?? null,
+  app.use(
+    (
+      req: {
+        headers: Record<string, string | string[] | undefined>;
+        user?: { languagePreference?: string | null };
       },
-      () => next(),
-    );
-  });
+      _res: unknown,
+      next: () => void,
+    ) => {
+      const accept =
+        typeof req.headers['accept-language'] === 'string'
+          ? req.headers['accept-language']
+          : undefined;
+      const xLang =
+        typeof req.headers['x-language'] === 'string' ? req.headers['x-language'] : undefined;
+      runWithRequestLanguage(
+        {
+          acceptLanguageHeader: accept ?? null,
+          userPreference: req.user?.languagePreference ?? xLang ?? null,
+        },
+        () => next(),
+      );
+    },
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
