@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -57,19 +57,24 @@ export interface FieldRow {
 export class PropertyComparisonService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async compare(ids: string[]) {
+  async compare(ids: string[], options: { includeOwner?: boolean } = {}) {
+    const { includeOwner = true } = options;
     const properties = await this.prisma.property.findMany({
       where: { id: { in: ids } },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
+      // Public share links must never expose owner PII, so the owner relation is
+      // opt-out (issue #1292).
+      include: includeOwner
+        ? {
+            owner: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          }
+        : undefined,
     });
 
     if (properties.length !== ids.length) {
@@ -183,7 +188,8 @@ export class PropertyComparisonService {
       shareToken: share.shareToken,
       propertyIds: share.propertyIds,
       expiresAt: share.expiresAt,
-      url: `/property-comparison/shared/${share.shareToken}`,
+      // Points at the public serving endpoint (issue #1292).
+      url: `/property-comparison/shares/${share.shareToken}`,
     };
   }
 
@@ -196,18 +202,64 @@ export class PropertyComparisonService {
       throw new NotFoundException('Shared comparison not found');
     }
 
+    if (share.revokedAt) {
+      throw new NotFoundException('This shared comparison link has been revoked');
+    }
+
     if (share.expiresAt && share.expiresAt < new Date()) {
       throw new NotFoundException('This shared comparison link has expired');
     }
 
-    const comparison = await this.compare(share.propertyIds);
+    // Best-effort view tracking — a failed counter update must not prevent the
+    // public share from being served (issue #1292).
+    try {
+      await this.prisma.comparisonShare.update({
+        where: { shareToken },
+        data: { viewCount: { increment: 1 }, lastViewedAt: new Date() },
+      });
+    } catch {
+      // Non-fatal: view analytics are advisory only.
+    }
+
+    const comparison = await this.compare(share.propertyIds, { includeOwner: false });
 
     return {
       shareToken: share.shareToken,
       createdAt: share.createdAt,
       expiresAt: share.expiresAt,
+      viewCount: share.viewCount + 1,
+      lastViewedAt: new Date(),
       ...comparison,
     };
+  }
+
+  /**
+   * Revoke a comparison share link so it can no longer be resolved.
+   * Only the creator may revoke their own link when ownership is recorded.
+   */
+  async revokeShare(shareToken: string, userId?: string) {
+    const share = await this.prisma.comparisonShare.findUnique({
+      where: { shareToken },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Shared comparison not found');
+    }
+
+    if (share.createdById && userId && share.createdById !== userId) {
+      throw new ForbiddenException('You can only revoke your own shared comparisons');
+    }
+
+    if (share.revokedAt) {
+      return { shareToken: share.shareToken, revokedAt: share.revokedAt, alreadyRevoked: true };
+    }
+
+    const updated = await this.prisma.comparisonShare.update({
+      where: { shareToken },
+      data: { revokedAt: new Date() },
+    });
+
+    return { shareToken: updated.shareToken, revokedAt: updated.revokedAt, alreadyRevoked: false };
   }
 
   async exportComparison(propertyIds: string[]) {

@@ -10,7 +10,9 @@ import { ApiKeyAnalyticsService } from './api-key-analytics.service';
 import { LoginRateLimitService } from './login-rate-limit.service';
 import { RateLimitService } from './rate-limit.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { FreshTwoFactorGuard } from './guards/fresh-two-factor.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
+import { TwoFactorService } from './two-factor.service';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { RolesGuard } from './guards/roles.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
@@ -27,15 +29,19 @@ import { FraudModule } from '../fraud/fraud.module';
     LoginRateLimitService,
     RateLimitService,
     JwtAuthGuard,
+    FreshTwoFactorGuard,
     ApiKeyAuthGuard,
     RolesGuard,
     RateLimitGuard,
     RateLimitHeadersInterceptor,
     GoogleStrategy,
+    TwoFactorService,
   ],
   exports: [
     AuthService,
     ApiKeyAnalyticsService,
+    TwoFactorService,
+    JwtAuthGuard,
     RolesGuard,
     LoginRateLimitService,
     RateLimitService,

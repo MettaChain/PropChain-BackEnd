@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { ApiKeyAnalyticsService } from './api-key-analytics.service';
@@ -6,6 +6,7 @@ import {
   ChangePasswordDto,
   CreateApiKeyDto,
   DisableTwoFactorDto,
+  ForceDisableTwoFactorDto,
   LoginDto,
   LogoutDto,
   RefreshTokenDto,
@@ -16,6 +17,7 @@ import {
   VerifyTwoFactorDto,
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { FreshTwoFactorGuard } from './guards/fresh-two-factor.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -93,7 +95,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FreshTwoFactorGuard)
   @Post('change-password')
   changePassword(
     @CurrentUser() user: AuthUserPayload,
@@ -120,13 +122,45 @@ export class AuthController {
   }
 
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FreshTwoFactorGuard)
   @Post('2fa/disable')
   disableTwoFactor(
     @CurrentUser() user: AuthUserPayload,
     @Body() disableTwoFactorDto: DisableTwoFactorDto,
   ) {
     return this.authService.disableTwoFactor(user, disableTwoFactorDto.password);
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard, FreshTwoFactorGuard)
+  @Post('2fa/recovery-codes')
+  regenerateRecoveryCodes(@CurrentUser() user: AuthUserPayload) {
+    return this.authService.regenerateRecoveryCodes(user);
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  @Get('2fa/devices')
+  listTrustedDevices(@CurrentUser() user: AuthUserPayload) {
+    return this.authService.listTrustedDevices(user);
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  @Delete('2fa/devices/:id')
+  revokeTrustedDevice(@CurrentUser() user: AuthUserPayload, @Param('id') id: string) {
+    return this.authService.revokeTrustedDevice(user, id);
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Post('2fa/admin/force-disable')
+  adminForceDisableTwoFactor(
+    @CurrentUser() user: AuthUserPayload,
+    @Body() dto: ForceDisableTwoFactorDto,
+  ) {
+    return this.authService.adminForceDisableTwoFactor(user, dto.email);
   }
 
   @UseGuards(ApiKeyAuthGuard)

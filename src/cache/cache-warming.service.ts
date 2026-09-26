@@ -4,8 +4,9 @@
  * Strategy:
  *  1. **Startup warming** – OnModuleInit loads the hottest data into Redis
  *     immediately so the first users after a deploy don't see cold-cache latency.
- *  2. **Periodic refresh** – A @Cron job re-warms data every 30 minutes to
- *     keep it fresh without waiting for natural expiry.
+ *  2. **Periodic refresh** – A timer re-warms data on the interval configured
+ *     by CACHE_WARMING_INTERVAL (default 30 minutes) to keep it fresh without
+ *     waiting for natural expiry.
  *  3. **Predictive warming** – Analyses access patterns (recent hit-rate trends
  *     stored in Redis) to proactively warm keys that are about to become hot.
  *  4. **Hit-rate monitoring** – Each warming cycle logs the cache hit-rate before
@@ -13,11 +14,27 @@
  */
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { CacheService } from './cache.service';
 import { CacheMonitoringService } from './cache-monitoring.service';
 import { CACHE_KEYS, CACHE_TTL } from './cache.config';
 import { PrismaService } from '../database/prisma.service';
+
+/**
+ * Default warming interval (30 minutes) used when CACHE_WARMING_INTERVAL is
+ * not set or is not a positive integer.
+ */
+export const DEFAULT_WARMING_INTERVAL_MS = 30 * 60 * 1000;
+
+/**
+ * Resolve the configured warming interval in milliseconds.
+ *
+ * Issue #1290 – reconcile the documented `CACHE_WARMING_INTERVAL` knob with the
+ * scheduling truth instead of hard-coding a 30-minute cron.
+ */
+export function resolveWarmingIntervalMs(raw = process.env.CACHE_WARMING_INTERVAL): number {
+  const parsed = parseInt(raw ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_WARMING_INTERVAL_MS;
+}
 
 @Injectable()
 export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
@@ -33,10 +50,11 @@ export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
   // ─── Lifecycle ────────────────────────────────────────────────────────
 
   async onModuleInit(): Promise<void> {
-    if (process.env.CACHE_WARMING_ENABLED !== 'false') {
-      this.logger.log('Starting initial cache warming…');
-      await this.warmCache();
-    }
+    if (process.env.CACHE_WARMING_ENABLED === 'false') return;
+
+    this.logger.log('Starting initial cache warming…');
+    await this.warmCache();
+    this.schedulePeriodicWarming();
   }
 
   onModuleDestroy(): void {
@@ -47,9 +65,22 @@ export class CacheWarmingService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // ─── Periodic warming (every 30 min) ─────────────────────────────────
+  // ─── Periodic warming ────────────────────────────────────────────────
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  /**
+   * Start the periodic warming timer. The interval is configurable via
+   * CACHE_WARMING_INTERVAL (ms) and defaults to 30 minutes.
+   */
+  private schedulePeriodicWarming(): void {
+    const intervalMs = resolveWarmingIntervalMs();
+    this.warmingInterval = setInterval(() => {
+      void this.handlePeriodicWarming();
+    }, intervalMs);
+    // Do not keep the process alive solely for cache warming.
+    this.warmingInterval.unref?.();
+    this.logger.log(`Periodic cache warming scheduled every ${intervalMs}ms`);
+  }
+
   async handlePeriodicWarming(): Promise<void> {
     if (process.env.CACHE_WARMING_ENABLED === 'false') return;
     this.logger.log('Periodic cache warming triggered');

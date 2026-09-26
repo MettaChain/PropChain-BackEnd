@@ -17,8 +17,48 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { PrismaClient } from '@prisma/client';
 import { N1Detector, isN1DetectionEnabled, n1OptionsFromEnv } from './n1-detector';
 
-const POOL_SIZE_DEFAULT = 10;
-const POOL_TIMEOUT_MS = 10_000;
+export const POOL_SIZE_DEFAULT = 10;
+export const POOL_TIMEOUT_MS_DEFAULT = 10_000;
+
+/**
+ * Build the effective PostgreSQL datasource URL, folding the pool tuning knobs
+ * (`PGBOUNCER_POOL_SIZE` / `PGBOUNCER_POOL_TIMEOUT`) into the connection string
+ * parameters understood by Prisma's Rust query engine (`connection_limit` and
+ * `pool_timeout`, the latter in seconds).
+ *
+ * When PgBouncer is enabled, Prisma's built-in pool is disabled and the
+ * timeout is enforced server-side by PgBouncer, so the URL is returned
+ * unchanged.
+ *
+ * Issue #1290 – declared-but-unused pool timeout config.
+ */
+export function buildDatasourceUrl(options: {
+  databaseUrl?: string;
+  pgbouncerEnabled: boolean;
+  poolSize: number;
+  poolTimeoutMs: number;
+}): string | undefined {
+  const { databaseUrl, pgbouncerEnabled, poolSize, poolTimeoutMs } = options;
+  if (!databaseUrl) return databaseUrl;
+
+  // PgBouncer owns the pool (and therefore the timeout) when enabled.
+  if (pgbouncerEnabled) return databaseUrl;
+
+  try {
+    const url = new URL(databaseUrl);
+    if (!url.searchParams.has('connection_limit')) {
+      url.searchParams.set('connection_limit', String(poolSize));
+    }
+    if (!url.searchParams.has('pool_timeout')) {
+      // Prisma expects pool_timeout in seconds.
+      url.searchParams.set('pool_timeout', String(Math.max(1, Math.round(poolTimeoutMs / 1000))));
+    }
+    return url.toString();
+  } catch {
+    // Non-standard / non-URL connection strings are passed through untouched.
+    return databaseUrl;
+  }
+}
 
 /** Slow-query thresholds (ms). Queries exceeding these trigger a warning log. */
 const SLOW_QUERY_THRESHOLD_DEV = 100;
@@ -43,19 +83,21 @@ const RETRYABLE_ERROR_CODES = new Set([
  */
 export function scrubQuery(query: string): string {
   if (!query) return '';
-  return query
-    // Replace $n parameter placeholders ($1, $2, etc.)
-    .replace(/\$\d+/g, '?')
-    // Replace single-quoted string literals: '...'
-    .replace(/'(?:[^'\\]|\\.)*'/g, '?')
-    // Replace emails (e.g. user@example.com)
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '?')
-    // Replace IPv4 addresses (e.g. 192.168.1.1)
-    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '?')
-    // Replace IPv6 addresses (e.g. 2001:0db8:85a3::8a2e:0370:7334)
-    .replace(/\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g, '?')
-    // Replace phone numbers (international/local formats, at least 7 digits)
-    .replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g, '?');
+  return (
+    query
+      // Replace $n parameter placeholders ($1, $2, etc.)
+      .replace(/\$\d+/g, '?')
+      // Replace single-quoted string literals: '...'
+      .replace(/'(?:[^'\\]|\\.)*'/g, '?')
+      // Replace emails (e.g. user@example.com)
+      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '?')
+      // Replace IPv4 addresses (e.g. 192.168.1.1)
+      .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '?')
+      // Replace IPv6 addresses (e.g. 2001:0db8:85a3::8a2e:0370:7334)
+      .replace(/\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g, '?')
+      // Replace phone numbers (international/local formats, at least 7 digits)
+      .replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g, '?')
+  );
 }
 
 /**
@@ -101,8 +143,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       (process.env.DATABASE_URL ?? '').includes('pgbouncer=true');
 
     const poolSize = parseInt(process.env.PGBOUNCER_POOL_SIZE ?? String(POOL_SIZE_DEFAULT), 10);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const poolTimeout = parseInt(process.env.PGBOUNCER_POOL_TIMEOUT ?? String(POOL_TIMEOUT_MS), 10);
+    const poolTimeoutMs = parseInt(
+      process.env.PGBOUNCER_POOL_TIMEOUT ?? String(POOL_TIMEOUT_MS_DEFAULT),
+      10,
+    );
 
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -118,6 +162,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         : (['error', 'warn'] as const)
       : (['error', 'warn', 'info', 'query'] as const);
 
+    // Issue #1290 – make the pool tuning knobs effective. Prisma reads
+    // `connection_limit` / `pool_timeout` from the datasource URL; when
+    // PgBouncer is enabled the pool (and its timeout) is owned by PgBouncer.
+    const datasourceUrl = buildDatasourceUrl({
+      databaseUrl: process.env.DATABASE_URL,
+      pgbouncerEnabled: isPgbouncerEnabled,
+      poolSize,
+      poolTimeoutMs,
+    });
+
     super({
       log: logLevels.map((level) => ({ level, emit: 'event' })),
       ...(isPgbouncerEnabled
@@ -128,11 +182,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
               },
             },
           }
-        : {}),
+        : datasourceUrl
+          ? { datasourceUrl }
+          : {}),
     });
 
     this.logger.log(
-      `PrismaService initialised – PgBouncer: ${isPgbouncerEnabled}, pool size: ${poolSize}`,
+      `PrismaService initialised – PgBouncer: ${isPgbouncerEnabled}, pool size: ${poolSize}, ` +
+        `pool timeout: ${poolTimeoutMs}ms`,
     );
 
     // ── Query event logging & slow query detection (#917) ─────────────────
@@ -145,8 +202,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // Issue #1252 – Verbose query logging is gated to non-production with explicit opt-in
     const isVerboseQueryLoggingEnabled =
       !isProduction &&
-      (process.env.VERBOSE_QUERY_LOGGING === 'true' ||
-        process.env.ENABLE_QUERY_LOGGING === 'true');
+      (process.env.VERBOSE_QUERY_LOGGING === 'true' || process.env.ENABLE_QUERY_LOGGING === 'true');
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this as any).$on('query', (event: { query: string; params: string; duration: number }) => {

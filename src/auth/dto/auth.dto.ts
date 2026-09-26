@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsNotEmpty,
@@ -50,6 +51,16 @@ export class LoginDto {
   @IsString()
   backupCode?: string;
 
+  /** Token issued for a previously trusted device (#1291). */
+  @IsOptional()
+  @IsString()
+  trustedDeviceToken?: string;
+
+  /** When true, remember this device after a successful 2FA challenge (#1291). */
+  @IsOptional()
+  @IsBoolean()
+  rememberDevice?: boolean;
+
   @IsOptional()
   @IsString()
   captchaToken?: string;
@@ -83,6 +94,15 @@ export class VerifyTwoFactorDto {
 export class DisableTwoFactorDto {
   @IsString()
   password: string;
+}
+
+/**
+ * Admin-initiated 2FA reset (#1291). Identifies the target account by email so
+ * a locked-out user can be recovered without exposing internal IDs.
+ */
+export class ForceDisableTwoFactorDto {
+  @IsEmail()
+  email: string;
 }
 
 export class CreateApiKeyDto {
