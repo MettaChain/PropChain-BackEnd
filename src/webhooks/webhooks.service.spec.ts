@@ -26,6 +26,9 @@ describe('WebhooksService', () => {
       webhookDeliveryLog: {
         create: jest.fn().mockResolvedValue({ id: 'dl-1' }),
         findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ id: 'dl-1' }),
         deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
       },
       activityLog: {
@@ -60,7 +63,9 @@ describe('WebhooksService', () => {
 
   describe('create - SSRF validation (#1253)', () => {
     it('creates a webhook with a valid public HTTPS url', async () => {
-      jest.spyOn(dns.promises, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as any);
+      jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as any);
 
       const dto: CreateWebhookDto = {
         url: 'https://example.com/hook',
@@ -135,7 +140,9 @@ describe('WebhooksService', () => {
     });
 
     it('rejects hostnames that resolve via DNS to private IPs', async () => {
-      jest.spyOn(dns.promises, 'lookup').mockResolvedValue([{ address: '10.200.0.1', family: 4 }] as any);
+      jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue([{ address: '10.200.0.1', family: 4 }] as any);
 
       const dto: CreateWebhookDto = {
         url: 'http://internal.corp-service.com/hook',
@@ -147,7 +154,9 @@ describe('WebhooksService', () => {
 
     it('requires HTTPS in non-local production environment', async () => {
       process.env.NODE_ENV = 'production';
-      jest.spyOn(dns.promises, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as any);
+      jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as any);
 
       const dto: CreateWebhookDto = {
         url: 'http://example.com/hook', // HTTP in production
@@ -310,6 +319,80 @@ describe('WebhooksService', () => {
         },
       });
       expect(res.count).toBe(5);
+    });
+  });
+
+  describe('replay (#1295)', () => {
+    it('re-enqueues the stored payload with the original event type and delivery id', async () => {
+      prisma.webhook.findFirst.mockResolvedValue({
+        id: 'wh-1',
+        userId: 'user-1',
+        status: 'ACTIVE',
+        secret: 'sec',
+        url: 'https://example.com/hook',
+      });
+      prisma.webhookDeliveryLog.findFirst.mockResolvedValue({
+        id: 'dl-9',
+        webhookId: 'wh-1',
+        eventType: 'PROPERTY_CREATED',
+        payload: { id: 'p-1' },
+      });
+
+      const result = await service.replay('wh-1', 'user-1', 'dl-9');
+
+      expect(result.replayed).toBe(true);
+      expect(result.sourceDeliveryId).toBe('dl-9');
+      expect(result.eventType).toBe('PROPERTY_CREATED');
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        'deliver-webhook',
+        expect.objectContaining({
+          webhookId: 'wh-1',
+          eventType: 'PROPERTY_CREATED',
+          payload: { id: 'p-1' },
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('throws NotFoundException when the delivery does not belong to the webhook', async () => {
+      prisma.webhook.findFirst.mockResolvedValue({
+        id: 'wh-1',
+        userId: 'user-1',
+        status: 'ACTIVE',
+      });
+      prisma.webhookDeliveryLog.findFirst.mockResolvedValue(null);
+
+      await expect(service.replay('wh-1', 'user-1', 'missing')).rejects.toThrow();
+    });
+
+    it('refuses to replay for an inactive webhook', async () => {
+      prisma.webhook.findFirst.mockResolvedValue({
+        id: 'wh-1',
+        userId: 'user-1',
+        status: 'INACTIVE',
+      });
+      prisma.webhookDeliveryLog.findFirst.mockResolvedValue({
+        id: 'dl-9',
+        webhookId: 'wh-1',
+        eventType: 'PROPERTY_CREATED',
+        payload: { id: 'p-1' },
+      });
+
+      await expect(service.replay('wh-1', 'user-1', 'dl-9')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('payload size cap warning (#1295)', () => {
+    it('flags payloads above the configured byte cap', () => {
+      const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation(() => {});
+      const flagged = service.warnIfPayloadTooLarge('EVT', 'wh-1', { big: 'x'.repeat(70_000) });
+      expect(flagged).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('oversized'));
+      warnSpy.mockRestore();
+    });
+
+    it('does not flag small payloads', () => {
+      expect(service.warnIfPayloadTooLarge('EVT', 'wh-1', { small: true })).toBe(false);
     });
   });
 

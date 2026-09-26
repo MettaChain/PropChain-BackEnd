@@ -39,6 +39,19 @@ export class WebhooksController {
     return this.webhooksService.getDeliveries(id, user.id);
   }
 
+  /**
+   * Replay a stored event payload without re-triggering the underlying
+   * mutation (issue #1295). The re-send reuses the original idempotency key.
+   */
+  @Post(':id/deliveries/:deliveryId/replay')
+  replay(
+    @Param('id') id: string,
+    @Param('deliveryId') deliveryId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.webhooksService.replay(id, user.id, deliveryId);
+  }
+
   @Post(':id/rotate-secret')
   rotateSecret(@Param('id') id: string, @CurrentUser() user: any) {
     return this.webhooksService.rotateSecret(id, user.id);

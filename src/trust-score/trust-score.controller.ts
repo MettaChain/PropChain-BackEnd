@@ -13,6 +13,8 @@ import { AuthenticatedRequest } from './types/authenticated-request.interface';
 import { TrustScoreService } from './trust-score.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from '../auth/guards/api-key-auth.guard';
+import { KeyPermissionsGuard } from '../auth/guards/key-permissions.guard';
+import { RequireScopes } from '../auth/decorators/require-scopes.decorator';
 import {
   TrustScoreDto,
   TrustScoreSummaryDto,
@@ -21,10 +23,11 @@ import {
 } from './dto/trust-score.dto';
 
 @Controller('trust-score')
-@UseGuards(JwtAuthGuard, ApiKeyAuthGuard)
+@UseGuards(JwtAuthGuard, ApiKeyAuthGuard, KeyPermissionsGuard)
 export class TrustScoreController {
   constructor(private readonly trustScoreService: TrustScoreService) {}
 
+  @RequireScopes('read')
   @Get('me')
   async getMyTrustScore(@Request() req: AuthenticatedRequest): Promise<TrustScoreDto> {
     const userId = req.authUser.id;
@@ -32,6 +35,7 @@ export class TrustScoreController {
     return this.trustScoreService.getTrustScore(userId, forceRefresh);
   }
 
+  @RequireScopes('read')
   @Get('me/summary')
   async getMyTrustScoreSummary(
     @Request() req: AuthenticatedRequest,
@@ -48,6 +52,7 @@ export class TrustScoreController {
     };
   }
 
+  @RequireScopes('read')
   @Get('me/breakdown')
   async getMyTrustScoreBreakdown(
     @Request() req: AuthenticatedRequest,
@@ -56,6 +61,7 @@ export class TrustScoreController {
     return this.trustScoreService.getScoreBreakdown(userId);
   }
 
+  @RequireScopes('read')
   @Get(':userId')
   async getUserTrustScore(
     @Param('userId') userId: string,
@@ -65,6 +71,7 @@ export class TrustScoreController {
     return this.trustScoreService.getTrustScore(userId, forceRefresh);
   }
 
+  @RequireScopes('read')
   @Get(':userId/summary')
   async getUserTrustScoreSummary(
     @Param('userId') userId: string,
@@ -81,6 +88,7 @@ export class TrustScoreController {
     };
   }
 
+  @RequireScopes('read')
   @Get(':userId/breakdown')
   async getUserTrustScoreBreakdown(
     @Param('userId') userId: string,
@@ -88,6 +96,7 @@ export class TrustScoreController {
     return this.trustScoreService.getScoreBreakdown(userId);
   }
 
+  @RequireScopes('write')
   @Post('me/calculate')
   @HttpCode(HttpStatus.OK)
   async calculateMyTrustScore(@Request() req: AuthenticatedRequest): Promise<TrustScoreDto> {
@@ -95,12 +104,14 @@ export class TrustScoreController {
     return this.trustScoreService.calculateTrustScore(userId);
   }
 
+  @RequireScopes('write')
   @Post(':userId/calculate')
   @HttpCode(HttpStatus.OK)
   async calculateUserTrustScore(@Param('userId') userId: string): Promise<TrustScoreDto> {
     return this.trustScoreService.calculateTrustScore(userId);
   }
 
+  @RequireScopes('write')
   @Post('batch-update')
   @HttpCode(HttpStatus.OK)
   async batchUpdateTrustScores(): Promise<BatchUpdateResponseDto> {
