@@ -35,6 +35,9 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
+# API Versioning - v1 snapshots are tracked in git for drift detection
+# snapshots/v1/*.json - tracked intentionally
+
 # Prisma
 prisma/migrations/
 !prisma/migrations/

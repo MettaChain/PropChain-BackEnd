@@ -88,13 +88,20 @@ export class HealthController {
     // Redis check
     const redisStart = Date.now();
     try {
-      const connected = await this.cacheService.isConnected();
-      if (connected) {
-        checks.redis = { status: 'ok', latencyMs: Date.now() - redisStart };
+      const healthStatus = await this.cacheService.getHealthStatus();
+      if (healthStatus.connected) {
+        checks.redis = { 
+          status: 'ok', 
+          latencyMs: healthStatus.latencyMs,
+        };
       } else {
         allOk = false;
         this.logger.error('Readiness probe Redis check failed: Redis not connected');
-        checks.redis = { status: 'error', error: 'redis_unreachable' };
+        checks.redis = { 
+          status: 'error', 
+          error: 'redis_unreachable',
+          latencyMs: healthStatus.latencyMs,
+        };
       }
     } catch (err: unknown) {
       allOk = false;

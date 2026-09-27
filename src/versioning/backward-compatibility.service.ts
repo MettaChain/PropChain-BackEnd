@@ -12,23 +12,75 @@ export type CompatibilityTransformer = (data: any) => any;
 export class BackwardCompatibilityService {
   /**
    * Transformers that convert V2 response format to V1 format
+   * These transformers strip V2-specific fields to maintain V1 compatibility
    */
   private v2ToV1Transformers: Map<string, CompatibilityTransformer> = (() => {
     const map = new Map<string, CompatibilityTransformer>();
-    // Example: User endpoint
-    map.set('user', (data: any) => ({
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      // V1 doesn't include timestamps
-    }));
-    // Example: Property endpoint
-    map.set('property', (data: any) => ({
-      id: data.id,
-      address: data.address,
-      price: data.price,
-      // V1 doesn't include new V2 fields
-    }));
+    
+    // User endpoint - remove V2-specific fields
+    map.set('user', (data: any) => {
+      const v1User: any = {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+      };
+      // Include only fields that existed in V1
+      if (data.role !== undefined) v1User.role = data.role;
+      if (data.isActive !== undefined) v1User.isActive = data.isActive;
+      // V1 doesn't include timestamps, trustScore, etc.
+      return v1User;
+    });
+    
+    // Property endpoint - remove V2-specific fields
+    map.set('property', (data: any) => {
+      const v1Property: any = {
+        id: data.id,
+        address: data.address,
+        price: data.price,
+      };
+      // Include only fields that existed in V1
+      if (data.title !== undefined) v1Property.title = data.title;
+      if (data.description !== undefined) v1Property.description = data.description;
+      if (data.propertyType !== undefined) v1Property.propertyType = data.propertyType;
+      if (data.bedrooms !== undefined) v1Property.bedrooms = data.bedrooms;
+      if (data.bathrooms !== undefined) v1Property.bathrooms = data.bathrooms;
+      if (data.status !== undefined) v1Property.status = data.status;
+      // V1 doesn't include createdAt, verified, and other V2-specific fields
+      return v1Property;
+    });
+    
+    // Transaction endpoint - remove V2-specific fields
+    map.set('transaction', (data: any) => {
+      const v1Transaction: any = {
+        id: data.id,
+        propertyId: data.propertyId,
+        buyerId: data.buyerId,
+        sellerId: data.sellerId,
+        status: data.status,
+        type: data.type,
+      };
+      // Include basic fields that existed in V1
+      if (data.price !== undefined) v1Transaction.price = data.price;
+      if (data.createdAt !== undefined) v1Transaction.createdAt = data.createdAt;
+      // V1 doesn't include blockchain-specific fields, audit logs, etc.
+      return v1Transaction;
+    });
+    
+    // Auth response - remove V2-specific fields
+    map.set('auth', (data: any) => {
+      const v1Auth: any = {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: {
+          id: data.user?.id,
+          name: data.user?.name,
+          email: data.user?.email,
+        },
+      };
+      // V1 doesn't include token expiration, scopes, etc.
+      return v1Auth;
+    });
+    
     return map;
   })();
 
@@ -119,24 +171,72 @@ export class BackwardCompatibilityService {
 
   /**
    * Check if a field exists in a specific version
+   * This is used to filter V2 responses to V1 format
    */
   fieldExistsInVersion(fieldName: string, version: ApiVersionEnum, entityType: string): boolean {
     // Define which fields exist in which versions
     const fieldVersions: Record<string, Record<string, ApiVersionEnum[]>> = {
       user: {
+        // Fields in both V1 and V2
         id: [ApiVersionEnum.V1, ApiVersionEnum.V2],
         name: [ApiVersionEnum.V1, ApiVersionEnum.V2],
         email: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        role: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        isActive: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        // V2-only fields
         createdAt: [ApiVersionEnum.V2],
         updatedAt: [ApiVersionEnum.V2],
         trustScore: [ApiVersionEnum.V2],
+        emailVerified: [ApiVersionEnum.V2],
+        lastLoginAt: [ApiVersionEnum.V2],
       },
       property: {
+        // Fields in both V1 and V2
         id: [ApiVersionEnum.V1, ApiVersionEnum.V2],
         address: [ApiVersionEnum.V1, ApiVersionEnum.V2],
         price: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        title: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        description: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        propertyType: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        bedrooms: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        bathrooms: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        status: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        // V2-only fields
         createdAt: [ApiVersionEnum.V2],
+        updatedAt: [ApiVersionEnum.V2],
         verified: [ApiVersionEnum.V2],
+        trustScore: [ApiVersionEnum.V2],
+        squareFootage: [ApiVersionEnum.V2],
+        yearBuilt: [ApiVersionEnum.V2],
+        amenities: [ApiVersionEnum.V2],
+      },
+      transaction: {
+        // Fields in both V1 and V2
+        id: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        propertyId: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        buyerId: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        sellerId: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        status: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        type: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        price: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        createdAt: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        // V2-only fields
+        blockchainHash: [ApiVersionEnum.V2],
+        transactionHash: [ApiVersionEnum.V2],
+        contractAddress: [ApiVersionEnum.V2],
+        escrowStatus: [ApiVersionEnum.V2],
+        auditLog: [ApiVersionEnum.V2],
+        updatedAt: [ApiVersionEnum.V2],
+      },
+      auth: {
+        // Fields in both V1 and V2
+        accessToken: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        refreshToken: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        user: [ApiVersionEnum.V1, ApiVersionEnum.V2],
+        // V2-only fields
+        expiresIn: [ApiVersionEnum.V2],
+        tokenType: [ApiVersionEnum.V2],
+        scope: [ApiVersionEnum.V2],
       },
     };
 

@@ -33,7 +33,9 @@
     "seed": "ts-node prisma/seed.ts",
     "prepare": "husky",
     "test:i18n-symmetry": "jest src/i18n/translations.symmetry.spec.ts --runInBand",
-    "check:i18n": "npm run test:i18n-symmetry"
+    "check:i18n": "npm run test:i18n-symmetry",
+    "test:version-drift": "ts-node scripts/version-drift-detection.ts",
+    "test:version-snapshots": "jest test/e2e/api-versioning-snapshot.e2e-spec.ts"
   },
   "lint-staged": {
     "*.ts": [
@@ -107,6 +109,7 @@
     "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.27",
     "@types/archiver": "^7.0.0",
+    "@types/axios": "^0.9.36",
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",
@@ -117,6 +120,7 @@
     "@types/pdfkit": "^0.17.6",
     "@typescript-eslint/eslint-plugin": "^6.13.1",
     "@typescript-eslint/parser": "^6.13.1",
+    "axios": "^1.20.0",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",
