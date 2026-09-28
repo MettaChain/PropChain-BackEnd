@@ -6,10 +6,14 @@ import {
   OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, Optional, OnModuleDestroy } from '@nestjs/common';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import { RedisPresenceService } from './redis-presence.service';
+import { WsTicketService } from './ws-ticket.service';
+import { deviceFingerprint } from './device-fingerprint.util';
+import { SessionRevocationService } from '../sessions/session-revocation.service';
+import { SessionsService } from '../sessions/sessions.service';
 import { getRedisConfig } from '../cache/cache.config';
 
 /**
@@ -41,7 +45,7 @@ const corsOrigins = process.env.CORS_ORIGINS
   namespace: 'notifications',
 })
 export class NotificationsGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
 {
   @WebSocketServer()
   server: Server;
@@ -55,17 +59,41 @@ export class NotificationsGateway
   private userSockets = new Map<string, Set<string>>();
   private socketUsers = new Map<string, string>();
 
+  /** Maps a locally-connected socket to the session it is bound to (#1294). */
+  private socketSessions = new Map<string, string>();
+
   /** Interval handle for heartbeat refreshes. */
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private readonly presence: RedisPresenceService) {}
+  /** Unsubscribe handle for session-revocation events. */
+  private unsubscribeRevocation: (() => void) | null = null;
+
+  constructor(
+    private readonly presence: RedisPresenceService,
+    @Optional() private readonly wsTicketService?: WsTicketService,
+    @Optional() private readonly revocation?: SessionRevocationService,
+    @Optional() private readonly sessions?: SessionsService,
+  ) {}
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   afterInit(server: Server): void {
     this.setupRedisAdapter(server);
     this.startHeartbeat();
+    this.unsubscribeRevocation =
+      this.revocation?.subscribe((sessionIds) => {
+        void this.handleSessionRevoked(sessionIds);
+      }) ?? null;
     this.logger.log('NotificationsGateway initialised with Redis adapter');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    this.unsubscribeRevocation?.();
+    this.unsubscribeRevocation = null;
   }
 
   /**
@@ -118,27 +146,51 @@ export class NotificationsGateway
           // Best-effort: a single failure should not crash the loop
         }
       }
+
+      // Re-validate sessions so revoked/expired sessions are dropped even if
+      // the revocation broadcast was missed (issue #1294).
+      for (const [socketId, sessionId] of this.socketSessions) {
+        if (!this.sessions) continue;
+        try {
+          const valid = await this.sessions.isSessionValid(sessionId);
+          if (!valid) {
+            this.disconnectSocket(socketId, sessionId);
+          }
+        } catch {
+          // Best-effort: transient DB/Redis errors should not crash the loop
+        }
+      }
     }, 10_000);
   }
 
   // ── Connection lifecycle ──────────────────────────────────────────────
 
   async handleConnection(client: Socket): Promise<void> {
-    const userId = client.handshake.query.userId as string;
-    if (!userId) {
-      this.logger.warn(`Connection rejected: no userId in handshake query`);
+    const identity = await this.authenticateClient(client);
+
+    if (!identity) {
+      this.logger.warn(`Connection rejected: authentication failed`);
       client.disconnect(true);
       return;
     }
+
+    const { userId, sessionId } = identity;
 
     // Local tracking (fast-path cache)
     const sockets = this.userSockets.get(userId) ?? new Set<string>();
     sockets.add(client.id);
     this.userSockets.set(userId, sockets);
     this.socketUsers.set(client.id, userId);
+    if (sessionId) {
+      this.socketSessions.set(client.id, sessionId);
+    }
 
-    // Socket.IO room (for local delivery via .to())
+    // Socket.IO room (for local delivery via .to()), plus a session room so
+    // revocations can target every socket bound to a session (issue #1294).
     client.join(`user:${userId}`);
+    if (sessionId) {
+      client.join(`session:${sessionId}`);
+    }
 
     // Redis presence (for cross-replica queries)
     try {
@@ -150,8 +202,67 @@ export class NotificationsGateway
     this.logger.log(`User ${userId} connected (${client.id})`);
   }
 
+  /**
+   * Resolve the identity for a handshake.
+   *
+   * Preferred: a short-lived `ws-ticket` (in `auth.ticket` or the `ticket`
+   * query param) issued by `POST /notifications/ws-ticket`. The ticket is
+   * bound to a session and device fingerprint and is validated against the
+   * SessionsService so revoked sessions cannot connect.
+   *
+   * Legacy fallback: a raw `userId` query param. Kept for backward
+   * compatibility; it is unauthenticated and logs a warning.
+   */
+  private async authenticateClient(
+    client: Socket,
+  ): Promise<{ userId: string; sessionId?: string } | null> {
+    const handshake: any = client.handshake ?? {};
+    const ticket = handshake.auth?.ticket ?? handshake.query?.ticket;
+
+    if (ticket) {
+      if (!this.wsTicketService) {
+        this.logger.warn('WebSocket ticket presented but ticket validation is unavailable');
+        return null;
+      }
+
+      try {
+        const payload = this.wsTicketService.verify(String(ticket));
+        const fingerprint = deviceFingerprint(handshake.headers?.['user-agent']);
+
+        if (payload.dfp && payload.dfp !== fingerprint) {
+          this.logger.warn(`WebSocket ticket device fingerprint mismatch for ${payload.sub}`);
+          return null;
+        }
+
+        if (this.sessions && !(await this.sessions.isSessionValid(payload.sid))) {
+          this.logger.warn(`WebSocket ticket session ${payload.sid} is no longer valid`);
+          return null;
+        }
+
+        return { userId: payload.sub, sessionId: payload.sid };
+      } catch (err) {
+        this.logger.warn(
+          `WebSocket ticket rejected: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      }
+    }
+
+    const userId = handshake.query?.userId as string | undefined;
+    if (userId) {
+      this.logger.warn(
+        `Legacy WebSocket auth via userId query for ${userId} — migrate to ws-ticket handshake auth`,
+      );
+      return { userId };
+    }
+
+    return null;
+  }
+
   async handleDisconnect(client: Socket): Promise<void> {
     const userId = this.socketUsers.get(client.id);
+    this.socketSessions.delete(client.id);
+
     if (userId) {
       // Local cleanup
       const sockets = this.userSockets.get(userId);
@@ -171,6 +282,51 @@ export class NotificationsGateway
       }
 
       this.logger.log(`User ${userId} disconnected (${client.id})`);
+    }
+  }
+
+  /**
+   * Drop every socket bound to the given sessions and notify them.
+   * Invoked when `SessionsService` revokes a session (issue #1294).
+   */
+  async handleSessionRevoked(sessionIds: string[]): Promise<void> {
+    for (const sessionId of sessionIds) {
+      if (!sessionId) continue;
+      const room = `session:${sessionId}`;
+
+      try {
+        const namespace: any = (this.server as any)?.in?.(room);
+        namespace?.emit?.('session:revoked', { sessionId });
+        namespace?.disconnectSockets?.(true);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to drop sockets for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // Ensure locally-tracked sockets are cleaned up even when the Socket.IO
+      // server mock/namespace does not cascade disconnects.
+      for (const [socketId, trackedSessionId] of [...this.socketSessions]) {
+        if (trackedSessionId === sessionId) {
+          this.disconnectSocket(socketId, sessionId);
+        }
+      }
+    }
+  }
+
+  /** Disconnect a single locally-tracked socket. */
+  private disconnectSocket(socketId: string, sessionId?: string): void {
+    try {
+      const socket: any = (this.server as any)?.sockets?.sockets?.get?.(socketId);
+      socket?.disconnect?.(true);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to disconnect socket ${socketId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    if (sessionId) {
+      this.socketSessions.delete(socketId);
     }
   }
 

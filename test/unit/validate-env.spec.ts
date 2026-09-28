@@ -1,8 +1,5 @@
 import { Logger } from '@nestjs/common';
-import {
-  validateEnvironment,
-  validateBlockchainEnvironment,
-} from '../../src/utils/validate-env';
+import { validateEnvironment, validateBlockchainEnvironment } from '../../src/utils/validate-env';
 
 describe('validateEnvironment', () => {
   const originalEnv = { ...process.env };
@@ -205,10 +202,8 @@ describe('validateBlockchainEnvironment (#1178)', () => {
   function setValidBlockchainEnv(): void {
     process.env.BLOCKCHAIN_ENABLED = 'true';
     process.env.BLOCKCHAIN_RPC_URL = 'https://sepolia.infura.io/v3/validprojectid';
-    process.env.BLOCKCHAIN_CONTRACT_ADDRESS =
-      '0xFB1b73C4F0BDa4F67Dca266ce6EF42f520fbb98';
-    process.env.BLOCKCHAIN_PRIVATE_KEY =
-      '0x' + 'a1'.repeat(32);
+    process.env.BLOCKCHAIN_CONTRACT_ADDRESS = '0x52908400098527886E0F7030069857D2E4169EE7';
+    process.env.BLOCKCHAIN_PRIVATE_KEY = '0x' + 'a1'.repeat(32);
   }
 
   beforeEach(() => {
@@ -225,8 +220,7 @@ describe('validateBlockchainEnvironment (#1178)', () => {
 
   it('returns no errors when BLOCKCHAIN_ENABLED is false, regardless of placeholders', () => {
     process.env.BLOCKCHAIN_ENABLED = 'false';
-    process.env.BLOCKCHAIN_CONTRACT_ADDRESS =
-      '0x0000000000000000000000000000000000000000';
+    process.env.BLOCKCHAIN_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
     expect(validateBlockchainEnvironment()).toEqual([]);
   });
 
@@ -237,17 +231,15 @@ describe('validateBlockchainEnvironment (#1178)', () => {
 
   it('rejects the zero-address placeholder contract address', () => {
     setValidBlockchainEnv();
-    process.env.BLOCKCHAIN_CONTRACT_ADDRESS =
-      '0x0000000000000000000000000000000000000000';
+    process.env.BLOCKCHAIN_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
     const errors = validateBlockchainEnvironment();
     expect(errors.join(' ')).toContain('zero address');
   });
 
   it('rejects a non-checksummed contract address', () => {
     setValidBlockchainEnv();
-    // Flip the first hex nibble's case to break the EIP-55 checksum.
-    process.env.BLOCKCHAIN_CONTRACT_ADDRESS =
-      '0xfB1b73C4F0BDa4F67Dca266ce6EF42f520fbb98';
+    // Flip one hex letter's case to break the EIP-55 checksum.
+    process.env.BLOCKCHAIN_CONTRACT_ADDRESS = '0x52908400098527886E0F7030069857D2E4169eE7';
     const errors = validateBlockchainEnvironment();
     expect(errors.join(' ')).toContain('checksum');
   });

@@ -1,6 +1,7 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
+import { SessionRevocationService } from './session-revocation.service';
 import {
   SessionDto,
   SessionsListDto,
@@ -17,6 +18,7 @@ export class SessionsService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    @Optional() private readonly revocation?: SessionRevocationService,
   ) {
     this.maxConcurrentSessions = this.configService.get<number>('MAX_CONCURRENT_SESSIONS', 5);
   }
@@ -168,6 +170,9 @@ export class SessionsService {
       },
     });
 
+    // Drop any real-time sockets bound to this session (issue #1294)
+    await this.revocation?.publishRevoked([sessionId]);
+
     return {
       message: 'Session revoked successfully',
       sessionId,
@@ -228,6 +233,9 @@ export class SessionsService {
         revokedAt: new Date(),
       },
     });
+
+    // Drop real-time sockets bound to the revoked sessions (issue #1294)
+    await this.revocation?.publishRevoked(sessions.map((session: any) => session.id));
 
     return {
       message: 'All sessions revoked successfully',

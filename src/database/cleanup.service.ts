@@ -22,6 +22,8 @@ const DEFAULT_RETENTION = {
   loginHistory: 90, // keep login history for 90 days
   searchAnalytics: 30, // per-search analytics rows (contain PII) – 30 days
   searchHistory: 30, // per-user search history – 30 days
+  webhookDeliveryLogs: 30, // webhook delivery logs (issue #1295) – 30 days
+  requestLogs: 7, // per-request analytics logs (issue #1296) – 7 days
 } as const;
 
 const BATCH_SIZE = 500;
@@ -86,6 +88,8 @@ export class CleanupService {
     results.push(await this.cleanOldLoginHistory(now));
     results.push(await this.cleanOldSearchAnalytics(now));
     results.push(await this.cleanOldSearchHistory(now));
+    results.push(await this.cleanWebhookDeliveryLogs(now));
+    results.push(await this.cleanRequestLogs(now));
     results.push(await this.cleanExportJobs(now));
 
     const summary: CleanupSummary = {
@@ -317,12 +321,85 @@ export class CleanupService {
     return { entity: 'SearchHistory', deleted, durationMs: Date.now() - start };
   }
 
-  private async cleanExportJobs(now: Date): Promise<CleanupResult> {
+  /**
+   * Prune old WebhookDeliveryLog rows (#1295) so delivery history stays
+   * bounded. Shares `CLEANUP_WEBHOOK_LOG_DAYS` with the WebhooksService cron.
+   */
+  private async cleanWebhookDeliveryLogs(now: Date): Promise<CleanupResult> {
     const start = Date.now();
-    const retentionHours = parseInt(
-      process.env.CLEANUP_EXPORT_JOB_RETENTION_HOURS ?? '24',
+    const retentionDays = parseInt(
+      process.env.CLEANUP_WEBHOOK_LOG_DAYS ?? String(DEFAULT_RETENTION.webhookDeliveryLogs),
       10,
     );
+
+    const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    let deleted = 0;
+
+    let batch: number;
+    do {
+      const ids = await this.prisma.webhookDeliveryLog.findMany({
+        where: { createdAt: { lt: cutoff } },
+        select: { id: true },
+        take: BATCH_SIZE,
+      });
+
+      if (ids.length === 0) break;
+
+      const result = await this.prisma.webhookDeliveryLog.deleteMany({
+        where: { id: { in: ids.map((r) => r.id) } },
+      });
+
+      batch = result.count;
+      deleted += batch;
+    } while (batch === BATCH_SIZE);
+
+    this.logger.log(
+      `cleanWebhookDeliveryLogs: removed ${deleted} record(s) (retention: ${retentionDays}d)`,
+    );
+    return { entity: 'WebhookDeliveryLog', deleted, durationMs: Date.now() - start };
+  }
+
+  /**
+   * Prune old RequestLog rows (#1296) so per-request analytics stay bounded.
+   * Retention is configurable via `CLEANUP_REQUESTLOG_DAYS`.
+   */
+  private async cleanRequestLogs(now: Date): Promise<CleanupResult> {
+    const start = Date.now();
+    const retentionDays = parseInt(
+      process.env.CLEANUP_REQUESTLOG_DAYS ?? String(DEFAULT_RETENTION.requestLogs),
+      10,
+    );
+
+    const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    let deleted = 0;
+
+    let batch: number;
+    do {
+      const ids = await this.prisma.requestLog.findMany({
+        where: { timestamp: { lt: cutoff } },
+        select: { id: true },
+        take: BATCH_SIZE,
+      });
+
+      if (ids.length === 0) break;
+
+      const result = await this.prisma.requestLog.deleteMany({
+        where: { id: { in: ids.map((r) => r.id) } },
+      });
+
+      batch = result.count;
+      deleted += batch;
+    } while (batch === BATCH_SIZE);
+
+    this.logger.log(
+      `cleanRequestLogs: removed ${deleted} record(s) (retention: ${retentionDays}d)`,
+    );
+    return { entity: 'RequestLog', deleted, durationMs: Date.now() - start };
+  }
+
+  private async cleanExportJobs(now: Date): Promise<CleanupResult> {
+    const start = Date.now();
+    const retentionHours = parseInt(process.env.CLEANUP_EXPORT_JOB_RETENTION_HOURS ?? '24', 10);
     const cutoff = new Date(now.getTime() - retentionHours * 60 * 60 * 1000);
     let deleted = 0;
 
@@ -347,7 +424,9 @@ export class CleanupService {
       deleted = res.count;
     }
 
-    this.logger.log(`cleanExportJobs: removed ${deleted} record(s) (retention: ${retentionHours}h)`);
+    this.logger.log(
+      `cleanExportJobs: removed ${deleted} record(s) (retention: ${retentionHours}h)`,
+    );
     return { entity: 'ExportJob', deleted, durationMs: Date.now() - start };
   }
 }

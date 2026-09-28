@@ -1,5 +1,6 @@
 import { NotificationsGateway } from './notifications.gateway';
 import { RedisPresenceService } from './redis-presence.service';
+import { deviceFingerprint } from './device-fingerprint.util';
 
 describe('NotificationsGateway', () => {
   let gateway: NotificationsGateway;
@@ -262,5 +263,140 @@ describe('NotificationsGateway', () => {
       expect(mockPresence.register).toHaveBeenCalledTimes(2);
       expect(mockPresence.unregister).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+describe('NotificationsGateway - session-bound ticket auth (#1294)', () => {
+  let gateway: NotificationsGateway;
+  let presence: jest.Mocked<RedisPresenceService>;
+  let wsTicket: { verify: jest.Mock };
+  let revocation: { subscribe: jest.Mock };
+  let sessions: { isSessionValid: jest.Mock };
+  let namespace: { emit: jest.Mock; disconnectSockets: jest.Mock };
+  let server: { to: jest.Mock; emit: jest.Mock; in: jest.Mock; sockets: any };
+
+  const AGENT = 'test-agent/1.0';
+
+  beforeEach(() => {
+    presence = {
+      register: jest.fn().mockResolvedValue(undefined),
+      unregister: jest.fn().mockResolvedValue(undefined),
+      heartbeat: jest.fn().mockResolvedValue(undefined),
+      isUserConnected: jest.fn().mockResolvedValue(true),
+    } as any;
+
+    wsTicket = { verify: jest.fn() };
+    revocation = { subscribe: jest.fn().mockReturnValue(jest.fn()) };
+    sessions = { isSessionValid: jest.fn().mockResolvedValue(true) };
+
+    gateway = new NotificationsGateway(
+      presence,
+      wsTicket as any,
+      revocation as any,
+      sessions as any,
+    );
+
+    namespace = { emit: jest.fn(), disconnectSockets: jest.fn() };
+    server = {
+      to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+      emit: jest.fn(),
+      in: jest.fn().mockReturnValue(namespace),
+      sockets: { sockets: new Map() },
+    };
+    gateway.server = server as any;
+  });
+
+  function makeClient(ticket: string, agent = AGENT) {
+    return {
+      id: 'socket-1',
+      handshake: { auth: { ticket }, headers: { 'user-agent': agent }, query: {} },
+      join: jest.fn(),
+      disconnect: jest.fn(),
+    };
+  }
+
+  it('accepts a valid ticket and binds the socket to the session', async () => {
+    wsTicket.verify.mockReturnValue({
+      sub: 'user-1',
+      sid: 'sess-1',
+      dfp: deviceFingerprint(AGENT),
+    });
+
+    const client = makeClient('ticket-abc');
+    await gateway.handleConnection(client as any);
+
+    expect(client.join).toHaveBeenCalledWith('user:user-1');
+    expect(client.join).toHaveBeenCalledWith('session:sess-1');
+    expect(sessions.isSessionValid).toHaveBeenCalledWith('sess-1');
+    expect(presence.register).toHaveBeenCalledWith('user-1', 'socket-1');
+  });
+
+  it('rejects a ticket whose session is no longer valid', async () => {
+    sessions.isSessionValid.mockResolvedValue(false);
+    wsTicket.verify.mockReturnValue({
+      sub: 'user-1',
+      sid: 'sess-1',
+      dfp: deviceFingerprint(AGENT),
+    });
+
+    const client = makeClient('ticket-abc');
+    await gateway.handleConnection(client as any);
+
+    expect(client.disconnect).toHaveBeenCalledWith(true);
+    expect(client.join).not.toHaveBeenCalled();
+    expect(presence.register).not.toHaveBeenCalled();
+  });
+
+  it('rejects a ticket presented from a different device', async () => {
+    wsTicket.verify.mockReturnValue({
+      sub: 'user-1',
+      sid: 'sess-1',
+      dfp: deviceFingerprint('some-other-agent'),
+    });
+
+    const client = makeClient('ticket-abc');
+    await gateway.handleConnection(client as any);
+
+    expect(client.disconnect).toHaveBeenCalledWith(true);
+    expect(client.join).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid ticket', async () => {
+    wsTicket.verify.mockImplementation(() => {
+      throw new Error('invalid');
+    });
+
+    const client = makeClient('bad-ticket');
+    await gateway.handleConnection(client as any);
+
+    expect(client.disconnect).toHaveBeenCalledWith(true);
+  });
+
+  it('drops sockets bound to a revoked session', async () => {
+    wsTicket.verify.mockReturnValue({
+      sub: 'user-1',
+      sid: 'sess-1',
+      dfp: deviceFingerprint(AGENT),
+    });
+
+    const client = makeClient('ticket-abc');
+    await gateway.handleConnection(client as any);
+
+    await gateway.handleSessionRevoked(['sess-1']);
+
+    expect(server.in).toHaveBeenCalledWith('session:sess-1');
+    expect(namespace.emit).toHaveBeenCalledWith('session:revoked', { sessionId: 'sess-1' });
+    expect(namespace.disconnectSockets).toHaveBeenCalledWith(true);
+  });
+
+  it('subscribes to revocations after init and cleans up on destroy', async () => {
+    // Stub the Redis adapter setup so the unit test does not open sockets.
+    (gateway as any).setupRedisAdapter = jest.fn();
+
+    gateway.afterInit(server as any);
+    expect(revocation.subscribe).toHaveBeenCalled();
+
+    await gateway.onModuleDestroy();
+    expect((gateway as any).heartbeatTimer).toBeNull();
   });
 });

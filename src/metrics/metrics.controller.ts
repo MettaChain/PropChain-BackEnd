@@ -16,6 +16,8 @@
  *   business_transactions_total         – transactions created
  *   business_properties_total           – property listings created
  *   business_documents_total            – documents uploaded
+ *   analytics_request_logs_written_total       – RequestLog rows persisted
+ *   analytics_request_log_write_failures_total – analytics write failures (#1296)
  */
 
 import { Controller, Get, Res, UseGuards } from '@nestjs/common';
@@ -158,6 +160,32 @@ export const transactionValueHistogram = new Histogram({
   buckets: [50_000, 100_000, 200_000, 300_000, 500_000, 750_000, 1_000_000, 2_000_000, 5_000_000],
 });
 
+// ── Analytics pipeline metrics (issue #1296) ──────────────────────────────────
+
+/**
+ * RequestLog rows persisted by the analytics pipeline.
+ *
+ * Label cardinality: 2
+ *   - source: 'memory' | 'redis'
+ */
+export const analyticsRecordsWrittenTotal = new Counter({
+  name: 'analytics_request_logs_written_total',
+  help: 'Total RequestLog records persisted by the analytics pipeline',
+  labelNames: ['source'] as const,
+});
+
+/**
+ * Analytics write failures, split by the stage that failed (issue #1296).
+ *
+ * Label cardinality: 2
+ *   - stage: 'buffer' (coalescing into Redis/memory) | 'flush' (DB persist)
+ */
+export const analyticsWriteFailuresTotal = new Counter({
+  name: 'analytics_request_log_write_failures_total',
+  help: 'Total failures while coalescing or persisting analytics request logs',
+  labelNames: ['stage'] as const,
+});
+
 @Controller()
 @UseGuards(MetricsAuthGuard)
 export class MetricsController {
@@ -167,4 +195,3 @@ export class MetricsController {
     res.end(await register.metrics());
   }
 }
-
