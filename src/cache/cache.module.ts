@@ -20,8 +20,14 @@ import { PrismaModule } from '../database/prisma.module';
   imports: [NestCacheModule.register(REDIS_CONFIG), ScheduleModule.forRoot(), PrismaModule],
   controllers: [CacheStatsController],
   providers: [
-    CacheService,
     CacheMonitoringService,
+    {
+      provide: CacheService,
+      useFactory: (cacheManager: any, cacheMonitoringService: CacheMonitoringService) => {
+        return new CacheService(cacheManager, cacheMonitoringService);
+      },
+      inject: [CACHE_MANAGER, CacheMonitoringService],
+    },
     CacheWarmingService,
     CacheMetricsInterceptor,
     CacheHeadersInterceptor,

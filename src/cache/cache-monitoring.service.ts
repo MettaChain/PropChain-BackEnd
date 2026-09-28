@@ -2,12 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * Cache Monitoring Service
- * Monitors cache performance, hits/misses, and health.
+ * Monitors cache performance, hits/misses, errors, and health.
  */
 
 export interface CacheMetrics {
   hits: number;
   misses: number;
+  errors: number;
   hitRate: number;
   totalRequests: number;
   avgResponseTime: number;
@@ -25,6 +26,7 @@ export interface CacheHealthStatus {
 interface CacheMetricState {
   hits: number;
   misses: number;
+  errors: number;
   totalRequests: number;
   responseTimes: number[];
 }
@@ -36,6 +38,7 @@ export class CacheMonitoringService {
   private metrics: CacheMetricState = {
     hits: 0,
     misses: 0,
+    errors: 0,
     totalRequests: 0,
     responseTimes: [],
   };
@@ -53,6 +56,14 @@ export class CacheMonitoringService {
    */
   recordMiss(): void {
     this.metrics.misses += 1;
+    this.metrics.totalRequests += 1;
+  }
+
+  /**
+   * Record cache error.
+   */
+  recordError(): void {
+    this.metrics.errors += 1;
     this.metrics.totalRequests += 1;
   }
 
@@ -84,6 +95,7 @@ export class CacheMonitoringService {
     return {
       hits: this.metrics.hits,
       misses: this.metrics.misses,
+      errors: this.metrics.errors,
       hitRate: Number(hitRate.toFixed(2)),
       totalRequests: this.metrics.totalRequests,
       avgResponseTime: Number(avgResponseTime.toFixed(2)),
@@ -98,6 +110,7 @@ export class CacheMonitoringService {
     this.metrics = {
       hits: 0,
       misses: 0,
+      errors: 0,
       totalRequests: 0,
       responseTimes: [],
     };
@@ -120,6 +133,12 @@ export class CacheMonitoringService {
     // Alert if average response time is high.
     if (metrics.avgResponseTime > 100) {
       alerts.push(`⚠️ High average response time: ${metrics.avgResponseTime}ms`);
+    }
+
+    // Alert if error rate is too high.
+    const errorRate = metrics.totalRequests > 0 ? (metrics.errors / metrics.totalRequests) * 100 : 0;
+    if (errorRate > 5 && metrics.totalRequests > 50) {
+      alerts.push(`⚠️ High cache error rate: ${errorRate.toFixed(2)}%`);
     }
 
     return alerts;
