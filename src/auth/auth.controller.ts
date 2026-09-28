@@ -21,6 +21,8 @@ import { FreshTwoFactorGuard } from './guards/fresh-two-factor.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { KeyPermissionsGuard } from './guards/key-permissions.guard';
+import { RequireScopes } from './decorators/require-scopes.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { AuthUserPayload } from './types/auth-user.type';
@@ -171,6 +173,7 @@ export class AuthController {
       userId: user.sub,
       email: user.email,
       apiKeyId: user.apiKeyId,
+      permissions: user.apiKeyPermissions ?? [],
     };
   }
 

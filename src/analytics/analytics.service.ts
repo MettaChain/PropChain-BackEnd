@@ -2,7 +2,13 @@
 
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import Redis from 'ioredis';
 import { PrismaService } from '../database/prisma.service';
+import { getRedisConfig } from '../cache/cache.config';
+import {
+  analyticsRecordsWrittenTotal,
+  analyticsWriteFailuresTotal,
+} from '../metrics/metrics.controller';
 
 export interface RequestRecord {
   endpoint: string;
@@ -68,6 +74,13 @@ const MAX_BUFFER_SIZE = 500;
  */
 const FLUSH_INTERVAL_MS = 5_000;
 
+/**
+ * Redis list used to coalesce request-log writes (issue #1296). Only active
+ * when `ANALYTICS_USE_REDIS_BUFFER=true` (or in production unless explicitly
+ * disabled), so local/test runs keep the in-memory buffer only.
+ */
+const REDIS_BUFFER_KEY = 'analytics:requestlogs:buffer';
+
 @Injectable()
 export class AnalyticsService implements OnModuleDestroy {
   private readonly logger = new Logger(AnalyticsService.name);
@@ -88,6 +101,9 @@ export class AnalyticsService implements OnModuleDestroy {
   /** Whether the service has been destroyed (stops flushes). */
   private destroyed = false;
 
+  /** Optional Redis client used to coalesce writes across replicas. */
+  private redis: Redis | null = null;
+
   // Slow endpoint threshold in ms
   private readonly SLOW_THRESHOLD_MS = 1000;
 
@@ -99,6 +115,37 @@ export class AnalyticsService implements OnModuleDestroy {
       process.env.ANALYTICS_RETENTION_DAYS ?? String(DEFAULT_RETENTION_DAYS),
       10,
     );
+
+    // Redis-backed coalescing (#1296). Disabled by default; enabled explicitly
+    // or in production unless opted out.
+    const redisBufferFlag = process.env.ANALYTICS_USE_REDIS_BUFFER;
+    const redisBufferEnabled =
+      redisBufferFlag === 'true' ||
+      (process.env.NODE_ENV === 'production' && redisBufferFlag !== 'false');
+
+    if (redisBufferEnabled) {
+      try {
+        const config = getRedisConfig();
+        this.redis = new Redis({
+          host: config.host,
+          port: config.port,
+          password: config.password,
+          db: config.db,
+          retryStrategy: config.retryStrategy as any,
+          maxRetriesPerRequest: 3,
+          enableReadyCheck: true,
+          lazyConnect: true,
+        });
+        this.redis.connect().catch((err) => {
+          this.logger.warn(
+            `Analytics Redis buffer unavailable, falling back to memory: ${err?.message ?? err}`,
+          );
+        });
+      } catch (err) {
+        this.logger.warn(`Could not initialise analytics Redis buffer: ${err}`);
+        this.redis = null;
+      }
+    }
 
     // Start periodic flush timer
     this.flushTimer = setInterval(() => {
@@ -121,12 +168,35 @@ export class AnalyticsService implements OnModuleDestroy {
     }
     // Flush any remaining records before shutdown
     await this.flush();
+
+    if (this.redis) {
+      try {
+        await this.redis.quit();
+      } catch {
+        this.redis.disconnect();
+      }
+      this.redis = null;
+    }
   }
 
   // ── Write path ──────────────────────────────────────────────────────────
 
   record(data: Omit<RequestRecord, 'timestamp'>): void {
-    this.buffer.push({ ...data, timestamp: new Date() });
+    const record = { ...data, timestamp: new Date() };
+
+    // Coalesce into a Redis list when enabled so writes survive restarts and
+    // are shared across replicas (#1296).
+    if (this.redis && !this.destroyed) {
+      this.redis.rpush(REDIS_BUFFER_KEY, JSON.stringify(record)).catch((err) => {
+        analyticsWriteFailuresTotal.inc({ stage: 'buffer' });
+        this.logger.error('Failed to append analytics record to Redis buffer', err?.stack);
+        // Preserve the record in memory so it is not lost.
+        this.buffer.push(record);
+      });
+      return;
+    }
+
+    this.buffer.push(record);
 
     // Synchronous flush when buffer is full
     if (this.buffer.length >= MAX_BUFFER_SIZE) {
@@ -143,17 +213,50 @@ export class AnalyticsService implements OnModuleDestroy {
    * Idempotent: no-ops when the buffer is empty.
    */
   async flush(): Promise<void> {
-    if (this.buffer.length === 0) return;
-
     const records = this.buffer.splice(0, this.buffer.length);
+    let source = 'memory';
+
+    // Drain the Redis coalescing list first, if in use.
+    if (this.redis) {
+      try {
+        const raw = await this.redis.lrange(REDIS_BUFFER_KEY, 0, -1);
+        if (raw.length > 0) {
+          await this.redis.ltrim(REDIS_BUFFER_KEY, raw.length, -1);
+          source = 'redis';
+          for (const entry of raw) {
+            try {
+              records.push(JSON.parse(entry));
+            } catch {
+              // Skip malformed entries rather than blocking the whole flush.
+            }
+          }
+        }
+      } catch (err) {
+        analyticsWriteFailuresTotal.inc({ stage: 'buffer' });
+        this.logger.error('Failed to drain Redis analytics buffer', err?.stack);
+      }
+    }
+
+    if (records.length === 0) return;
 
     try {
       await this.prisma.requestLog.createMany({ data: records });
+      analyticsRecordsWrittenTotal.inc({ source }, records.length);
     } catch (err) {
+      analyticsWriteFailuresTotal.inc({ stage: 'flush' });
       this.logger.error(`Failed to persist ${records.length} analytics records`, err.stack);
       // Re-prepend the records so they are retried on the next flush
       this.buffer.unshift(...records);
     }
+  }
+
+  /**
+   * Periodic flush of coalesced request logs (issue #1296). Complements the
+   * in-process timer by also draining the Redis buffer on a fixed cadence.
+   */
+  @Cron(CronExpression.EVERY_10_SECONDS)
+  async flushBufferedRecords(): Promise<void> {
+    await this.flush();
   }
 
   // ── Read path ───────────────────────────────────────────────────────────

@@ -3,7 +3,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-function writeCatalogue(dir: string, lang: string, payload: Record<string, unknown> | string): void {
+function writeCatalogue(
+  dir: string,
+  lang: string,
+  payload: Record<string, unknown> | string,
+): void {
   const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
   fs.writeFileSync(path.join(dir, `${lang}.json`), body);
 }
@@ -146,7 +150,9 @@ describe('I18nService', () => {
       writeCatalogue(badDir, 'en', { common: { not_found: 'OK EN' } });
       writeCatalogue(badDir, 'es', '{ this is not valid json');
       const isolated = new I18nService(badDir);
-      const warnSpy = jest.spyOn((isolated as any).logger, 'warn').mockImplementation(() => undefined);
+      const warnSpy = jest
+        .spyOn((isolated as any).logger, 'warn')
+        .mockImplementation(() => undefined);
       isolated.onModuleInit();
 
       expect(warnSpy).toHaveBeenCalled();
@@ -173,21 +179,35 @@ describe('I18nService', () => {
   });
 });
 
-  describe('missing key observability (issue #1236)', () => {
-    it('records a miss and still returns the raw key', () => {
-      service.clearRecentMisses();
-      expect(service.tFor('not.a.key', 'en')).toBe('not.a.key');
-      const misses = service.getRecentMisses();
-      expect(misses.length).toBeGreaterThanOrEqual(1);
-      expect(misses.some((m) => m.key === 'not.a.key' && m.language === 'en')).toBe(true);
-    });
+describe('i18n missing key observability (issue #1236)', () => {
+  let dir: string;
+  let svc: I18nService;
 
-    it('increments count on repeated misses', () => {
-      service.clearRecentMisses();
-      service.tFor('ghost.key', 'es');
-      service.tFor('ghost.key', 'es');
-      const entry = service.getRecentMisses().find((m) => m.key === 'ghost.key');
-      expect(entry?.count).toBe(2);
-    });
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-miss-'));
+    writeCatalogue(dir, 'en', { common: { not_found: 'Resource not found' } });
+    writeCatalogue(dir, 'es', {});
+    svc = new I18nService(dir);
+    svc.onModuleInit();
   });
 
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('records a miss and still returns the raw key', () => {
+    svc.clearRecentMisses();
+    expect(svc.tFor('not.a.key', 'en')).toBe('not.a.key');
+    const misses = svc.getRecentMisses();
+    expect(misses.length).toBeGreaterThanOrEqual(1);
+    expect(misses.some((m) => m.key === 'not.a.key' && m.language === 'en')).toBe(true);
+  });
+
+  it('increments count on repeated misses', () => {
+    svc.clearRecentMisses();
+    svc.tFor('ghost.key', 'es');
+    svc.tFor('ghost.key', 'es');
+    const entry = svc.getRecentMisses().find((m) => m.key === 'ghost.key');
+    expect(entry?.count).toBe(2);
+  });
+});

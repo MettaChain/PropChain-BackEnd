@@ -31,6 +31,18 @@ describe('CleanupService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       } as any,
+      webhookDeliveryLog: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      } as any,
+      requestLog: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      } as any,
+      exportJob: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      } as any,
     };
     service = new CleanupService(prisma as unknown as PrismaService);
   });
@@ -38,10 +50,34 @@ describe('CleanupService', () => {
   it('performCleanup returns summary with totalDeleted of 0 when no records exist', async () => {
     const summary = await service.performCleanup();
     expect(summary.totalDeleted).toBe(0);
-    expect(summary.results).toHaveLength(6);
+    expect(summary.results).toHaveLength(9);
     expect(summary.results.map((r) => r.entity)).toEqual(
       expect.arrayContaining(['SearchAnalytics', 'SearchHistory']),
     );
+  });
+
+  it('prunes RequestLog rows on the CLEANUP_REQUESTLOG_DAYS window (#1296)', async () => {
+    process.env.CLEANUP_REQUESTLOG_DAYS = '7';
+    const requestLog = prisma.requestLog!;
+    (requestLog.findMany as jest.Mock).mockResolvedValueOnce([{ id: 'r1' }, { id: 'r2' }]);
+    (requestLog.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+
+    const summary = await service.performCleanup();
+
+    const row = summary.results.find((r) => r.entity === 'RequestLog');
+    expect(row?.deleted).toBe(2);
+  });
+
+  it('prunes WebhookDeliveryLog rows on the CLEANUP_WEBHOOK_LOG_DAYS window (#1295)', async () => {
+    process.env.CLEANUP_WEBHOOK_LOG_DAYS = '30';
+    const logs = prisma.webhookDeliveryLog!;
+    (logs.findMany as jest.Mock).mockResolvedValueOnce([{ id: 'w1' }]);
+    (logs.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+    const summary = await service.performCleanup();
+
+    const row = summary.results.find((r) => r.entity === 'WebhookDeliveryLog');
+    expect(row?.deleted).toBe(1);
   });
 
   it('getLastSummary returns null before any cleanup run', () => {

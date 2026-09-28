@@ -16,18 +16,32 @@ In-app notifications (persisted in the DB), real-time delivery over WebSocket, c
 
 All require `JwtAuthGuard` and operate only on the caller's notifications.
 
-| Method   | Path                          | Description      |
-| -------- | ----------------------------- | ---------------- |
-| `GET`    | `/notifications`              | List             |
-| `GET`    | `/notifications/unread-count` | Unread count     |
-| `PATCH`  | `/notifications/:id/read`     | Mark one as read |
-| `PATCH`  | `/notifications/read-all`     | Mark all as read |
-| `DELETE` | `/notifications/:id`          | Delete           |
+| Method   | Path                          | Description                                            |
+| -------- | ----------------------------- | ------------------------------------------------------ |
+| `GET`    | `/notifications`              | List                                                   |
+| `GET`    | `/notifications/unread-count` | Unread count                                           |
+| `PATCH`  | `/notifications/:id/read`     | Mark one as read                                       |
+| `PATCH`  | `/notifications/read-all`     | Mark all as read                                       |
+| `DELETE` | `/notifications/:id`          | Delete                                                 |
+| `POST`   | `/notifications/ws-ticket`    | Issue a short-lived WebSocket handshake ticket (#1294) |
 
 ## WebSocket gateway
 
 - Namespace: **`/notifications`**. CORS origins come from `CORS_ORIGINS`.
-- The client identifies itself with a `userId` **query parameter** in the handshake (`io('/notifications', { query: { userId } })`). Sockets without it are disconnected. **No JWT is verified** (see gotchas).
+- **Authenticated handshake (#1294).** The client first calls `POST /notifications/ws-ticket` with its bearer token. The server returns a short-lived (60 s) ticket bound to the caller's **session** and **device fingerprint**. The socket then connects with the ticket:
+
+  ```js
+  const { ticket } = await fetch('/notifications/ws-ticket', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }).then((r) => r.json());
+
+  io('/notifications', { auth: { ticket } });
+  ```
+
+- On connect the gateway verifies the ticket signature, checks the device fingerprint, confirms the session is still active, and joins both `user:{userId}` and `session:{sessionId}` rooms. Invalid, expired, or revoked-session tickets are disconnected.
+- **Revocation.** When a session is revoked (`DELETE /sessions/:id` or `DELETE /sessions`), `SessionRevocationService` notifies every replica via Redis pub/sub; the gateway emits `session:revoked` and drops all sockets bound to that session. A 10 s heartbeat also re-validates sessions as a safety net.
+- **Legacy fallback.** A `userId` query parameter is still accepted for backward compatibility, but it is unauthenticated, logs a warning, and should be migrated to ticket auth.
 - Server → client events include user-targeted notifications (`sendToUser`) and broadcast events such as `document:expired`.
 - On connect, `deliverPending(userId)` flushes notifications created while the user was offline.
 

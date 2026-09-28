@@ -5,6 +5,8 @@ import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { RedisPresenceService } from './redis-presence.service';
+import { WsTicketService } from './ws-ticket.service';
+import { SessionsModule } from '../sessions/sessions.module';
 import {
   SmsService,
   SmsProviderFactory,
@@ -17,10 +19,11 @@ import { EmailModule } from '../email/email.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [PrismaModule, EmailModule, UsersModule, ConfigModule],
+  imports: [PrismaModule, EmailModule, UsersModule, ConfigModule, SessionsModule],
   controllers: [NotificationsController],
   providers: [
     RedisPresenceService,
+    WsTicketService,
     NotificationsGateway,
     NotificationsService,
     TwilioSmsProvider,

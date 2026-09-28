@@ -22,13 +22,29 @@ Users control tracking via the `searchAnalyticsOptOut` user preference
 Per-search and per-user search rows are purged by the daily cleanup job
 (`CleanupService`, runs at 02:00 UTC) after a configurable retention window:
 
-| Entity | Env var | Default |
-| --- | --- | --- |
-| `SearchAnalytics` | `CLEANUP_SEARCH_RETENTION_DAYS` | 30 |
-| `SearchHistory` | `CLEANUP_SEARCH_RETENTION_DAYS` | 30 |
+| Entity               | Env var                         | Default |
+| -------------------- | ------------------------------- | ------- |
+| `SearchAnalytics`    | `CLEANUP_SEARCH_RETENTION_DAYS` | 30      |
+| `SearchHistory`      | `CLEANUP_SEARCH_RETENTION_DAYS` | 30      |
+| `RequestLog`         | `CLEANUP_REQUESTLOG_DAYS`       | 7       |
+| `WebhookDeliveryLog` | `CLEANUP_WEBHOOK_LOG_DAYS`      | 30      |
 
 Aggregated `PopularSearch` rows are intentionally retained (they contain no
 personal identifiers) and power the "popular searches" product surface.
+
+## Analytics write coalescing (#1296)
+
+`RequestLog` is written by the analytics interceptor on every HTTP request, so
+writes are coalesced rather than issued per request:
+
+- The in-process buffer flushes every 5 s or once it reaches 500 records.
+- When `ANALYTICS_USE_REDIS_BUFFER=true` (default in production), records are
+  appended to a Redis list (`analytics:requestlogs:buffer`) and drained to the
+  database by a 10 s cron, so buffered writes survive restarts and are shared
+  across replicas.
+- `analytics_request_logs_written_total` and
+  `analytics_request_log_write_failures_total` (labelled by `stage`) expose
+  write throughput and failure rates on `/metrics`.
 
 ## GDPR / Data Subject Rights
 

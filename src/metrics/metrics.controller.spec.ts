@@ -3,7 +3,11 @@ import { MetricsController } from './metrics.controller';
 
 jest.mock('prom-client', () => ({
   collectDefaultMetrics: jest.fn(),
-  register: { metrics: jest.fn().mockResolvedValue(''), contentType: 'text/plain' },
+  register: {
+    metrics: jest.fn().mockResolvedValue(''),
+    contentType: 'text/plain',
+    getSingleMetric: jest.fn().mockReturnValue(undefined),
+  },
   Counter: jest.fn().mockImplementation(() => ({ inc: jest.fn() })),
   Gauge: jest.fn().mockImplementation(() => ({ set: jest.fn() })),
   Histogram: jest.fn().mockImplementation(() => ({ observe: jest.fn() })),
@@ -34,4 +38,3 @@ describe('MetricsController', () => {
     expect(mockRes.end).toHaveBeenCalled();
   });
 });
-
