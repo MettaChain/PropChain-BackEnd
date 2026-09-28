@@ -26,6 +26,7 @@ import {
   UpdateApiKeyPermissionsDto,
   VerifyTwoFactorDto,
 } from './dto/auth.dto';
+import { TwoFactorService } from './two-factor.service';
 import {
   buildOtpAuthUrl,
   buildQrCodeUrl,
@@ -112,6 +113,7 @@ export class AuthService {
     private readonly rateLimitService: LoginRateLimitService,
     private readonly fraudService: FraudService,
     @Optional() private readonly apiKeyAnalyticsService?: ApiKeyAnalyticsService,
+    @Optional() private readonly twoFactorService?: TwoFactorService,
   ) {
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     if (!jwtSecret || jwtSecret.length < MIN_JWT_SECRET_LENGTH) {
@@ -377,7 +379,16 @@ export class AuthService {
 
     await this.verifyCredentials(user, data.password, ipAddress, userAgent);
 
-    if (user.twoFactorEnabled) {
+    // #1291 — a previously trusted device may skip the second-factor challenge.
+    let trustedDeviceAccepted = false;
+    if (user.twoFactorEnabled && this.twoFactorService) {
+      trustedDeviceAccepted = await this.twoFactorService.isTrustedDevice(
+        user.id,
+        data.trustedDeviceToken,
+      );
+    }
+
+    if (user.twoFactorEnabled && !trustedDeviceAccepted) {
       const hasTotpCode = Boolean(data.totpCode?.trim());
       const hasBackupCode = Boolean(data.backupCode?.trim());
 
@@ -385,10 +396,10 @@ export class AuthService {
         throw new UnauthorizedException('Two-factor authentication code required');
       }
 
-      if (hasTotpCode && user.twoFactorSecret) {
+      if (hasTotpCode) {
         const totpCode = data.totpCode;
-        if (!totpCode) {
-          throw new UnauthorizedException('Two-factor authentication code required');
+        if (!totpCode || !user.twoFactorSecret) {
+          throw new UnauthorizedException('Invalid two-factor authentication code');
         }
 
         const validCode = verifyTotpCode({
@@ -418,6 +429,10 @@ export class AuthService {
             },
           },
         });
+      } else {
+        // 2FA is enabled but no usable factor was supplied — never fall through
+        // without a successful challenge.
+        throw new UnauthorizedException('Two-factor authentication code required');
       }
     }
 
@@ -454,9 +469,31 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(refreshedUser, undefined, ipAddress, userAgent);
+
+    // #1291 — optionally remember this device so subsequent logins can skip the
+    // challenge. Only issued when the user actually proved the second factor.
+    let trustedDevice: { token: string; device: { expiresAt: Date } } | null = null;
+    if (
+      data.rememberDevice &&
+      refreshedUser.twoFactorEnabled &&
+      !trustedDeviceAccepted &&
+      this.twoFactorService
+    ) {
+      trustedDevice = await this.twoFactorService.rememberDevice(refreshedUser.id, {
+        userAgent,
+        ipAddress,
+      });
+    }
+
     return {
       user: sanitizeUser(refreshedUser),
       ...tokens,
+      ...(trustedDevice
+        ? {
+            trustedDeviceToken: trustedDevice.token,
+            trustedDeviceExpiresAt: trustedDevice.device.expiresAt,
+          }
+        : {}),
     };
   }
 
@@ -947,6 +984,8 @@ export class AuthService {
       });
 
     await this.sessionsService.revokeAllSessions(existingUser.id);
+    // #1291 — a password change invalidates remembered devices too.
+    await this.twoFactorService?.revokeAllDevices(existingUser.id);
 
     return { message: 'Password updated successfully' };
   }
@@ -1051,6 +1090,9 @@ export class AuthService {
       },
     });
 
+    // #1291 — disabling 2FA makes any remembered device meaningless.
+    await this.twoFactorService?.revokeAllDevices(foundUser.id);
+
     // Audit log 2FA disable (#886)
     await this.prisma.activityLog
       .create({
@@ -1067,6 +1109,104 @@ export class AuthService {
       });
 
     return { message: 'Two-factor authentication disabled successfully' };
+  }
+
+  // ─── Two-factor management (#1291) ─────────────────────────────────────
+
+  /**
+   * Issue a fresh set of recovery codes. Requires fresh 2FA at the controller
+   * layer (FreshTwoFactorGuard) so possession of the account is proven.
+   */
+  async regenerateRecoveryCodes(user: AuthUserPayload) {
+    if (!this.twoFactorService) {
+      throw new ServiceUnavailableException('Two-factor service unavailable');
+    }
+
+    const foundUser = await this.prisma.user.findUnique({ where: { id: user.sub } });
+    if (!foundUser) {
+      throw new NotFoundException('User not found');
+    }
+    if (!foundUser.twoFactorEnabled) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    const recoveryCodes = await this.twoFactorService.regenerateRecoveryCodes(user.sub);
+
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: user.sub,
+          action: 'TWO_FACTOR_RECOVERY_CODES_REGENERATED',
+          entityType: 'USER',
+          entityId: user.sub,
+          description: 'User regenerated two-factor recovery codes',
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log recovery-code regeneration: ${err}`);
+      });
+
+    return { recoveryCodes };
+  }
+
+  /** List the devices trusted for this user (#1291). */
+  async listTrustedDevices(user: AuthUserPayload) {
+    if (!this.twoFactorService) {
+      return { devices: [] };
+    }
+    const devices = await this.twoFactorService.listDevices(user.sub);
+    return { devices };
+  }
+
+  /** Revoke a single trusted device (#1291). */
+  async revokeTrustedDevice(user: AuthUserPayload, deviceId: string) {
+    if (!this.twoFactorService) {
+      throw new ServiceUnavailableException('Two-factor service unavailable');
+    }
+    return this.twoFactorService.revokeDevice(user.sub, deviceId);
+  }
+
+  /**
+   * Admin-initiated reset of a user's two-factor configuration (#1291). Used
+   * when a user is locked out — it clears the secret, recovery codes and all
+   * trusted devices.
+   */
+  async adminForceDisableTwoFactor(admin: AuthUserPayload, email: string) {
+    const target = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.user.update({
+      where: { id: target.id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        twoFactorBackupCodes: { set: [] },
+      },
+    });
+
+    await this.twoFactorService?.revokeAllDevices(target.id);
+
+    await this.prisma.activityLog
+      .create({
+        data: {
+          userId: target.id,
+          action: 'TWO_FACTOR_ADMIN_FORCE_DISABLED',
+          entityType: 'USER',
+          entityId: target.id,
+          description: `Two-factor authentication force-disabled by admin ${admin.sub}`,
+          metadata: { adminId: admin.sub },
+        },
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to audit-log admin 2FA reset: ${err}`);
+      });
+
+    return { message: 'Two-factor authentication has been reset', userId: target.id };
   }
 
   async createApiKey(user: AuthUserPayload, data: CreateApiKeyDto) {
