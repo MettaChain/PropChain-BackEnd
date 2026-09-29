@@ -1,6 +1,7 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { I18nService, SupportedLanguage } from '../../i18n/i18n.service';
+import { buildErrorResponse, extractTraceId } from '../contracts/error-response';
 
 interface AuthenticatedUserShape {
   languagePreference?: string | null;
@@ -32,18 +33,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : 'No stack trace available',
     );
 
-    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      language,
-      message: safeMessage,
-      stack:
-        process.env.NODE_ENV === 'development' && exception instanceof Error
-          ? exception.stack
-          : undefined,
-    });
+    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json(
+      buildErrorResponse({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: safeMessage,
+        traceId: extractTraceId(request),
+        path: request.url,
+        language,
+        legacy: {
+          stack:
+            process.env.NODE_ENV === 'development' && exception instanceof Error
+              ? exception.stack
+              : undefined,
+        },
+      }),
+    );
   }
 
   private resolveLanguage(request: Request & { user?: AuthenticatedUserShape }): SupportedLanguage {

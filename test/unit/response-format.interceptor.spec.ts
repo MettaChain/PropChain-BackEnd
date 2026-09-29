@@ -19,6 +19,7 @@ describe('ResponseFormatInterceptor', () => {
     };
     mockSwitchToHttp = {
       getResponse: jest.fn().mockReturnValue(mockResponse),
+      getRequest: jest.fn().mockReturnValue({ headers: {}, traceId: 'test-trace-id' }),
     };
     mockExecutionContext = {
       switchToHttp: jest.fn().mockReturnValue(mockSwitchToHttp),
