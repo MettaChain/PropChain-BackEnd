@@ -2,6 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus, Logger } from '@nest
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { I18nService, SupportedLanguage } from '../../i18n/i18n.service';
+import { buildErrorResponse, extractTraceId } from '../contracts/error-response';
 
 interface AuthenticatedUserShape {
   languagePreference?: string | null;
@@ -22,6 +23,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
 
     const language = this.resolveLanguage(request);
     const local = this.localise(exception, language);
+    const status = local?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (!local) {
       this.logger.error(`Unhandled Prisma error: ${exception.code}`, exception.stack);
@@ -31,17 +33,22 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       `Prisma Exception: ${exception.code} - ${local?.message ?? ''} - ${request.url} - Stack: ${exception.stack}`,
     );
 
-    response.status(local?.status ?? HttpStatus.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      statusCode: local?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      language,
-      message: local?.message ?? this.i18n.tFor('common.internal_server_error', language),
-      errors: local?.errors,
-      prismaCode: process.env.NODE_ENV === 'development' ? exception.code : undefined,
-      stack: process.env.NODE_ENV === 'development' ? exception.stack : undefined,
-    });
+    response.status(status).json(
+      buildErrorResponse({
+        statusCode: status,
+        message: local?.message ?? this.i18n.tFor('common.internal_server_error', language),
+        details: local?.errors,
+        traceId: extractTraceId(request),
+        path: request.url,
+        language,
+        legacy: {
+          // Legacy aliases kept for existing consumers.
+          errors: local?.errors,
+          prismaCode: process.env.NODE_ENV === 'development' ? exception.code : undefined,
+          stack: process.env.NODE_ENV === 'development' ? exception.stack : undefined,
+        },
+      }),
+    );
   }
 
   private resolveLanguage(request: Request & { user?: AuthenticatedUserShape }): SupportedLanguage {

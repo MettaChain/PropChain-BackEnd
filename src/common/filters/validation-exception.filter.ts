@@ -1,6 +1,11 @@
 import { ExceptionFilter, Catch, ArgumentsHost, BadRequestException, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { I18nService, SupportedLanguage } from '../../i18n/i18n.service';
+import {
+  buildErrorResponse,
+  extractTraceId,
+  statusCodeToErrorCode,
+} from '../contracts/error-response';
 
 interface StandardizedValidationError {
   field: string;
@@ -14,22 +19,27 @@ interface AuthenticatedUserShape {
 }
 
 /**
- * Catches `BadRequestException` (HTTP 400) errors and transforms them into a
- * standardized validation error format:
+ * Catches `BadRequestException` (HTTP 400) errors and transforms them into the
+ * canonical error envelope (Issue #1298):
  *
  * ```json
  * {
  *   "success": false,
  *   "statusCode": 400,
- *   "timestamp": "2026-07-28T12:00:00.000Z",
- *   "path": "/api/v1/auth/register",
- *   "errors": [
- *     { "field": "email", "message": "email must be a valid email", "code": "IS_EMAIL", "constraints": { "isEmail": "email must be a valid email" } }
- *   ]
+ *   "code": "VALIDATION_ERROR",
+ *   "message": "Validation failed",
+ *   "details": [
+ *     { "field": "email", "message": "email must be a valid email", "code": "IS_EMAIL", "constraints": { "is_email": "email must be a valid email" } }
+ *   ],
+ *   "traceId": "0f9c7b1e-...",
+ *   "timestamp": "2026-09-29T12:00:00.000Z",
+ *   "path": "/api/v2/auth/register",
+ *   "language": "en",
+ *   "errors": [ ... ] // legacy alias of `details`
  * }
  * ```
  *
- * @see https://github.com/MettaChain/PropChain-BackEnd/issues/967
+ * @see https://github.com/MettaChain/PropChain-BackEnd/issues/1298
  */
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
@@ -45,38 +55,43 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
     const language = this.resolveLanguage(request);
+    const traceId = extractTraceId(request);
 
     // Determine whether this is a validation error (thrown by ValidationPipe)
     // or a regular BadRequestException with a string message.
+    let details: StandardizedValidationError[] | undefined;
+    let message: string;
+
     if (this.isValidationErrorResponse(exceptionResponse)) {
       const rawErrors = (exceptionResponse as { message: string[] }).message;
-      const standardized = this.standardize(rawErrors, language);
-
-      response.status(status).json({
-        success: false,
-        statusCode: status,
-        timestamp: new Date().toISOString(),
-        path: request.url,
-        language,
-        errors: standardized,
-      });
+      details = this.standardize(rawErrors, language);
+      message = this.i18n.tFor('common.validation_failed', language);
     } else {
-      // For non-validation BadRequestExceptions, delegate to the standard format
-      // but still use a consistent shape.
-      const message =
+      // For non-validation BadRequestExceptions, keep a consistent envelope
+      // with a single localised message and no details.
+      const rawMessage =
         typeof exceptionResponse === 'string'
           ? exceptionResponse
           : ((exceptionResponse as { message?: string }).message ?? 'Bad Request');
 
-      response.status(status).json({
-        success: false,
-        statusCode: status,
-        timestamp: new Date().toISOString(),
-        path: request.url,
-        language,
-        message: this.translateIfI18nKey(message, language),
-      });
+      message = this.translateIfI18nKey(rawMessage, language);
     }
+
+    const envelope = buildErrorResponse({
+      statusCode: status,
+      code: details ? 'VALIDATION_ERROR' : statusCodeToErrorCode(status),
+      message,
+      details,
+      traceId,
+      path: request.url,
+      language,
+      // Legacy alias kept for existing consumers; `errors` mirrors `details`.
+      legacy: details ? { errors: details } : undefined,
+    });
+
+    this.logger.error(`Validation Exception: ${status} - ${message} - ${request.url}`);
+
+    response.status(status).json(envelope);
   }
 
   /**

@@ -1,6 +1,7 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { I18nService, SupportedLanguage } from '../../i18n/i18n.service';
+import { buildErrorResponse, extractTraceId } from '../contracts/error-response';
 
 type ExceptionResponseObject = {
   message?: string | string[];
@@ -34,16 +35,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
       `HTTP Exception: ${status} - ${message} - ${request.url} - Stack: ${exception.stack}`,
     );
 
-    response.status(status).json({
-      success: false,
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      language,
-      message,
-      errors,
-      stack: process.env.NODE_ENV === 'development' ? exception.stack : undefined,
-    });
+    response.status(status).json(
+      buildErrorResponse({
+        statusCode: status,
+        message,
+        details: errors,
+        traceId: extractTraceId(request),
+        path: request.url,
+        language,
+        legacy: {
+          // Legacy alias kept for existing consumers.
+          errors,
+          stack: process.env.NODE_ENV === 'development' ? exception.stack : undefined,
+        },
+      }),
+    );
   }
 
   private resolveLanguage(request: Request & { user?: AuthenticatedUserShape }): SupportedLanguage {

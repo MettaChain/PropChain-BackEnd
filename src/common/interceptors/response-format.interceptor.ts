@@ -3,8 +3,13 @@
  * Standardizes all API responses into a consistent envelope format
  *
  * Success response format: { success: true, data, meta, timestamp }
- * Error response format: { success: false, message, errors, timestamp }
+ * Error response format: { success: false, statusCode, code, message, details, traceId, timestamp }
  * Pagination meta format: { page, limit, total, totalPages }
+ *
+ * The error envelope is the canonical contract defined in
+ * `src/common/contracts/error-response.ts` (Issue #1298); this interceptor
+ * normalises errors flowing through the observable pipeline before the
+ * exception filters serialise them.
  */
 
 import {
@@ -17,6 +22,7 @@ import {
 import { Observable, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { Response } from 'express';
+import { extractTraceId, statusCodeToErrorCode } from '../contracts/error-response';
 
 interface PaginationMeta {
   page: number;
@@ -34,9 +40,14 @@ interface SuccessResponse<T> {
 
 interface ErrorResponse {
   success: false;
+  statusCode: number;
+  code: string;
   message: string;
-  errors?: any[];
+  details?: unknown;
+  traceId: string | null;
   timestamp: string;
+  /** Legacy alias of `details`. */
+  errors?: unknown;
 }
 
 @Injectable()
@@ -45,6 +56,7 @@ export class ResponseFormatInterceptor implements NestInterceptor {
     const timestamp = new Date().toISOString();
     const ctx = context.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest();
 
     return next.handle().pipe(
       map((data) => {
@@ -74,7 +86,7 @@ export class ResponseFormatInterceptor implements NestInterceptor {
       catchError((error) => {
         let statusCode = 500;
         let message = 'Internal Server Error';
-        let errors: any[] | undefined;
+        let errors: unknown;
 
         if (error instanceof HttpException) {
           statusCode = error.getStatus();
@@ -84,7 +96,7 @@ export class ResponseFormatInterceptor implements NestInterceptor {
             message = errorResponse;
           } else if (typeof errorResponse === 'object') {
             message = (errorResponse as any).message || message;
-            errors = (errorResponse as any).errors;
+            errors = (errorResponse as any).errors ?? (errorResponse as any).details;
           }
         } else if (error instanceof Error) {
           message = error.message;
@@ -94,18 +106,20 @@ export class ResponseFormatInterceptor implements NestInterceptor {
 
         const errorResponse: ErrorResponse = {
           success: false,
+          statusCode,
+          code: statusCodeToErrorCode(statusCode),
           message,
+          traceId: extractTraceId(request),
           timestamp,
         };
 
-        if (errors) {
+        if (errors !== undefined) {
+          errorResponse.details = errors;
+          // Legacy alias kept for existing consumers.
           errorResponse.errors = errors;
         }
 
-        return throwError(() => ({
-          ...errorResponse,
-          statusCode,
-        }));
+        return throwError(() => errorResponse);
       }),
     );
   }
