@@ -48,7 +48,7 @@ Always build keys with `CACHE_KEYS.*` (e.g. `CACHE_KEYS.PROPERTY_BY_ID(id)` → 
 | When                      | What                                                        |
 | ------------------------- | ----------------------------------------------------------- |
 | `onModuleInit` (startup)  | Full `warmCache()`, **awaited**, so it delays app bootstrap |
-| `@Cron(EVERY_30_MINUTES)` | Full `warmCache()`                                          |
+| Periodic interval         | Full `warmCache()` via `setInterval` (configurable)        |
 
 `warmCache()` runs these in parallel with `Promise.allSettled`, so one failure doesn't stop the others:
 

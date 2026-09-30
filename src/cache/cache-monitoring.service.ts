@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { cacheHitRatio, cacheHitsTotal, cacheMissesTotal } from '../metrics/metrics.controller';
 
 /**
  * Cache Monitoring Service
@@ -49,6 +50,8 @@ export class CacheMonitoringService {
   recordHit(): void {
     this.metrics.hits += 1;
     this.metrics.totalRequests += 1;
+    cacheHitsTotal.inc();
+    this.updateCacheHitRatio();
   }
 
   /**
@@ -57,6 +60,8 @@ export class CacheMonitoringService {
   recordMiss(): void {
     this.metrics.misses += 1;
     this.metrics.totalRequests += 1;
+    cacheMissesTotal.inc();
+    this.updateCacheHitRatio();
   }
 
   /**
@@ -65,6 +70,17 @@ export class CacheMonitoringService {
   recordError(): void {
     this.metrics.errors += 1;
     this.metrics.totalRequests += 1;
+  }
+
+  /**
+   * Update the Prometheus cache hit ratio gauge based on current metrics.
+   */
+  private updateCacheHitRatio(): void {
+    const total = this.metrics.hits + this.metrics.misses;
+    if (total > 0) {
+      const ratio = this.metrics.hits / total;
+      cacheHitRatio.set(ratio);
+    }
   }
 
   /**
