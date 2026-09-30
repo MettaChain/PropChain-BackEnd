@@ -77,6 +77,43 @@ export const cacheHitRatio = new Gauge({
   help: 'Cache hit ratio (0-1)',
 });
 
+export const cacheHitsTotal = new Counter({
+  name: 'cache_hits_total',
+  help: 'Total number of cache hits',
+});
+
+export const cacheMissesTotal = new Counter({
+  name: 'cache_misses_total',
+  help: 'Total number of cache misses',
+});
+
+// ── API version metrics ───────────────────────────────────────────────────────
+
+/**
+ * API version request counter – incremented by VersionHeaderInterceptor.
+ *
+ * Label cardinality: 2 (bounded to ApiVersionEnum)
+ *   - version: 'v1' | 'v2'
+ *   - deprecated: 'true' | 'false'
+ */
+export const apiVersionRequestsTotal = new Counter({
+  name: 'api_version_requests_total',
+  help: 'Total number of API requests by version',
+  labelNames: ['version', 'deprecated'] as const,
+});
+
+/**
+ * API deprecation warning counter – incremented when deprecated versions are used.
+ *
+ * Label cardinality: 1 (bounded to ApiVersionEnum)
+ *   - version: 'v1' | 'v2'
+ */
+export const apiDeprecationWarningsTotal = new Counter({
+  name: 'api_deprecation_warnings_total',
+  help: 'Total number of API deprecation warnings emitted',
+  labelNames: ['version'] as const,
+});
+
 // ── Business metrics ──────────────────────────────────────────────────────────
 
 /**

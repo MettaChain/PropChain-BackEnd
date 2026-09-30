@@ -37,6 +37,7 @@ import {
   resolveEffectiveStatus,
   getSunsetCountdown,
 } from './api-version.constants';
+import { apiDeprecationWarningsTotal } from '../metrics/metrics.controller';
 
 @Injectable()
 export class DeprecationWarningInterceptor implements NestInterceptor {
@@ -69,6 +70,9 @@ export class DeprecationWarningInterceptor implements NestInterceptor {
       }
 
       if (effective === 'deprecated') {
+        // Increment deprecation warning metrics
+        apiDeprecationWarningsTotal.inc({ version: apiVersion });
+
         this.applyDeprecationHeaders(
           response,
           versionMeta as ApiVersionMetadata,

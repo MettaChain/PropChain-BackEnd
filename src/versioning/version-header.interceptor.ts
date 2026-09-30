@@ -22,6 +22,7 @@ import {
   SUPPORTED_API_VERSIONS,
   DEFAULT_API_VERSION,
 } from './api-version.constants';
+import { apiVersionRequestsTotal } from '../metrics/metrics.controller';
 
 @Injectable()
 export class VersionHeaderInterceptor implements NestInterceptor {
@@ -48,6 +49,10 @@ export class VersionHeaderInterceptor implements NestInterceptor {
 
     // Store version in request for later use
     (request as any).apiVersion = version;
+
+    // Increment API version request metrics
+    const isDeprecated = isVersionDeprecated(version);
+    apiVersionRequestsTotal.inc({ version, deprecated: String(isDeprecated) });
 
     // Add version headers
     response.setHeader('API-Version', version);

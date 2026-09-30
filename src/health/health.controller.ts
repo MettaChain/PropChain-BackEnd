@@ -1,4 +1,5 @@
-import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { PrismaService } from '../database/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { SignedUrlService } from '../documents/signed-url/signed-url.service';
@@ -55,16 +56,13 @@ export class HealthController {
   /**
    * Readiness probe – checks database and Redis connectivity.
    * Kubernetes uses this to decide whether to route traffic to the pod.
+   * Returns 503 when DB or Redis are unavailable, 200 only when all critical checks pass.
+   * Blockchain RPC is optional (degraded only, not hard fail).
    * Stable error codes (db_unreachable, redis_unreachable, rpc_degraded, storage_unreachable)
    * prevent leaking connection strings or internal driver details.
    */
   @Get('readyz')
-  @HttpCode(HttpStatus.OK)
-  async readiness(): Promise<{
-    status: string;
-    timestamp: string;
-    checks: Record<string, { status: string; latencyMs?: number; error?: string }>;
-  }> {
+  async readiness(@Res() res: Response): Promise<void> {
     const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
     let allOk = true;
 
@@ -174,11 +172,17 @@ export class HealthController {
     }
 
     const responseStatus = allOk ? 'ok' : 'degraded';
-    return {
+    const statusCode = allOk ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+
+    if (!allOk) {
+      res.setHeader('Retry-After', '30');
+    }
+
+    res.status(statusCode).json({
       status: responseStatus,
       timestamp: new Date().toISOString(),
       checks,
-    };
+    });
   }
 
   /**
