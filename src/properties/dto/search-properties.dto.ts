@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PROPERTY_STATUS_ENUM } from '../../common/common.types';
 
@@ -42,28 +42,34 @@ export class SearchPropertiesDto {
   // ----- Location -----
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   city?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   state?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   zipCode?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   country?: string;
 
   /** Free-text search across address, city, state and zipCode (case-insensitive). */
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   location?: string;
 
   // ----- Property type -----
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   propertyType?: string;
 
   // ----- Bedrooms -----
@@ -162,8 +168,8 @@ export class SearchPropertiesDto {
 
   // ----- Sorting -----
   @IsOptional()
-  @IsString()
-  sortBy?: string;
+  @IsIn(PROPERTY_SORT_FIELDS)
+  sortBy?: PropertySortField;
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
@@ -172,14 +178,17 @@ export class SearchPropertiesDto {
   // ----- Category / tag / amenity -----
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   category?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   tag?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   amenityType?: string;
 
   // ----- Geo (point + radius or bounding box) -----
