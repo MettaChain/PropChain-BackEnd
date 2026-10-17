@@ -41,6 +41,7 @@ import { DeprecationWarningInterceptor } from './versioning/deprecation-warning.
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 // Issue #925 – K8s health probes
 import { HealthModule } from './health/health.module';
+import { InvestmentsModule } from './investments/investments.module';
 // Issue #919 – Data archival strategy
 import { ArchiveModule } from './archive/archive.module';
 // Issue #920 – Automated cleanup of expired records
@@ -93,6 +94,7 @@ import { APP_FILTER } from '@nestjs/core';
     MetricsModule,
     PropertyTaxModule,
     HealthModule,
+    InvestmentsModule,
     ArchiveModule,
   ],
 
