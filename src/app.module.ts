@@ -31,6 +31,8 @@ import { PropertyViewsModule } from './property-views/property-views.module';
 import { PropertyComparisonModule } from './property-comparison/property-comparison.module';
 import { OpenHouseModule } from './open-house/open-house.module';
 import { MortgageCalculatorModule } from './mortgage-calculator/mortgage-calculator.module';
+import { PaymentModule } from './payment/payment.module';
+import { InvestmentModule } from './investment/investment.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { AuditModule } from './audit/audit.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -94,6 +96,8 @@ import { APP_FILTER } from '@nestjs/core';
     PropertyTaxModule,
     HealthModule,
     ArchiveModule,
+    PaymentModule,
+    InvestmentModule,
   ],
 
   controllers: [AppController],
