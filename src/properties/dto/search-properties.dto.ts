@@ -1,6 +1,7 @@
 import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { PROPERTY_STATUS_ENUM } from '../../common/common.types';
+import { TrimListingQuery } from '../sanitize-listing-query.util';
 
 export const PROPERTY_SORT_FIELDS = [
   'price',
@@ -41,28 +42,34 @@ export class SearchPropertiesDto {
 
   // ----- Location -----
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   city?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   state?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   zipCode?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   country?: string;
 
   /** Free-text search across address, city, state and zipCode (case-insensitive). */
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   location?: string;
 
   // ----- Property type -----
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   propertyType?: string;
 
@@ -161,8 +168,12 @@ export class SearchPropertiesDto {
   maxNeighborhoodTrustScore?: number;
 
   // ----- Sorting -----
+  // Restricted to PROPERTY_SORT_FIELDS. It was @IsString() only, so the value
+  // went straight into `orderBy: { [sortBy]: sortOrder }` and an unknown column
+  // produced a Prisma error (500) instead of a validation error (400).
   @IsOptional()
-  @IsString()
+  @Transform(TrimListingQuery)
+  @IsIn(PROPERTY_SORT_FIELDS)
   sortBy?: string;
 
   @IsOptional()
@@ -171,14 +182,17 @@ export class SearchPropertiesDto {
 
   // ----- Category / tag / amenity -----
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   category?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   tag?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   amenityType?: string;
 

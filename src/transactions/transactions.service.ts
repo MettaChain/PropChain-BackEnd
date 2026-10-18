@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { AppLogger } from '../common/logger';
 import { Prisma, Transaction, TransactionTaxStrategy } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
@@ -44,7 +45,7 @@ interface UpdateEscrowDto {
 
 @Injectable()
 export class TransactionsService {
-  private readonly logger = new Logger(TransactionsService.name);
+  private readonly logger = new AppLogger(TransactionsService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -60,11 +61,11 @@ export class TransactionsService {
    * Create a new transaction
    */
   async create(dto: CreateTransactionDto): Promise<TransactionResponseDto> {
-    // Validate that property and users exist
+    // Validate that property and users exist (only fetch the columns used here)
     const [property, buyer, seller] = await Promise.all([
-      this.prisma.property.findUnique({ where: { id: dto.propertyId } }),
-      this.prisma.user.findUnique({ where: { id: dto.buyerId } }),
-      this.prisma.user.findUnique({ where: { id: dto.sellerId } }),
+      this.prisma.property.findUnique({ where: { id: dto.propertyId }, select: { id: true } }),
+      this.prisma.user.findUnique({ where: { id: dto.buyerId }, select: { id: true, phone: true } }),
+      this.prisma.user.findUnique({ where: { id: dto.sellerId }, select: { id: true, phone: true } }),
     ]);
 
     if (!property) {
@@ -105,28 +106,48 @@ export class TransactionsService {
       transactionValueHistogram.observe(dto.amount);
     }
 
-    if (process.env.BLOCKCHAIN_ENABLED !== 'false') {
-      try {
-        const buyerAddr = buyer.phone || '0x0000000000000000000000000000000000000000';
-        const sellerAddr = seller.phone || '0x0000000000000000000000000000000000000000';
-        const hash = this.blockchainService.generateBlockchainHash({
-          transactionId: transaction.id,
-          propertyId: dto.propertyId,
-          buyerAddress: buyerAddr,
-          sellerAddress: sellerAddr,
-          amount: Number(dto.amount),
-        });
-        await this.prisma.transaction.update({
-          where: { id: transaction.id },
-          data: { blockchainHash: hash },
-        });
-      } catch (e) {
-        this.logger.warn(`Failed to auto-record transaction on blockchain: ${(e as Error).message}`);
-      }
-    }
+    await this.autoRecordOnBlockchain(transaction.id, dto, buyer.phone, seller.phone);
 
-    this.logger.log(`Transaction created: ${transaction.id}`);
+    this.logger.log('Transaction created', {
+      event: 'transactions.created',
+      transactionId: transaction.id,
+      type: transaction.type,
+    });
     return this.toResponseDto(transaction);
+  }
+
+  /**
+   * Best-effort blockchain hash for a new transaction. A failure is logged
+   * and never fails the create request.
+   */
+  private async autoRecordOnBlockchain(
+    transactionId: string,
+    dto: CreateTransactionDto,
+    buyerAddress: string | null,
+    sellerAddress: string | null,
+  ): Promise<void> {
+    if (process.env.BLOCKCHAIN_ENABLED === 'false') return;
+
+    const fallback = '0x0000000000000000000000000000000000000000';
+    try {
+      const hash = this.blockchainService.generateBlockchainHash({
+        transactionId,
+        propertyId: dto.propertyId,
+        buyerAddress: buyerAddress || fallback,
+        sellerAddress: sellerAddress || fallback,
+        amount: Number(dto.amount),
+      });
+      await this.prisma.transaction.update({
+        where: { id: transactionId },
+        data: { blockchainHash: hash },
+      });
+    } catch (e) {
+      this.logger.warn('Failed to auto-record transaction on blockchain', {
+        event: 'transactions.blockchain_auto_record_failed',
+        transactionId,
+        error: (e as Error).message,
+      });
+    }
   }
 
   /**
@@ -242,7 +263,7 @@ export class TransactionsService {
       await this.commissionsService.updateCommissionsStatus(id, dto.status);
     }
 
-    this.logger.log(`Transaction updated: ${id}`);
+    this.logger.log('Transaction updated', { event: 'transactions.updated', transactionId: id });
     return this.toResponseDto(updated);
   }
 
@@ -501,7 +522,11 @@ export class TransactionsService {
     // Auto-create timeline stage event (#560)
     await this.timelineService.addStageEvent(transactionId, status);
 
-    this.logger.log(`Transaction ${transactionId} status updated to ${status}`);
+    this.logger.log('Transaction status updated', {
+      event: 'transactions.status_updated',
+      transactionId,
+      status,
+    });
     return this.toResponseDto(updated);
   }
 
