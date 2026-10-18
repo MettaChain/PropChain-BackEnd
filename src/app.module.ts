@@ -31,6 +31,8 @@ import { PropertyViewsModule } from './property-views/property-views.module';
 import { PropertyComparisonModule } from './property-comparison/property-comparison.module';
 import { OpenHouseModule } from './open-house/open-house.module';
 import { MortgageCalculatorModule } from './mortgage-calculator/mortgage-calculator.module';
+import { PaymentModule } from './payment/payment.module';
+import { InvestmentModule } from './investment/investment.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { AuditModule } from './audit/audit.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -41,8 +43,10 @@ import { DeprecationWarningInterceptor } from './versioning/deprecation-warning.
 import { RateLimitHeadersInterceptor } from './auth/interceptors/rate-limit-headers.interceptor';
 // Issue #925 – K8s health probes
 import { HealthModule } from './health/health.module';
+import { InvestmentsModule } from './investments/investments.module';
 // Issue #919 – Data archival strategy
 import { ArchiveModule } from './archive/archive.module';
+import { ListingsModule } from './listings/listings.module';
 // Issue #920 – Automated cleanup of expired records
 import { CleanupService } from './database/cleanup.service';
 // Issue #964 – Localized error messages with i18n
@@ -88,12 +92,16 @@ import { APP_FILTER } from '@nestjs/core';
     PropertyComparisonModule,
     OpenHouseModule,
     MortgageCalculatorModule,
+    InvestmentsModule,
     SupportTicketsModule,
     AuditModule,
     MetricsModule,
     PropertyTaxModule,
     HealthModule,
+    InvestmentsModule,
     ArchiveModule,
+    PaymentModule,
+    InvestmentModule,
   ],
 
   controllers: [AppController],

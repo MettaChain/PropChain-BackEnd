@@ -16,6 +16,7 @@ import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
 import { FraudService } from '../fraud/fraud.service';
 import { GeocodingService } from './geocoding.service';
 import { PropertyStatus, UserRole } from '../types/prisma.types';
+import { retryListingQuery } from './listing-retry.util';
 import { CacheService } from '../cache/cache.service';
 import { CACHE_TAGS } from '../cache/cache.config';
 import {
@@ -578,87 +579,131 @@ export class PropertiesService {
   /**
    * Advanced property search with filters, pagination and sorting.
    * Returns a paginated result so clients can render result counts and pages.
+   *
+   * Split into the two strategies it actually has. A trust-score range cannot
+   * be expressed as a SQL predicate, because the score is computed from five
+   * neighborhood columns, so it has to filter in memory; everything else pages
+   * in the database. Both branches plus the row annotation and the result
+   * shaping used to live in one 80-line method, which made the paging rules and
+   * the trust-score rules impossible to change independently.
    */
   async searchProperties(dto: SearchPropertiesDto): Promise<PaginatedPropertiesResult> {
     const where = this.buildSearchWhereClause(dto);
-
     const page = dto.page && dto.page > 0 ? dto.page : 1;
     const limit = dto.limit && dto.limit > 0 ? dto.limit : 20;
-    const sortBy = dto.sortBy ?? 'createdAt';
-    const sortOrder = dto.sortOrder ?? 'desc';
+    const sort = { field: dto.sortBy ?? 'createdAt', order: dto.sortOrder ?? 'desc' } as {
+      field: string;
+      order: 'asc' | 'desc';
+    };
 
-    const hasTrustScoreFilter =
-      dto.minNeighborhoodTrustScore !== undefined || dto.maxNeighborhoodTrustScore !== undefined;
+    return this.hasTrustScoreFilter(dto)
+      ? this.searchByTrustScore(dto, where, page, limit, sort)
+      : this.searchByPaging(where, page, limit, sort);
+  }
 
-    if (hasTrustScoreFilter) {
-      // Fetch all matching properties with neighborhood to filter by trust score in-memory
-      const allItems = await this.prisma.property.findMany({
-        where,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          owner: { select: { id: true, firstName: true, lastName: true, email: true } },
-          neighborhood: true,
-        },
-      });
+  private hasTrustScoreFilter(dto: SearchPropertiesDto): boolean {
+    return dto.minNeighborhoodTrustScore !== undefined || dto.maxNeighborhoodTrustScore !== undefined;
+  }
 
-      const annotated = allItems.map((p: any) => ({
-        ...p,
-        neighborhoodTrustScore: p.neighborhood
-          ? this.computeNeighborhoodTrustScore(p.neighborhood)
-          : null,
-      }));
+  /** Owner and neighborhood payload that every listing row is returned with. */
+  private get searchRelations() {
+    return {
+      owner: { select: { id: true, firstName: true, lastName: true, email: true } },
+      neighborhood: true,
+    };
+  }
 
-      const filtered = annotated.filter((p: any) => {
-        const score = p.neighborhoodTrustScore;
-        if (
-          dto.minNeighborhoodTrustScore !== undefined &&
-          (score === null || score < dto.minNeighborhoodTrustScore)
-        )
-          return false;
-        if (
-          dto.maxNeighborhoodTrustScore !== undefined &&
-          (score === null || score > dto.maxNeighborhoodTrustScore)
-        )
-          return false;
-        return true;
-      });
-
-      const total = filtered.length;
-      const skip = (page - 1) * limit;
-      const items = filtered.slice(skip, skip + limit);
-
-      return { items, total, page, limit, totalPages: limit > 0 ? Math.ceil(total / limit) : 0 };
-    }
-
-    const skip = (page - 1) * limit;
-    const [rawItems, total] = await this.prisma.$transaction([
-      this.prisma.property.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          owner: { select: { id: true, firstName: true, lastName: true, email: true } },
-          neighborhood: true,
-        },
-      }),
-      this.prisma.property.count({ where }),
-    ]);
-
-    const items = (rawItems as any[]).map((p) => ({
+  /** Attach the computed trust score to each row. No neighborhood scores null. */
+  private annotateTrustScore(rows: any[]): any[] {
+    return rows.map((p) => ({
       ...p,
       neighborhoodTrustScore: p.neighborhood
         ? this.computeNeighborhoodTrustScore(p.neighborhood)
         : null,
     }));
+  }
 
-    return {
-      items,
-      total,
-      page,
-      limit,
-      totalPages: limit > 0 ? Math.ceil(total / limit) : 0,
-    };
+  /**
+   * A row without a neighborhood has no trust score, so it is excluded whenever
+   * either bound is set - including a bound the score would have satisfied,
+   * because "unknown" is not the same as "low".
+   */
+  private matchesTrustScoreRange(score: number | null, dto: SearchPropertiesDto): boolean {
+    if (
+      dto.minNeighborhoodTrustScore !== undefined &&
+      (score === null || score < dto.minNeighborhoodTrustScore)
+    ) {
+      return false;
+    }
+    if (
+      dto.maxNeighborhoodTrustScore !== undefined &&
+      (score === null || score > dto.maxNeighborhoodTrustScore)
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  private buildPage<T>(
+    items: T[],
+    total: number,
+    page: number,
+    limit: number,
+  ): PaginatedPropertiesResult<T> {
+    return { items, total, page, limit, totalPages: limit > 0 ? Math.ceil(total / limit) : 0 };
+  }
+
+  /**
+   * Trust-score search: fetch every row matching the other filters, then filter
+   * and page in memory. `skip`/`take` cannot be pushed down here because the
+   * score is derived rather than stored.
+   */
+  private async searchByTrustScore(
+    dto: SearchPropertiesDto,
+    where: Record<string, unknown>,
+    page: number,
+    limit: number,
+    sort: { field: string; order: 'asc' | 'desc' },
+  ): Promise<PaginatedPropertiesResult> {
+    const allItems = await retryListingQuery(() =>
+      this.prisma.property.findMany({
+        where,
+        orderBy: { [sort.field]: sort.order },
+        include: this.searchRelations,
+      }),
+    );
+
+    const filtered = this.annotateTrustScore(allItems as any[]).filter((p) =>
+      this.matchesTrustScoreRange(p.neighborhoodTrustScore, dto),
+    );
+
+    const skip = (page - 1) * limit;
+    return this.buildPage(filtered.slice(skip, skip + limit), filtered.length, page, limit);
+  }
+
+  /** The common case: page and count in one transaction so they cannot disagree. */
+  private async searchByPaging(
+    where: Record<string, unknown>,
+    page: number,
+    limit: number,
+    sort: { field: string; order: 'asc' | 'desc' },
+  ): Promise<PaginatedPropertiesResult> {
+    const skip = (page - 1) * limit;
+
+    const [rawItems, total] = await retryListingQuery(() =>
+      this.prisma.$transaction([
+        this.prisma.property.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { [sort.field]: sort.order },
+          include: this.searchRelations,
+        }),
+        this.prisma.property.count({ where }),
+      ]),
+    );
+
+    return this.buildPage(this.annotateTrustScore(rawItems as any[]), total, page, limit);
   }
 
   computeNeighborhoodTrustScore(neighborhood: any): number {
