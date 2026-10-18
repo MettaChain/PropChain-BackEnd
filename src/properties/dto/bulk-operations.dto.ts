@@ -24,6 +24,7 @@ export class BulkPropertyExportDto {
   @IsUUID('4', { each: true })
   propertyIds!: string[];
 
+  @Transform(TrimListingQuery)
   @IsOptional()
   @IsString()
   filter?: string;
