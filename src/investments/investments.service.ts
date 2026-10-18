@@ -1,47 +1,32 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { CacheService } from '../cache/cache.service';
-import { CreateInvestmentDto, InvestmentResponseDto } from './dto/create-investment.dto';
-
-const CACHE_TAG = 'investments';
+import { PrismaService } from '../database/prisma.service';
+import { retryWithBackoff } from './retry.util';
 
 @Injectable()
 export class InvestmentsService {
-  private readonly investments = new Map<string, InvestmentResponseDto>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(private readonly cacheService: CacheService) {}
-
-  async create(dto: CreateInvestmentDto): Promise<InvestmentResponseDto> {
-    const investment: InvestmentResponseDto = {
-      id: randomUUID(),
-      propertyId: dto.propertyId,
-      amount: dto.amount,
-      createdAt: new Date().toISOString(),
-    };
-    this.investments.set(investment.id, investment);
-    await this.cacheService.invalidateByTag(CACHE_TAG);
-    return investment;
-  }
-
-  findAll(): Promise<InvestmentResponseDto[]> {
-    return this.cacheService.getOrSetLegacy(
-      'investments:all',
-      async () => Array.from(this.investments.values()),
-      undefined,
-      CACHE_TAG,
+  // Issue #1406 – DB reads are retried with exponential backoff.
+  async getMetrics(propertyId: string) {
+    const metrics = await retryWithBackoff(() =>
+      this.prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { id: true, capRate: true, roi: true, rentalYield: true, cashFlow: true },
+      }),
     );
-  }
-
-  async findOne(id: string): Promise<InvestmentResponseDto> {
-    const investment = await this.cacheService.getOrSetLegacy(
-      `investments:${id}`,
-      async () => this.investments.get(id) ?? null,
-      undefined,
-      CACHE_TAG,
-    );
-    if (!investment) {
-      throw new NotFoundException(`Investment ${id} not found`);
+    if (!metrics) {
+      throw new NotFoundException('Property not found');
     }
-    return investment;
+    return metrics;
+  }
+
+  // Issue #1407 – Health check for InvestmentAPI.
+  async health() {
+    try {
+      await retryWithBackoff(() => this.prisma.$queryRaw`SELECT 1`, 1);
+      return { status: 'ok', service: 'InvestmentAPI', timestamp: new Date().toISOString() };
+    } catch {
+      return { status: 'error', service: 'InvestmentAPI', timestamp: new Date().toISOString() };
+    }
   }
 }

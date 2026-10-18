@@ -1,28 +1,10 @@
-# Investment API
+# InvestmentAPI
 
-Base path: `/investments` (Swagger tag: `investments`). The full OpenAPI spec is served by the Swagger UI.
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/investments/health` | Health check (DB connectivity) – #1407 |
+| GET | `/investments/:propertyId/metrics` | Investment metrics (capRate, roi, rentalYield, cashFlow) |
 
-| Method | Path               | Description                      | Responses     |
-| ------ | ------------------ | -------------------------------- | ------------- |
-| POST   | `/investments`     | Create an investment             | 201, 400, 429 |
-| GET    | `/investments`     | List investments (cached)        | 200, 429      |
-| GET    | `/investments/:id` | Get an investment by ID (cached) | 200, 404, 429 |
-
-## Request body (POST)
-
-```json
-{ "propertyId": "property-123", "amount": 5000 }
-```
-
-## Caching
-
-Reads go through the shared Redis-backed `CacheService` under the `investments` tag.
-Creating an investment invalidates that tag.
-
-## Rate limiting
-
-`InvestmentRateLimitGuard` allows 30 requests per minute per IP. Exceeding it returns `429 Too Many Requests`.
-
-## Tests
-
-See `test/e2e/investments-controller.integration.spec.ts`.
+- **Retry with backoff (#1406):** DB reads retry up to 3 times with exponential backoff (100ms, 200ms, 400ms).
+- **Distributed tracing (#1408):** Requests pass through the shared `TraceInterceptor` (trace IDs, sampling via `TRACE_SAMPLE_RATE`).
+- **Injection hardening (#1409):** `propertyId` must match `^[A-Za-z0-9_-]{1,64}$`; queries use Prisma parameterized calls only.

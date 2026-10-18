@@ -1,38 +1,26 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Controller, Get, Param, UseInterceptors } from '@nestjs/common';
 import { InvestmentsService } from './investments.service';
-import { CreateInvestmentDto, InvestmentResponseDto } from './dto/create-investment.dto';
-import { InvestmentRateLimitGuard } from './investment-rate-limit.guard';
+import { TraceInterceptor } from '../tracing/trace.interceptor';
 
-@ApiTags('investments')
+// Issue #1409 – Only allow safe ID characters to block injection payloads.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+// Issue #1408 – Distributed tracing via the shared TraceInterceptor.
+@UseInterceptors(TraceInterceptor)
 @Controller('investments')
-@UseGuards(InvestmentRateLimitGuard)
 export class InvestmentsController {
   constructor(private readonly investmentsService: InvestmentsService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create an investment' })
-  @ApiResponse({ status: 201, type: InvestmentResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation failed' })
-  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
-  create(@Body() dto: CreateInvestmentDto) {
-    return this.investmentsService.create(dto);
+  @Get('health')
+  health() {
+    return this.investmentsService.health();
   }
 
-  @Get()
-  @ApiOperation({ summary: 'List investments (cached)' })
-  @ApiResponse({ status: 200, type: [InvestmentResponseDto] })
-  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
-  findAll() {
-    return this.investmentsService.findAll();
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get an investment by ID (cached)' })
-  @ApiResponse({ status: 200, type: InvestmentResponseDto })
-  @ApiResponse({ status: 404, description: 'Investment not found' })
-  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
-  findOne(@Param('id') id: string) {
-    return this.investmentsService.findOne(id);
+  @Get(':propertyId/metrics')
+  getMetrics(@Param('propertyId') propertyId: string) {
+    if (!SAFE_ID.test(propertyId)) {
+      throw new BadRequestException('Invalid property id');
+    }
+    return this.investmentsService.getMetrics(propertyId);
   }
 }

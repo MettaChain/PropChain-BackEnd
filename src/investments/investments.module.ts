@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../database/prisma.module';
 import { InvestmentsController } from './investments.controller';
 import { InvestmentsService } from './investments.service';
-import { InvestmentRateLimitGuard } from './investment-rate-limit.guard';
+import { TraceInterceptor } from '../tracing/trace.interceptor';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [InvestmentsController],
-  providers: [InvestmentsService, InvestmentRateLimitGuard],
+  providers: [InvestmentsService, TraceInterceptor],
+  exports: [InvestmentsService],
 })
 export class InvestmentsModule {}
