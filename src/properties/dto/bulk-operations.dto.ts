@@ -44,9 +44,13 @@ export class BulkPropertyExportDto {
   @IsUUID('4', { each: true })
   propertyIds!: string[];
 
+
   @ApiPropertyOptional({
     description: 'Only export listings whose title contains this text.',
   })
+
+  @Transform(TrimListingQuery)
+
   @IsOptional()
   @IsString()
   filter?: string;
