@@ -1,6 +1,12 @@
+
 import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+
 import { PROPERTY_STATUS_ENUM } from '../../common/common.types';
+import { TrimListingQuery } from '../sanitize-listing-query.util';
 
 export const PROPERTY_SORT_FIELDS = [
   'price',
@@ -41,33 +47,39 @@ export class SearchPropertiesDto {
 
   // ----- Location -----
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   city?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   state?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   zipCode?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   country?: string;
 
   /** Free-text search across address, city, state and zipCode (case-insensitive). */
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   location?: string;
 
   // ----- Property type -----
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   propertyType?: string;
@@ -167,9 +179,18 @@ export class SearchPropertiesDto {
   maxNeighborhoodTrustScore?: number;
 
   // ----- Sorting -----
+  // Restricted to PROPERTY_SORT_FIELDS. It was @IsString() only, so the value
+  // went straight into `orderBy: { [sortBy]: sortOrder }` and an unknown column
+  // produced a Prisma error (500) instead of a validation error (400).
   @IsOptional()
+
   @IsIn(PROPERTY_SORT_FIELDS)
   sortBy?: PropertySortField;
+
+  @Transform(TrimListingQuery)
+  @IsIn(PROPERTY_SORT_FIELDS)
+  sortBy?: string;
+
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
@@ -177,16 +198,19 @@ export class SearchPropertiesDto {
 
   // ----- Category / tag / amenity -----
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   category?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   tag?: string;
 
   @IsOptional()
+  @Transform(TrimListingQuery)
   @IsString()
   @MaxLength(100)
   amenityType?: string;
