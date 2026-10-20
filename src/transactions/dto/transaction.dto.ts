@@ -10,7 +10,8 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { CleanText } from '../../auth/sanitize.util';
 import { TransactionTypeDto, TransactionStatusDto } from '../../common/common.types';
 
 export interface FeeBreakdown {
@@ -53,6 +54,7 @@ export class CreateTransactionDto {
 
   @ApiPropertyOptional({ description: 'Transaction notes' })
   @IsOptional()
+  @Transform(CleanText)
   @IsString()
   notes?: string;
 }
@@ -65,6 +67,7 @@ export class UpdateTransactionDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(CleanText)
   @IsString()
   notes?: string;
 }

@@ -84,6 +84,17 @@ export const ENDPOINT_RATE_LIMITS: Record<string, { windowMs: number; max: numbe
     max: 20, // 20 property creations per hour
   },
 
+  // Public listing search. Unauthenticated, and by far the most expensive read
+  // in the module: up to 25 filters, an optional in-memory trust-score pass, and
+  // a COUNT alongside every page. It had no endpoint limit at all, so it fell
+  // back only to the global per-IP bucket - one client could spend the entire
+  // IP budget on search alone. Keyed per IP here; authenticated callers are
+  // additionally bounded by their own user tier bucket in RateLimitGuard.
+  'GET /properties/search': {
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // 60 searches per minute
+  },
+
   // Dashboard (loose)
   'GET /dashboard': {
     windowMs: 60 * 1000, // 1 minute

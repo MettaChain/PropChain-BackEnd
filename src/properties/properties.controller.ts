@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
   UsePipes,
+  UseInterceptors,
   Res,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   HttpStatus,
@@ -36,7 +37,6 @@ import { CreateAmenityDto, UpdateAmenityDto } from './dto/amenity.dto';
 import { PropertyReportService } from './report/property-report.service';
 import { Response } from 'express';
 
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PropertiesTraceInterceptor } from './interceptors/properties-trace.interceptor';
 import { PropertyInjectionGuardPipe } from './pipes/injection-guard.pipe';
 import {
@@ -44,7 +44,6 @@ import {
   PropertiesPaginationQueryDto,
   buildPropertiesPageMeta,
 } from './dto/pagination-query.dto';
-
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -53,8 +52,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ListingsMetricsInterceptor } from './interceptors/listings-metrics.interceptor';
+import { PropertiesMetricsInterceptor } from './interceptors/properties-metrics.interceptor';
+import {
+  PropertiesRouteLimit,
+  PropertiesRouteRateLimitGuard,
+} from './guards/properties-route-rate-limit.guard';
 
 @ApiTags('Properties')
+@UseInterceptors(PropertiesMetricsInterceptor)
 @UseInterceptors(PropertiesTraceInterceptor)
 @Controller('properties')
 export class PropertiesController {
@@ -64,7 +70,8 @@ export class PropertiesController {
   ) {}
 
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PropertiesRouteRateLimitGuard)
+  @PropertiesRouteLimit({ max: 30, windowMs: 60 * 60 * 1000 })
   @Post()
   @UsePipes(PropertyInjectionGuardPipe)
   create(@Body() createPropertyDto: CreatePropertyDto, @CurrentUser() user: AuthUserPayload) {
@@ -79,8 +86,14 @@ export class PropertiesController {
    * `{ data, meta: { page, limit, total, totalPages, hasNext } }`.
    */
   @Get()
-
-  @ApiOperation({ summary: 'List published property listings', operationId: 'listProperties' })
+  @UseInterceptors(ListingsMetricsInterceptor)
+  @ApiOperation({
+    summary: 'List published property listings',
+    description:
+      'Unauthenticated. Returns only ACTIVE, non-deleted listings, newest first by default.'
+      + '\n\nRate limited to 100 requests per minute per client; see `X-RateLimit-*` response headers.',
+    operationId: 'listProperties',
+  })
   @ApiQuery({ name: 'page', required: false, minimum: 1, description: '1-based page number.' })
   @ApiQuery({
     name: 'limit',
@@ -94,6 +107,7 @@ export class PropertiesController {
     description: 'The listings, or a page of them when page/limit is supplied',
   })
   @ApiResponse({ status: 400, description: 'page or limit outside the accepted range' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async findAll(@Query() query: PropertiesPaginationQueryDto = {}) {
     const wantsPage = query.page !== undefined || query.limit !== undefined;
     if (!wantsPage) return this.propertiesService.findAll();
@@ -103,20 +117,6 @@ export class PropertiesController {
     const { items, total } = await this.propertiesService.findAllPaginated(page, limit);
 
     return { data: items, meta: buildPropertiesPageMeta(page, limit, total) };
-
-  @ApiOperation({
-    summary: 'List published property listings',
-    description:
-      'Unauthenticated. Returns only ACTIVE, non-deleted listings, newest first by default.
-
-Rate limited to 100 requests per minute per client; see `X-RateLimit-*` response headers.',
-    operationId: 'listProperties',
-  })
-  @ApiResponse({ status: 200, description: 'The published listings' })
-  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
-  findAll() {
-    return this.propertiesService.findAll();
-
   }
 
   /**
@@ -129,24 +129,17 @@ Rate limited to 100 requests per minute per client; see `X-RateLimit-*` response
    * Defined before `:id` so the static path is matched first.
    */
   @Get('search')
-
+  @UseInterceptors(ListingsMetricsInterceptor)
   @UsePipes(PropertyInjectionGuardPipe)
-
   @ApiOperation({
     summary: 'Search property listings',
     description:
-      'Unauthenticated. Every filter is optional and they combine with AND.
-
-'
+      'Unauthenticated. Every filter is optional and they combine with AND.\n\n'
       + 'The response is `{ items, total, page, limit, totalPages }`. Results are always '
-      + 'ACTIVE, non-deleted listings regardless of the `status` filter.
-
-'
+      + 'ACTIVE, non-deleted listings regardless of the `status` filter.\n\n'
       + '`minNeighborhoodTrustScore` / `maxNeighborhoodTrustScore` filter on a score computed '
       + 'from the neighborhood row, so it is applied in memory after fetching; a listing with '
-      + 'no neighborhood scores `null` and is excluded whenever either bound is set.
-
-'
+      + 'no neighborhood scores `null` and is excluded whenever either bound is set.\n\n'
       + 'Rate limited to 60 searches per minute per client.',
     operationId: 'searchProperties',
   })
@@ -266,7 +259,8 @@ Rate limited to 100 requests per minute per client; see `X-RateLimit-*` response
   }
 
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PropertiesRouteRateLimitGuard)
+  @PropertiesRouteLimit({ max: 15, windowMs: 60 * 60 * 1000 })
   @Get(':id/report')
   async generateReport(@Param('id') id: string, @Res() res: Response): Promise<void> {
     try {
@@ -342,6 +336,8 @@ Rate limited to 100 requests per minute per client; see `X-RateLimit-*` response
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('bulk/status')
+  @UseGuards(PropertiesRouteRateLimitGuard)
+  @PropertiesRouteLimit({ max: 20, windowMs: 60 * 60 * 1000 })
   @UsePipes(PropertyInjectionGuardPipe)
   async bulkUpdatePropertyStatus(
     @Body() body: BulkPropertyStatusUpdateDto,
@@ -355,6 +351,8 @@ Rate limited to 100 requests per minute per client; see `X-RateLimit-*` response
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('bulk/delete')
+  @UseGuards(PropertiesRouteRateLimitGuard)
+  @PropertiesRouteLimit({ max: 20, windowMs: 60 * 60 * 1000 })
   @UsePipes(PropertyInjectionGuardPipe)
   async bulkDeleteProperties(
     @Body() body: BulkPropertyDeleteDto,
@@ -368,6 +366,8 @@ Rate limited to 100 requests per minute per client; see `X-RateLimit-*` response
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('bulk/export')
+  @UseGuards(PropertiesRouteRateLimitGuard)
+  @PropertiesRouteLimit({ max: 10, windowMs: 60 * 60 * 1000 })
   @UsePipes(PropertyInjectionGuardPipe)
   async bulkExportProperties(
     @Body() body: BulkPropertyExportDto,

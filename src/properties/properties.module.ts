@@ -17,6 +17,10 @@ import { CacheModuleConfig } from '../cache/cache.module';
 import { PropertiesHealthController } from './properties-health.controller';
 import { PropertiesHealthIndicator } from './properties-health.indicator';
 import { PropertyInjectionGuardPipe } from './pipes/injection-guard.pipe';
+import { PropertiesListingsCacheService } from './properties-listings-cache.service';
+import { PropertiesCacheService } from './properties-cache.service';
+import { PropertiesRouteRateLimitGuard } from './guards/properties-route-rate-limit.guard';
+import { RateLimitService } from '../auth/rate-limit.service';
 
 @Module({
   imports: [
@@ -43,6 +47,10 @@ import { PropertyInjectionGuardPipe } from './pipes/injection-guard.pipe';
     PropertyReportService,
     PropertiesHealthIndicator,
     PropertyInjectionGuardPipe,
+    PropertiesListingsCacheService,
+    PropertiesCacheService,
+    RateLimitService,
+    PropertiesRouteRateLimitGuard,
   ],
   exports: [
     PropertiesService,
@@ -50,6 +58,8 @@ import { PropertyInjectionGuardPipe } from './pipes/injection-guard.pipe';
     PropertyImagesService,
     GeocodingService,
     PropertyExpiryService,
+    PropertiesListingsCacheService,
+    PropertiesCacheService,
   ],
 })
 export class PropertiesModule {}

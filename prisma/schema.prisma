@@ -522,6 +522,11 @@ model Property {
   @@index([propertyType])
   @@index([viewCount])
   @@index([neighborhoodId])
+  // Public listing read paths: status + soft-delete + the sort/predicate column,
+  // so the commonest query is one index seek instead of several intersected.
+  @@index([status, deleted, createdAt(sort: Desc)])
+  @@index([status, deleted, price])
+  @@index([city, state, status, deleted])
   @@map("properties")
 }
 

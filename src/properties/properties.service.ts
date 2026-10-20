@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { AppLogger } from '../common/logger';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -19,6 +21,8 @@ import { PropertyStatus, UserRole } from '../types/prisma.types';
 import { retryListingQuery } from './listing-retry.util';
 import { CacheService } from '../cache/cache.service';
 import { CACHE_TAGS } from '../cache/cache.config';
+import { PropertiesListingsCacheService } from './properties-listings-cache.service';
+import { PropertiesCacheService } from './properties-cache.service';
 import {
   canTransitionPropertyStatus,
   getAllowedNextPropertyStatuses,
@@ -31,6 +35,22 @@ interface FindAllParams {
   take?: number;
   where?: Record<string, unknown>;
   orderBy?: Record<string, 'asc' | 'desc'>;
+}
+
+/**
+ * How many filters a search actually carried. Logged so a slow or empty search
+ * can be attributed to a specific query shape without logging the values
+ * themselves, which would put addresses and owner data into the log stream.
+ * Paging and sorting are excluded: they are not filters and `page`/`limit` are
+ * always present because the DTO defaults them.
+ */
+const NON_FILTER_SEARCH_FIELDS = new Set(['page', 'limit', 'sortBy', 'sortOrder']);
+
+function countSearchFilters(dto: SearchPropertiesDto): number {
+  const entries = Object.entries((dto ?? {}) as Record<string, unknown>);
+  return entries.filter(
+    ([key, value]) => !NON_FILTER_SEARCH_FIELDS.has(key) && value !== undefined && value !== null,
+  ).length;
 }
 
 export interface PaginatedPropertiesResult<T = unknown> {
@@ -52,7 +72,26 @@ export class PropertiesService {
     private readonly fraudService: FraudService,
     private readonly geocodingService: GeocodingService,
     private readonly cacheService: CacheService,
+    @Optional() private readonly listingsCache?: PropertiesListingsCacheService,
+    @Optional() private readonly propertiesCache?: PropertiesCacheService,
   ) {}
+
+  /**
+   * Drop the cached detail view of a property. Best-effort: a cache failure is
+   * logged and ignored, because the entry also expires on its own within the TTL.
+   */
+  private async invalidateCachedProperty(propertyId: string): Promise<void> {
+    if (!this.propertiesCache) return;
+    try {
+      await this.propertiesCache.invalidateProperty(propertyId);
+    } catch (err) {
+      this.logger.warn('Property detail cache invalidation failed', {
+        event: 'properties.detail_cache_invalidation_failed',
+        propertyId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   private async checkGeocodeRateLimit(): Promise<boolean> {
     const now = Date.now();
@@ -234,6 +273,7 @@ export class PropertiesService {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+    await this.invalidateCachedProperty(property.id);
 
     return property;
   }
@@ -244,7 +284,10 @@ export class PropertiesService {
       skip,
       take,
       where: this.buildListingWhere(where),
-      orderBy,
+      // Without an explicit sort the database returned rows in arbitrary order, so
+      // `skip`/`take` paging could repeat or skip a property between calls. Default
+      // to newest first with `id` as a tie-breaker to make paging stable.
+      orderBy: orderBy ?? { createdAt: 'desc' as const, id: 'desc' as const },
       include: this.listingRelations,
     });
   }
@@ -267,7 +310,7 @@ export class PropertiesService {
         skip,
         take: limit,
         where,
-        orderBy: params?.orderBy,
+        orderBy: params?.orderBy ?? { createdAt: 'desc' as const, id: 'desc' as const },
         include: this.listingRelations,
       }),
       this.prisma.property.count({ where }),
@@ -311,33 +354,38 @@ export class PropertiesService {
   }
 
   async findOne(id: string) {
-    return (this.prisma.property as any).findUnique({
-      where: { id },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    const load = () =>
+      (this.prisma.property as any).findUnique({
+        where: { id },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
-        },
-        documents: true,
-        agents: {
-          include: {
-            agent: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
+          documents: true,
+          agents: {
+            include: {
+              agent: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  phone: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+
+    // Served from Redis when the module is wired with PropertiesCacheService.
+    if (!this.propertiesCache) return load();
+    return this.propertiesCache.rememberExistingProperty(id, load);
   }
 
   async update(id: string, updatePropertyDto: UpdatePropertyDto, userId?: string) {
@@ -457,6 +505,7 @@ export class PropertiesService {
     });
 
     await this.cacheService.invalidateByTag(CACHE_TAGS.PROPERTIES);
+    await this.invalidateCachedProperty(id);
     return updatedProperty;
   }
 
@@ -485,6 +534,7 @@ export class PropertiesService {
     });
 
     await this.cacheService.invalidateByTag(CACHE_TAGS.PROPERTIES);
+    await this.invalidateCachedProperty(id);
     this.logger.warn('Property deleted', { event: 'properties.deleted', propertyId: id, userId: user.sub });
     return updated;
   }
@@ -514,6 +564,7 @@ export class PropertiesService {
     });
 
     await this.cacheService.invalidateByTag(CACHE_TAGS.PROPERTIES);
+    await this.invalidateCachedProperty(id);
     this.logger.log('Property restored', { event: 'properties.restored', propertyId: id, userId: user.sub });
     return updated;
   }
@@ -521,7 +572,7 @@ export class PropertiesService {
   async findByOwnerId(ownerId: string) {
     return this.prisma.property.findMany({
       where: { ownerId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'desc', id: 'desc' },
     });
   }
 
@@ -549,6 +600,13 @@ export class PropertiesService {
         status: PropertyStatus.EXPIRED,
       },
     });
+
+    if (result.count > 0) {
+      this.logger.log('Expired properties', {
+        event: 'properties.expired',
+        updatedCount: result.count,
+      });
+    }
 
     return { updatedCount: result.count };
   }
@@ -592,6 +650,12 @@ export class PropertiesService {
     // Idempotent no-op: don't update, but echo the property back so callers
     // can rely on a consistent shape.
     if (currentStatus === nextStatus) {
+      this.logger.log('Property status unchanged', {
+        event: 'properties.status_transition_noop',
+        propertyId,
+        status: nextStatus,
+        actorId,
+      });
       return this.findOne(propertyId);
     }
 
@@ -608,6 +672,17 @@ export class PropertiesService {
       data: { status: nextStatus },
     });
 
+    this.logger.log('Property status changed', {
+      event: 'properties.status_transitioned',
+      propertyId,
+      from: currentStatus,
+      to: nextStatus,
+      actorId,
+    });
+    // Drop the cached detail view first: the read below would otherwise serve the
+    // pre-transition status.
+    await this.invalidateCachedProperty(propertyId);
+
     return this.findOne(propertyId);
   }
 
@@ -623,6 +698,15 @@ export class PropertiesService {
    * the trust-score rules impossible to change independently.
    */
   async searchProperties(dto: SearchPropertiesDto): Promise<PaginatedPropertiesResult> {
+    // Served from Redis when the module is wired with PropertiesListingsCacheService.
+    if (this.listingsCache) {
+      return this.listingsCache.rememberSearch(dto, () => this.runSearch(dto));
+    }
+    return this.runSearch(dto);
+  }
+
+  /** The search query itself, uncached. */
+  private async runSearch(dto: SearchPropertiesDto): Promise<PaginatedPropertiesResult> {
     const where = this.buildSearchWhereClause(dto);
     const page = dto.page && dto.page > 0 ? dto.page : 1;
     const limit = dto.limit && dto.limit > 0 ? dto.limit : 20;
@@ -633,13 +717,13 @@ export class PropertiesService {
 
     return this.hasTrustScoreFilter(dto)
       ? this.searchByTrustScore(dto, where, page, limit, sort)
-      : this.searchByPaging(where, page, limit, sort);
+      : this.searchByPaging(dto, where, page, limit, sort);
   }
+
 
   private hasTrustScoreFilter(dto: SearchPropertiesDto): boolean {
     return dto.minNeighborhoodTrustScore !== undefined || dto.maxNeighborhoodTrustScore !== undefined;
   }
-
   /** Owner and neighborhood payload that every listing row is returned with. */
   private get searchRelations() {
     return {
@@ -647,6 +731,7 @@ export class PropertiesService {
       neighborhood: true,
     };
   }
+
 
   /** Attach the computed trust score to each row. No neighborhood scores null. */
   private annotateTrustScore(rows: any[]): any[] {
@@ -713,11 +798,24 @@ export class PropertiesService {
     );
 
     const skip = (page - 1) * limit;
-    return this.buildPage(filtered.slice(skip, skip + limit), filtered.length, page, limit);
+    const items = filtered.slice(skip, skip + limit);
+
+    this.logger.log('Property search completed', {
+      event: 'properties.search',
+      page,
+      limit,
+      total: filtered.length,
+      returned: items.length,
+      filters: countSearchFilters(dto),
+      trustScoreFiltered: true,
+    });
+
+    return this.buildPage(items, filtered.length, page, limit);
   }
 
   /** The common case: page and count in one transaction so they cannot disagree. */
   private async searchByPaging(
+    dto: SearchPropertiesDto,
     where: Record<string, unknown>,
     page: number,
     limit: number,
@@ -738,7 +836,19 @@ export class PropertiesService {
       ]),
     );
 
-    return this.buildPage(this.annotateTrustScore(rawItems as any[]), total, page, limit);
+    const items = this.annotateTrustScore(rawItems as any[]);
+
+    this.logger.log('Property search completed', {
+      event: 'properties.search',
+      page,
+      limit,
+      total,
+      returned: items.length,
+      filters: countSearchFilters(dto),
+      trustScoreFiltered: false,
+    });
+
+    return this.buildPage(items, total, page, limit);
   }
 
   computeNeighborhoodTrustScore(neighborhood: any): number {
@@ -912,27 +1022,69 @@ export class PropertiesService {
   }
 
   async approveProperty(propertyId: string, actorId: string) {
-    return this.transitionStatus(propertyId, PropertyStatus.ACTIVE, actorId, UserRole.ADMIN);
+    const property = await this.transitionStatus(
+      propertyId,
+      PropertyStatus.ACTIVE,
+      actorId,
+      UserRole.ADMIN,
+    );
+    this.logger.log('Property approved', {
+      event: 'properties.approved',
+      propertyId,
+      actorId,
+    });
+    return property;
   }
 
   async rejectProperty(propertyId: string, actorId: string) {
-    return this.transitionStatus(propertyId, PropertyStatus.ARCHIVED, actorId, UserRole.ADMIN);
+    const property = await this.transitionStatus(
+      propertyId,
+      PropertyStatus.ARCHIVED,
+      actorId,
+      UserRole.ADMIN,
+    );
+    this.logger.log('Property rejected', {
+      event: 'properties.rejected',
+      propertyId,
+      actorId,
+    });
+    return property;
   }
+
+  /** Statuses a bulk update is allowed to set. Anything else is rejected outright. */
+  private static readonly BULK_STATUSES: PropertyStatus[] = [
+    PropertyStatus.DRAFT,
+    PropertyStatus.ACTIVE,
+    PropertyStatus.ARCHIVED,
+  ];
 
   async bulkUpdatePropertyStatus(
     propertyIds: string[],
     status: PropertyStatus,
   ): Promise<{ updatedCount: number }> {
-    const validStatus =
-      status === PropertyStatus.DRAFT
-        ? 'DRAFT'
-        : status === PropertyStatus.ARCHIVED
-          ? 'ARCHIVED'
-          : 'ACTIVE';
+    if (!propertyIds?.length) {
+      throw new BadRequestException('At least one property id is required');
+    }
+
+    // Previously any status that was not DRAFT or ARCHIVED was silently coerced
+    // to ACTIVE, so asking for SOLD quietly marked every listing ACTIVE. An
+    // unsupported status is now reported instead of applied.
+    if (!PropertiesService.BULK_STATUSES.includes(status)) {
+      throw new BadRequestException(
+        `Bulk status update only supports ${PropertiesService.BULK_STATUSES.join(', ')}`,
+      );
+    }
 
     const result = await this.prisma.property.updateMany({
       where: { id: { in: propertyIds } },
-      data: { status: validStatus },
+      data: { status },
+    });
+
+    this.logger.log('Bulk property status update', {
+      event: 'properties.bulk_status_updated',
+      requestedCount: propertyIds.length,
+      updatedCount: result.count,
+      status,
     });
 
     return { updatedCount: result.count };
@@ -942,13 +1094,58 @@ export class PropertiesService {
     deletedCount: number;
     propertyIds: string[];
   }> {
-    const result = await this.prisma.property.deleteMany({
+    if (!propertyIds?.length) {
+      throw new BadRequestException('At least one property id is required');
+    }
+
+    // Resolve the ids that actually exist first. Echoing the requested ids back
+    // told the caller everything had been deleted even when some ids matched
+    // nothing.
+    const existing = (await this.prisma.property.findMany({
       where: { id: { in: propertyIds } },
+      select: { id: true },
+    })) as unknown as { id: string }[];
+
+    const foundIds = existing.map((p) => p.id);
+    if (foundIds.length === 0) {
+      this.logger.warn('Bulk property delete matched nothing', {
+        event: 'properties.bulk_delete_no_match',
+        requestedCount: propertyIds.length,
+      });
+      return { deletedCount: 0, propertyIds: [] };
+    }
+
+    let result: { count: number };
+    try {
+      result = await this.prisma.property.deleteMany({ where: { id: { in: foundIds } } });
+    } catch (err) {
+      // A listing referenced by a transaction, document or commission cannot be
+      // removed. That is a client-correctable conflict, not a server fault, and
+      // the raw Prisma error must not reach the client.
+      const code = (err as { code?: string })?.code;
+      if (code === 'P2003' || code === 'P2014') {
+        this.logger.warn('Bulk property delete blocked by a foreign key', {
+          event: 'properties.bulk_delete_conflict',
+          requestedCount: foundIds.length,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw new ConflictException(
+          'One or more properties are referenced by transactions or documents and cannot be deleted',
+        );
+      }
+      throw err;
+    }
+
+    this.logger.warn('Bulk properties deleted', {
+      event: 'properties.bulk_deleted',
+      requestedCount: propertyIds.length,
+      deletedCount: result.count,
+      actor: 'admin',
     });
 
     return {
       deletedCount: result.count,
-      propertyIds,
+      propertyIds: foundIds,
     };
   }
 
@@ -1009,6 +1206,13 @@ export class PropertiesService {
           },
         },
       },
+    });
+
+    this.logger.log('Bulk property export', {
+      event: 'properties.bulk_exported',
+      requestedCount: propertyIds.length,
+      matchedCount: properties.length,
+      filtered: Boolean(filter),
     });
 
     const exportData: Record<string, any>[] = properties.map((prop: Record<string, any>) => ({
@@ -1088,7 +1292,9 @@ export class PropertiesService {
       throw new BadRequestException('Agent is already assigned to this property');
     }
 
-    return this.prisma.propertyAgent.create({
+    await this.invalidateCachedProperty(propertyId);
+
+    const assignment = await this.prisma.propertyAgent.create({
       data: {
         propertyId,
         agentId: dto.agentId,
@@ -1111,6 +1317,15 @@ export class PropertiesService {
         },
       },
     });
+
+    this.logger.log('Agent assigned to property', {
+      event: 'properties.agent_assigned',
+      propertyId,
+      agentId: dto.agentId,
+      actorId: user.sub,
+    });
+
+    return assignment;
   }
 
   async updateAgentAssignment(
@@ -1144,7 +1359,9 @@ export class PropertiesService {
       throw new NotFoundException('Agent assignment not found for this property');
     }
 
-    return this.prisma.propertyAgent.update({
+    await this.invalidateCachedProperty(propertyId);
+
+    const updatedAssignment = await this.prisma.propertyAgent.update({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -1169,6 +1386,15 @@ export class PropertiesService {
         },
       },
     });
+
+    this.logger.log('Agent assignment updated', {
+      event: 'properties.agent_assignment_updated',
+      propertyId,
+      agentId,
+      actorId: user.sub,
+    });
+
+    return updatedAssignment;
   }
 
   async removeAgentAssignment(propertyId: string, agentId: string, user: AuthUserPayload) {
@@ -1197,7 +1423,9 @@ export class PropertiesService {
       throw new NotFoundException('Agent assignment not found for this property');
     }
 
-    return this.prisma.propertyAgent.delete({
+    await this.invalidateCachedProperty(propertyId);
+
+    const removed = await this.prisma.propertyAgent.delete({
       where: {
         propertyId_agentId: {
           propertyId,
@@ -1205,6 +1433,15 @@ export class PropertiesService {
         },
       },
     });
+
+    this.logger.log('Agent removed from property', {
+      event: 'properties.agent_assignment_removed',
+      propertyId,
+      agentId,
+      actorId: user.sub,
+    });
+
+    return removed;
   }
 
   async getAgents(propertyId: string) {
@@ -1250,7 +1487,9 @@ export class PropertiesService {
     if (!property) {
       throw new NotFoundException('Property not found');
     }
-    return this.prisma.propertyAmenity.create({
+    await this.invalidateCachedProperty(propertyId);
+
+    const amenity = await this.prisma.propertyAmenity.create({
       data: {
         propertyId,
         name: dto.name,
@@ -1259,6 +1498,15 @@ export class PropertiesService {
         isAvailable: dto.isAvailable ?? true,
       },
     });
+
+    this.logger.log('Amenity added to property', {
+      event: 'properties.amenity_added',
+      propertyId,
+      amenityId: amenity.id,
+      amenityType: dto.amenityType,
+    });
+
+    return amenity;
   }
 
   async getAmenities(propertyId: string) {
@@ -1279,7 +1527,9 @@ export class PropertiesService {
     if (!amenity || amenity.propertyId !== propertyId) {
       throw new NotFoundException('Amenity not found for this property');
     }
-    return this.prisma.propertyAmenity.update({
+    await this.invalidateCachedProperty(propertyId);
+
+    const updatedAmenity = await this.prisma.propertyAmenity.update({
       where: { id: amenityId },
       data: {
         name: dto.name,
@@ -1288,6 +1538,14 @@ export class PropertiesService {
         isAvailable: dto.isAvailable,
       },
     });
+
+    this.logger.log('Property amenity updated', {
+      event: 'properties.amenity_updated',
+      propertyId,
+      amenityId,
+    });
+
+    return updatedAmenity;
   }
 
   async removeAmenity(propertyId: string, amenityId: string) {
@@ -1297,6 +1555,16 @@ export class PropertiesService {
     if (!amenity || amenity.propertyId !== propertyId) {
       throw new NotFoundException('Amenity not found for this property');
     }
-    return this.prisma.propertyAmenity.delete({ where: { id: amenityId } });
+    await this.invalidateCachedProperty(propertyId);
+
+    const removed = await this.prisma.propertyAmenity.delete({ where: { id: amenityId } });
+
+    this.logger.log('Amenity removed from property', {
+      event: 'properties.amenity_removed',
+      propertyId,
+      amenityId,
+    });
+
+    return removed;
   }
 }
