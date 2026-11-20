@@ -3,14 +3,14 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 export const REQUIRE_VERIFIED_EMAIL_KEY = 'require-verified-email';
 
-export const RequireVerifiedEmail = () =>
-  SetMetadata(REQUIRE_VERIFIED_EMAIL_KEY, true);
+export const RequireVerifiedEmail = () => SetMetadata(REQUIRE_VERIFIED_EMAIL_KEY, true);
 
 interface VerifiedEmailRequest {
   authUser?: {
@@ -39,13 +39,11 @@ export class VerifiedEmailGuard implements CanActivate {
     const user = request.authUser;
 
     if (!user?.sub && !user?.id) {
-      throw new ForbiddenException('Authentication required');
+      throw new UnauthorizedException('Authentication required');
     }
 
     if (!user.isEmailVerified && !user.emailVerified) {
-      throw new ForbiddenException(
-        'A verified email address is required to access this endpoint',
-      );
+      throw new ForbiddenException('A verified email address is required to access this endpoint');
     }
 
     return true;
