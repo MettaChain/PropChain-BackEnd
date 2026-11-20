@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { NotificationsService } from '../../services/notifications.service';
 import {
   CreateMaintenanceRequestDto,
   MaintenanceCostDto,
@@ -31,6 +32,8 @@ const ALLOWED_TRANSITIONS: Record<MaintenanceStatus, MaintenanceStatus[]> = {
 export class MaintenanceTrackingService {
   private readonly requests = new Map<string, MaintenanceRequestRecord>();
 
+  constructor(private readonly notificationsService: NotificationsService) {}
+
   create(dto: CreateMaintenanceRequestDto): MaintenanceRequestResponseDto {
     const now = new Date();
     const request: MaintenanceRequestRecord = {
@@ -50,6 +53,15 @@ export class MaintenanceTrackingService {
     };
 
     this.requests.set(request.id, request);
+
+    if (request.priority === MaintenancePriority.EMERGENCY) {
+      this.notificationsService.notify({
+        event: 'maintenance.emergency',
+        recipientId: request.propertyId,
+        data: { requestId: request.id, propertyId: request.propertyId, title: request.title },
+      });
+    }
+
     return this.toResponse(request);
   }
 
