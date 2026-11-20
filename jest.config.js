@@ -57,7 +57,9 @@ module.exports = {
     'src/sessions/': {
       statements: 46,
       branches: 12,
-     
+      functions: 20,
+      lines: 45,
+    },
     // Notifications
     'src/notifications/': {
       statements: 24,
