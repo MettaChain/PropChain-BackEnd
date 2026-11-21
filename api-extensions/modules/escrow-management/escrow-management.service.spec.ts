@@ -148,3 +148,153 @@ describe('EscrowManagementService (#1611)', () => {
       'MILESTONE_COMPLETED',
     ]);
   });
+
+  it('rejects unknown milestones and milestones on a pending escrow', async () => {
+    await create();
+    await expect(service.markMilestoneComplete('tx-1', 'TITLE_TRANSFERRED')).rejects.toThrow(
+      ConflictException,
+    );
+    await service.holdFunds('tx-1');
+    await expect(service.markMilestoneComplete('tx-1', 'TITLE_TRANSFERRED')).rejects.toThrow(
+      'Milestone TITLE_TRANSFERRED is not required for this escrow',
+    );
+  });
+
+  it('blocks release until all milestones are complete', async () => {
+    await create({ milestones: ['DOCUMENTS_VERIFIED', 'INSPECTION_PASSED'] });
+    await service.holdFunds('tx-1');
+
+    await expect(service.release('tx-1')).rejects.toThrow(
+      'Cannot release escrow before milestones are complete: INSPECTION_PASSED',
+    );
+  });
+
+  it('releases held funds after milestones complete and zeroes the balance', async () => {
+    await create();
+    await service.holdFunds('tx-1');
+    await service.markMilestoneComplete('tx-1', 'DOCUMENTS_VERIFIED');
+    const result = await service.release('tx-1', 'agent-2');
+
+    expect(result).toMatchObject({ status: EscrowStatus.RELEASED, balance: 0 });
+    expect(result.releasedAt).toBeInstanceOf(Date);
+    expect(await service.getBalance('tx-1')).toBe(0);
+    expect(result.auditTrail.map((entry) => entry.action)).toEqual([
+      'CREATED',
+      'FUNDS_HELD',
+      'MILESTONE_COMPLETED',
+      'RELEASED',
+    ]);
+    expect(prisma.transactionHistory.create).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ metadata: { action: 'RELEASED' }, actorId: 'agent-2' }),
+    });
+  });
+
+  it('prevents double release and release after refund', async () => {
+    await create();
+    await service.holdFunds('tx-1');
+    await service.release('tx-1');
+    await expect(service.release('tx-1')).rejects.toThrow('Escrow has already been released');
+
+    await create({ transactionId: 'tx-2' });
+    await service.refund('tx-2', 'Buyer withdrew');
+    await expect(service.release('tx-2')).rejects.toThrow(
+      'Refunded escrow cannot be released',
+    );
+  });
+
+  it('refunds held escrow with a reason and zeroes the balance', async () => {
+    await create();
+    await service.holdFunds('tx-1');
+    const result = await service.refund('tx-1', 'Inspection failed', 'agent-1');
+
+    expect(result).toMatchObject({ status: EscrowStatus.REFUNDED, balance: 0 });
+    expect(result.refundedAt).toBeInstanceOf(Date);
+    expect(prisma.transactionHistory.create).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({
+        notes: JSON.stringify({ action: 'REFUNDED', details: 'Inspection failed' }),
+        actorId: 'agent-1',
+      }),
+    });
+  });
+
+  it('prevents double refund', async () => {
+    await create();
+    await service.refund('tx-1', 'Cancelled');
+    await expect(service.refund('tx-1', 'Again')).rejects.toThrow(
+      'Escrow has already been refunded',
+    );
+  });
+
+  it('places a dispute hold and locks the escrow', async () => {
+    await create();
+    const result = await service.placeDisputeHold('tx-1', 'Title dispute', 'agent-1');
+
+    expect(result).toMatchObject({
+      status: EscrowStatus.HELD,
+      balance: 112_860,
+      disputed: true,
+      disputeReason: 'Title dispute',
+    });
+    expect(result.auditTrail.map((entry) => entry.action)).toEqual([
+      'CREATED',
+      'FUNDS_HELD',
+      'DISPUTE_HOLD',
+    ]);
+    await expect(service.release('tx-1')).rejects.toThrow(
+      'Disputed escrow must be resolved before release',
+    );
+    await expect(service.placeDisputeHold('tx-1', 'Again')).rejects.toThrow(ConflictException);
+  });
+
+  it('resolves a dispute by releasing after milestones are met', async () => {
+    await create();
+    await service.placeDisputeHold('tx-1', 'Resolved out of court');
+    await service.markMilestoneComplete('tx-1', 'DOCUMENTS_VERIFIED');
+    const result = await service.resolveDispute('tx-1', DisputeResolution.RELEASE);
+
+    expect(result.status).toBe(EscrowStatus.RELEASED);
+    expect(result.disputed).toBe(false);
+    expect(result.auditTrail.map((entry) => entry.action)).toContain('DISPUTE_RESOLVED');
+  });
+
+  it('resolves a dispute by refunding the buyer', async () => {
+    await create();
+    await service.holdFunds('tx-1');
+    await service.placeDisputeHold('tx-1', 'Fraud suspected');
+    const result = await service.resolveDispute('tx-1', DisputeResolution.REFUND);
+
+    expect(result.status).toBe(EscrowStatus.REFUNDED);
+    expect(result.disputed).toBe(false);
+    expect(result.balance).toBe(0);
+  });
+
+  it('rejects disputes on closed escrows and resolutions without a dispute', async () => {
+    await create();
+    await service.holdFunds('tx-1');
+    await service.release('tx-1');
+    await expect(service.placeDisputeHold('tx-1', 'Too late')).rejects.toThrow(
+      ConflictException,
+    );
+
+    await create({ transactionId: 'tx-2' });
+    await expect(
+      service.resolveDispute('tx-2', DisputeResolution.RELEASE),
+    ).rejects.toThrow('Escrow is not under a dispute hold');
+  });
+
+  it('exposes queries and the fee breakdown, and reports unknown transactions', async () => {
+    await create();
+    await create({ transactionId: 'tx-2', amount: 50_000 });
+
+    expect(service.findAll()).toHaveLength(2);
+    expect(service.findAll('tx-1')).toHaveLength(1);
+    expect(await service.findOne('tx-1')).toMatchObject({ transactionId: 'tx-1' });
+    expect(await service.getAuditTrail('tx-1')).toHaveLength(1);
+    expect((await service.getFeeBreakdown('tx-1')).platformFee).toBe(1500);
+
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+    await expect(service.getBalance('missing')).rejects.toThrow(NotFoundException);
+    await expect(service.getAuditTrail('missing')).rejects.toThrow(NotFoundException);
+    await expect(service.getFeeBreakdown('missing')).rejects.toThrow(NotFoundException);
+  });
+});
