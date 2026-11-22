@@ -6,18 +6,22 @@
  * in-memory) without touching the request handling logic.
  */
 
+export type GeoLookupAccuracy = 'approximate' | 'exact';
+
 export interface GeoLookupResult {
   country: string | null;
   region: string | null;
   city: string | null;
   latitude: number | null;
   longitude: number | null;
+  accuracy?: GeoLookupAccuracy;
 }
 
 export interface GeoLocationData extends GeoLookupResult {
   ipAddress: string;
   isPrivate: boolean;
   source: 'cache' | 'lookup' | 'fallback';
+  accuracy: GeoLookupAccuracy;
   /** Alias of `latitude`, matching the acceptance-criteria naming. */
   lat: number | null;
   /** Alias of `longitude`, matching the acceptance-criteria naming. */

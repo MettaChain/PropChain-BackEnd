@@ -57,158 +57,6 @@ const DEFAULT_RANGES: ReadonlyArray<GeoRange> = [
     latitude: 37.4056,
     longitude: -122.0775,
   },
-  {
-    prefix: '199.',
-    country: 'US',
-    region: 'Georgia',
-    city: 'Atlanta',
-    latitude: 33.749,
-    longitude: -84.388,
-  },
-  {
-    prefix: '82.',
-    country: 'GB',
-    region: 'England',
-    city: 'London',
-    latitude: 51.5074,
-    longitude: -0.1278,
-  },
-  {
-    prefix: '77.',
-    country: 'GB',
-    region: 'England',
-    city: 'Manchester',
-    latitude: 53.4808,
-    longitude: -2.2426,
-  },
-  {
-    prefix: '200.',
-    country: 'BR',
-    region: 'Sao Paulo',
-    city: 'Sao Paulo',
-    latitude: -23.5505,
-    longitude: -46.6333,
-  },
-  {
-    prefix: '186.',
-    country: 'BR',
-    region: 'Rio de Janeiro',
-    city: 'Rio de Janeiro',
-    latitude: -22.9068,
-    longitude: -43.1729,
-  },
-  {
-    prefix: '190.',
-    country: 'AR',
-    region: 'Buenos Aires',
-    city: 'Buenos Aires',
-    latitude: -34.6037,
-    longitude: -58.3816,
-  },
-  {
-    prefix: '41.',
-    country: 'EG',
-    region: 'Cairo',
-    city: 'Cairo',
-    latitude: 30.0444,
-    longitude: 31.2357,
-  },
-  {
-    prefix: '102.',
-    country: 'NG',
-    region: 'Lagos',
-    city: 'Lagos',
-    latitude: 6.5244,
-    longitude: 3.3792,
-  },
-  {
-    prefix: '39.',
-    country: 'IN',
-    region: 'Maharashtra',
-    city: 'Mumbai',
-    latitude: 19.076,
-    longitude: 72.8777,
-  },
-  {
-    prefix: '49.',
-    country: 'IN',
-    region: 'Delhi',
-    city: 'Delhi',
-    latitude: 28.6139,
-    longitude: 77.209,
-  },
-  {
-    prefix: '101.',
-    country: 'AU',
-    region: 'New South Wales',
-    city: 'Sydney',
-    latitude: -33.8688,
-    longitude: 151.2093,
-  },
-  {
-    prefix: '150.',
-    country: 'JP',
-    region: 'Tokyo',
-    city: 'Tokyo',
-    latitude: 35.6762,
-    longitude: 139.6503,
-  },
-  {
-    prefix: '210.',
-    country: 'JP',
-    region: 'Osaka',
-    city: 'Osaka',
-    latitude: 34.6937,
-    longitude: 135.5023,
-  },
-  {
-    prefix: '5.',
-    country: 'DE',
-    region: 'Hesse',
-    city: 'Frankfurt',
-    latitude: 50.1109,
-    longitude: 8.6821,
-  },
-  {
-    prefix: '46.',
-    country: 'DE',
-    region: 'Berlin',
-    city: 'Berlin',
-    latitude: 52.52,
-    longitude: 13.405,
-  },
-  {
-    prefix: '85.',
-    country: 'FR',
-    region: 'Ile-de-France',
-    city: 'Paris',
-    latitude: 48.8566,
-    longitude: 2.3522,
-  },
-  {
-    prefix: '88.',
-    country: 'FR',
-    region: 'Auvergne-Rhone-Alpes',
-    city: 'Lyon',
-    latitude: 45.764,
-    longitude: 4.8357,
-  },
-  {
-    prefix: '95.',
-    country: 'ES',
-    region: 'Madrid',
-    city: 'Madrid',
-    latitude: 40.4168,
-    longitude: -3.7038,
-  },
-  {
-    prefix: '109.',
-    country: 'ES',
-    region: 'Catalonia',
-    city: 'Barcelona',
-    latitude: 41.3874,
-    longitude: 2.1686,
-  },
 ];
 
 function asString(value: unknown): string | null {
@@ -240,12 +88,14 @@ function normaliseResult(payload: Record<string, unknown>): GeoLookupResult | nu
   if (!country && !region && !city && latitude === null && longitude === null) {
     return null;
   }
+  const accuracy = payload.accuracy === 'approximate' ? 'approximate' : 'exact';
   return {
     country: country ? country.toUpperCase() : null,
     region,
     city,
     latitude,
     longitude,
+    accuracy,
   };
 }
 
@@ -270,7 +120,7 @@ function parseConfiguredRanges(raw: string | undefined): ReadonlyArray<GeoRange>
       }
       const normalised = normaliseResult(record);
       if (normalised) {
-        ranges.push({ prefix, ...normalised });
+        ranges.push({ prefix, ...normalised, accuracy: 'approximate' });
       }
     }
     return ranges.length > 0 ? ranges : null;
@@ -317,6 +167,7 @@ export class ConfigurableGeoLookupProvider implements GeoLookupProvider {
           city: range.city,
           latitude: range.latitude,
           longitude: range.longitude,
+          accuracy: range.accuracy ?? 'approximate',
         };
       }
     }

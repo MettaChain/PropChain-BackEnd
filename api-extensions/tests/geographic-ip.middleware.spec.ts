@@ -11,6 +11,7 @@ import {
   GeographicIpMiddleware,
   extractClientIp,
   isPrivateIpAddress,
+  isTrustProxyEnabled,
 } from '../modules/geographic-ip/geographic-ip.middleware';
 
 interface GeoRequest extends Request {
@@ -44,6 +45,7 @@ describe('GeographicIpMiddleware (#1610)', () => {
     city: 'Mountain View',
     latitude: 37.4056,
     longitude: -122.0775,
+    accuracy: 'exact' as const,
   };
 
   beforeEach(() => {
@@ -93,14 +95,19 @@ describe('GeographicIpMiddleware (#1610)', () => {
   });
 
   it('short-circuits private and loopback addresses', async () => {
-    const req = requestWith({ ip: '127.0.0.1', headers: { 'x-forwarded-for': '10.0.0.5' } });
+    const req = requestWith({
+      ip: '127.0.0.1',
+      headers: { 'x-forwarded-for': '8.8.8.8' },
+      socket: { remoteAddress: '10.0.0.5' },
+    });
 
     await middleware.use(req, responseStub(), next as unknown as NextFunction);
 
     expect(req.geo).toMatchObject({
-      ipAddress: '10.0.0.5',
+      ipAddress: '127.0.0.1',
       isPrivate: true,
       source: 'fallback',
+      accuracy: 'approximate',
       country: null,
     });
     expect(provider.lookup).not.toHaveBeenCalled();
@@ -155,21 +162,53 @@ describe('GeographicIpMiddleware (#1610)', () => {
 });
 
 describe('client IP helpers', () => {
-  it('prefers the left-most X-Forwarded-For entry', () => {
+  const originalTrustProxy = process.env.TRUST_PROXY;
+
+  afterEach(() => {
+    if (originalTrustProxy === undefined) {
+      delete process.env.TRUST_PROXY;
+    } else {
+      process.env.TRUST_PROXY = originalTrustProxy;
+    }
+  });
+
+  it('ignores a spoofed X-Forwarded-For header when trust proxy is disabled', () => {
+    delete process.env.TRUST_PROXY;
+    expect(isTrustProxyEnabled()).toBe(false);
     expect(
       extractClientIp({
-        headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' },
         ip: '10.0.0.2',
-      }),
-    ).toBe('203.0.113.9');
+        ips: ['203.0.113.9'],
+        socket: { remoteAddress: '10.0.0.2' },
+      } as unknown as Parameters<typeof extractClientIp>[0]),
+    ).toBe('10.0.0.2');
+  });
+
+  it('falls back to Express ips only when trust proxy is explicitly enabled', () => {
+    delete process.env.TRUST_PROXY;
+    expect(extractClientIp({ ips: ['203.0.113.9'] })).toBeNull();
+
+    process.env.TRUST_PROXY = 'loopback';
+    expect(isTrustProxyEnabled()).toBe(true);
+    expect(extractClientIp({ ips: ['203.0.113.9', '10.0.0.1'] })).toBe('203.0.113.9');
+  });
+
+  it('never reads raw forwarded headers', () => {
+    process.env.TRUST_PROXY = '1';
+    expect(
+      extractClientIp({
+        headers: { 'x-forwarded-for': '203.0.113.9' },
+        socket: { remoteAddress: '10.0.0.2' },
+      } as unknown as Parameters<typeof extractClientIp>[0]),
+    ).toBe('10.0.0.2');
   });
 
   it('unwraps IPv4-mapped IPv6 addresses', () => {
-    expect(extractClientIp({ headers: {}, ip: '::ffff:8.8.8.8' })).toBe('8.8.8.8');
+    expect(extractClientIp({ ip: '::ffff:8.8.8.8' })).toBe('8.8.8.8');
   });
 
   it('returns null when no candidate is a valid IP', () => {
-    expect(extractClientIp({ headers: {}, ip: 'not-an-ip' })).toBeNull();
+    expect(extractClientIp({ ip: 'not-an-ip' })).toBeNull();
   });
 
   it.each([

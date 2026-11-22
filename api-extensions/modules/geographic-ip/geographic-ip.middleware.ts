@@ -35,31 +35,32 @@ interface RequestWithGeo extends Request {
 
 const CACHE_ENTRY_FIELDS = ['country', 'region', 'city', 'latitude', 'longitude'] as const;
 
-/**
- * Normalise the various places Express exposes the peer address, preferring
- * the left-most `X-Forwarded-For` entry (the original client).
- */
+export function isTrustProxyEnabled(): boolean {
+  const value = process.env.TRUST_PROXY;
+  if (value === undefined || value === '') {
+    return false;
+  }
+  return !['false', '0', 'none', 'off'].includes(value.trim().toLowerCase());
+}
+
 export function extractClientIp(request: {
   ip?: string;
-  headers?: Record<string, string | string[] | undefined>;
+  ips?: string[];
   socket?: { remoteAddress?: string };
+  connection?: { remoteAddress?: string };
 }): string | null {
-  const forwarded = request.headers?.['x-forwarded-for'];
   const candidates: string[] = [];
-  if (typeof forwarded === 'string') {
-    candidates.push(...forwarded.split(','));
-  } else if (Array.isArray(forwarded)) {
-    for (const value of forwarded) {
-      if (typeof value === 'string') {
-        candidates.push(...value.split(','));
-      }
-    }
-  }
   if (request.ip) {
     candidates.push(request.ip);
   }
+  if (isTrustProxyEnabled() && Array.isArray(request.ips)) {
+    candidates.push(...request.ips);
+  }
   if (request.socket?.remoteAddress) {
     candidates.push(request.socket.remoteAddress);
+  }
+  if (request.connection?.remoteAddress) {
+    candidates.push(request.connection.remoteAddress);
   }
 
   for (const candidate of candidates) {
@@ -135,6 +136,7 @@ function emptyLocation(ipAddress: string, isPrivate: boolean): GeoLocationData {
     lng: null,
     isPrivate,
     source: 'fallback',
+    accuracy: 'approximate',
   };
 }
 
@@ -151,6 +153,7 @@ function toLocation(
     lng: result.longitude,
     isPrivate,
     source,
+    accuracy: result.accuracy ?? 'approximate',
   };
 }
 
