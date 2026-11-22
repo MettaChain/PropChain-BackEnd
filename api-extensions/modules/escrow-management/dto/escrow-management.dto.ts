@@ -1,14 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { IsArray, IsEnum, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 import type { FeeBreakdown } from '../../../../src/transactions/dto/transaction.dto';
 
 /** Lifecycle of a transaction escrow account. */
@@ -53,11 +45,6 @@ export class CreateEscrowDto {
   @IsArray()
   @IsString({ each: true })
   milestones?: string[];
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
 }
 
 export class HoldFundsDto {
@@ -67,11 +54,6 @@ export class HoldFundsDto {
   @IsNumber()
   @Min(0.01)
   amount?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
 }
 
 export class CompleteMilestoneDto {
@@ -79,30 +61,15 @@ export class CompleteMilestoneDto {
   @IsString()
   @MinLength(1)
   milestoneId: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
 }
 
-export class ReleaseEscrowDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
-}
+export class ReleaseEscrowDto {}
 
 export class RefundEscrowDto {
   @ApiProperty()
   @IsString()
   @MinLength(1)
   reason: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
 }
 
 export class DisputeEscrowDto {
@@ -110,22 +77,12 @@ export class DisputeEscrowDto {
   @IsString()
   @MinLength(1)
   reason: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
 }
 
 export class ResolveDisputeDto {
   @ApiProperty({ enum: DisputeResolution })
   @IsEnum(DisputeResolution)
   resolution: DisputeResolution;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  actorId?: string;
 }
 
 export class EscrowAuditEntryDto {

@@ -28,24 +28,27 @@ Funds are only released once every configured milestone has been completed.
   is persisted through `transactionHistory.create`.
 - `TransactionFeesService.calculateFees` supplies the fee breakdown. The escrow
   amount is the fee-inclusive `totalAmount`, while `baseAmount` keeps the
-  original transaction value.
+  original transaction value. Creation is rejected when that fee-inclusive
+  amount exceeds the transaction amount.
+- All endpoints are guarded by `JwtAuthGuard`; the actor recorded in the audit
+  trail is always the authenticated user's `sub`, never a request-body value.
 
 ## Endpoints
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/escrow-management` | Create a pending escrow |
-| GET | `/escrow-management` | List escrows (optional `transactionId` query) |
-| GET | `/escrow-management/:transactionId` | Get one escrow |
-| GET | `/escrow-management/:transactionId/balance` | Get held balance |
-| GET | `/escrow-management/:transactionId/audit` | Get audit trail |
-| GET | `/escrow-management/:transactionId/fees` | Get fee breakdown |
-| POST | `/escrow-management/:transactionId/hold` | Hold funds |
-| POST | `/escrow-management/:transactionId/milestones/complete` | Complete a milestone |
-| POST | `/escrow-management/:transactionId/release` | Conditionally release |
-| POST | `/escrow-management/:transactionId/refund` | Refund with reason |
-| POST | `/escrow-management/:transactionId/dispute` | Place a dispute hold |
-| POST | `/escrow-management/:transactionId/dispute/resolve` | Resolve a dispute |
+| Method | Path                                                    | Purpose                                       |
+| ------ | ------------------------------------------------------- | --------------------------------------------- |
+| POST   | `/escrow-management`                                    | Create a pending escrow                       |
+| GET    | `/escrow-management`                                    | List escrows (optional `transactionId` query) |
+| GET    | `/escrow-management/:transactionId`                     | Get one escrow                                |
+| GET    | `/escrow-management/:transactionId/balance`             | Get held balance                              |
+| GET    | `/escrow-management/:transactionId/audit`               | Get audit trail                               |
+| GET    | `/escrow-management/:transactionId/fees`                | Get fee breakdown                             |
+| POST   | `/escrow-management/:transactionId/hold`                | Hold funds                                    |
+| POST   | `/escrow-management/:transactionId/milestones/complete` | Complete a milestone                          |
+| POST   | `/escrow-management/:transactionId/release`             | Conditionally release                         |
+| POST   | `/escrow-management/:transactionId/refund`              | Refund with reason                            |
+| POST   | `/escrow-management/:transactionId/dispute`             | Place a dispute hold                          |
+| POST   | `/escrow-management/:transactionId/dispute/resolve`     | Resolve a dispute                             |
 
 ## Tests
 

@@ -43,7 +43,7 @@ export class EscrowManagementService {
   ) {}
 
   /** Create a PENDING escrow and derive its funded amount from transaction fees. */
-  async create(dto: CreateEscrowDto): Promise<EscrowResponseDto> {
+  async create(dto: CreateEscrowDto, actorId?: string): Promise<EscrowResponseDto> {
     if (!Number.isFinite(dto.amount) || dto.amount <= 0) {
       throw new BadRequestException('Escrow amount must be greater than zero');
     }
@@ -54,15 +54,22 @@ export class EscrowManagementService {
     if (!transaction) {
       throw new NotFoundException(`Transaction ${dto.transactionId} not found`);
     }
-    if (this.escrows.has(dto.transactionId)) {
+    if (this.escrows.has(dto.transactionId) || transaction.escrowStatus) {
       throw new ConflictException(`Escrow already exists for transaction ${dto.transactionId}`);
     }
-    if (dto.amount > Number(transaction.amount)) {
+
+    const transactionAmount = Number(transaction.amount);
+    if (!Number.isFinite(transactionAmount) || dto.amount > transactionAmount) {
       throw new BadRequestException('Escrow amount cannot exceed the transaction amount');
     }
 
     const feeBreakdown = this.fees.calculateFees(dto.amount);
     const amount = this.round(feeBreakdown.totalAmount);
+    if (!Number.isFinite(amount) || amount > transactionAmount) {
+      throw new BadRequestException(
+        'Escrow amount including fees cannot exceed the transaction amount',
+      );
+    }
     const now = new Date();
     const record: EscrowRecord = {
       id: randomUUID(),
@@ -82,13 +89,17 @@ export class EscrowManagementService {
     };
 
     this.escrows.set(record.transactionId, record);
-    await this.appendAudit(record, EscrowAuditAction.CREATED, dto.actorId);
+    await this.appendAudit(record, EscrowAuditAction.CREATED, actorId);
     await this.syncTransaction(record);
     return this.clone(record);
   }
 
   /** Move a PENDING escrow into HELD with funds reserved. */
-  async holdFunds(transactionId: string, dto: HoldFundsDto = {}): Promise<EscrowResponseDto> {
+  async holdFunds(
+    transactionId: string,
+    dto: HoldFundsDto = {},
+    actorId?: string,
+  ): Promise<EscrowResponseDto> {
     const record = this.getRecord(transactionId);
     if (record.status !== EscrowStatus.PENDING) {
       throw new ConflictException('Only a pending escrow can hold funds');
@@ -102,7 +113,7 @@ export class EscrowManagementService {
     record.status = EscrowStatus.HELD;
     record.balance = this.round(amount);
     record.updatedAt = new Date();
-    await this.appendAudit(record, EscrowAuditAction.FUNDS_HELD, dto.actorId, `${record.balance}`);
+    await this.appendAudit(record, EscrowAuditAction.FUNDS_HELD, actorId, `${record.balance}`);
     await this.syncTransaction(record);
     return this.clone(record);
   }
@@ -126,12 +137,7 @@ export class EscrowManagementService {
     if (!record.metMilestones.includes(milestoneId)) {
       record.metMilestones.push(milestoneId);
       record.updatedAt = new Date();
-      await this.appendAudit(
-        record,
-        EscrowAuditAction.MILESTONE_COMPLETED,
-        actorId,
-        milestoneId,
-      );
+      await this.appendAudit(record, EscrowAuditAction.MILESTONE_COMPLETED, actorId, milestoneId);
     }
     return this.clone(record);
   }
@@ -171,7 +177,11 @@ export class EscrowManagementService {
   }
 
   /** Refund the buyer and close the escrow with a full audit trail. */
-  async refund(transactionId: string, reason: string, actorId?: string): Promise<EscrowResponseDto> {
+  async refund(
+    transactionId: string,
+    reason: string,
+    actorId?: string,
+  ): Promise<EscrowResponseDto> {
     const record = this.getRecord(transactionId);
     if (record.status === EscrowStatus.REFUNDED) {
       throw new ConflictException('Escrow has already been refunded');
@@ -306,9 +316,10 @@ export class EscrowManagementService {
       where: { id: record.transactionId },
       data: {
         escrowStatus: record.status,
-        escrowAmount: record.status === EscrowStatus.RELEASED || record.status === EscrowStatus.REFUNDED
-          ? 0
-          : record.balance || record.amount,
+        escrowAmount:
+          record.status === EscrowStatus.RELEASED || record.status === EscrowStatus.REFUNDED
+            ? 0
+            : record.balance || record.amount,
         escrowReleasedAt: record.releasedAt ?? null,
       },
     });

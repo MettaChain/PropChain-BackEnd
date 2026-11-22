@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../src/auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../src/auth/decorators/current-user.decorator';
+import { AuthUserPayload } from '../../../src/auth/types/auth-user.type';
 import {
   CompleteMilestoneDto,
   CreateEscrowDto,
@@ -13,14 +16,18 @@ import {
 import { EscrowManagementService } from './escrow-management.service';
 
 @ApiTags('escrow-management')
+@UseGuards(JwtAuthGuard)
 @Controller('escrow-management')
 export class EscrowManagementController {
   constructor(private readonly escrowService: EscrowManagementService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a pending escrow for a transaction' })
-  create(@Body() dto: CreateEscrowDto): Promise<EscrowResponseDto> {
-    return this.escrowService.create(dto);
+  create(
+    @Body() dto: CreateEscrowDto,
+    @CurrentUser() user: AuthUserPayload,
+  ): Promise<EscrowResponseDto> {
+    return this.escrowService.create(dto, user.sub);
   }
 
   @Get()
@@ -58,8 +65,9 @@ export class EscrowManagementController {
   holdFunds(
     @Param('transactionId') transactionId: string,
     @Body() dto: HoldFundsDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<EscrowResponseDto> {
-    return this.escrowService.holdFunds(transactionId, dto);
+    return this.escrowService.holdFunds(transactionId, dto, user.sub);
   }
 
   @Post(':transactionId/milestones/complete')
@@ -67,17 +75,19 @@ export class EscrowManagementController {
   completeMilestone(
     @Param('transactionId') transactionId: string,
     @Body() dto: CompleteMilestoneDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<EscrowResponseDto> {
-    return this.escrowService.markMilestoneComplete(transactionId, dto.milestoneId, dto.actorId);
+    return this.escrowService.markMilestoneComplete(transactionId, dto.milestoneId, user.sub);
   }
 
   @Post(':transactionId/release')
   @ApiOperation({ summary: 'Release funds once all milestones are complete' })
   release(
     @Param('transactionId') transactionId: string,
-    @Body() dto: ReleaseEscrowDto,
+    @Body() _dto: ReleaseEscrowDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<EscrowResponseDto> {
-    return this.escrowService.release(transactionId, dto.actorId);
+    return this.escrowService.release(transactionId, user.sub);
   }
 
   @Post(':transactionId/refund')
@@ -85,8 +95,9 @@ export class EscrowManagementController {
   refund(
     @Param('transactionId') transactionId: string,
     @Body() dto: RefundEscrowDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<EscrowResponseDto> {
-    return this.escrowService.refund(transactionId, dto.reason, dto.actorId);
+    return this.escrowService.refund(transactionId, dto.reason, user.sub);
   }
 
   @Post(':transactionId/dispute')
@@ -94,8 +105,9 @@ export class EscrowManagementController {
   placeDisputeHold(
     @Param('transactionId') transactionId: string,
     @Body() dto: DisputeEscrowDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<EscrowResponseDto> {
-    return this.escrowService.placeDisputeHold(transactionId, dto.reason, dto.actorId);
+    return this.escrowService.placeDisputeHold(transactionId, dto.reason, user.sub);
   }
 
   @Post(':transactionId/dispute/resolve')
@@ -103,7 +115,8 @@ export class EscrowManagementController {
   resolveDispute(
     @Param('transactionId') transactionId: string,
     @Body() dto: ResolveDisputeDto,
+    @CurrentUser() user: AuthUserPayload,
   ): Promise<EscrowResponseDto> {
-    return this.escrowService.resolveDispute(transactionId, dto.resolution, dto.actorId);
+    return this.escrowService.resolveDispute(transactionId, dto.resolution, user.sub);
   }
 }
