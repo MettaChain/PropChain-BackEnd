@@ -30,15 +30,17 @@ describe('EscrowManagementController (#1611)', () => {
   } as unknown as AuthUserPayload;
 
   const prisma = {
-    transaction: { findUnique: jest.fn(), update: jest.fn() },
-    transactionHistory: { create: jest.fn() },
+    transaction: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn() },
+    transactionHistory: { create: jest.fn(), findMany: jest.fn() },
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     prisma.transaction.findUnique.mockResolvedValue({ id: 'tx-1', amount: 200_000 });
     prisma.transaction.update.mockResolvedValue({ id: 'tx-1' });
+    prisma.transaction.findMany.mockResolvedValue([]);
     prisma.transactionHistory.create.mockResolvedValue({ id: 'audit-1' });
+    prisma.transactionHistory.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EscrowManagementController],

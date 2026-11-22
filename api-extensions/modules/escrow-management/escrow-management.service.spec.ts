@@ -1,15 +1,20 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TransactionFeesService } from '../../../src/transactions/transaction-fees.service';
-import { CreateEscrowDto, DisputeResolution, EscrowStatus } from './dto/escrow-management.dto';
+import {
+  CreateEscrowDto,
+  DisputeResolution,
+  EscrowAuditAction,
+  EscrowStatus,
+} from './dto/escrow-management.dto';
 import { ESCROW_MANAGEMENT_PRISMA, EscrowManagementService } from './escrow-management.service';
 
 describe('EscrowManagementService (#1611)', () => {
   let service: EscrowManagementService;
 
   const prisma = {
-    transaction: { findUnique: jest.fn(), update: jest.fn() },
-    transactionHistory: { create: jest.fn() },
+    transaction: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn() },
+    transactionHistory: { create: jest.fn(), findMany: jest.fn() },
   };
 
   const transaction = (amount: number = 200_000) => ({ id: 'tx-1', amount });
@@ -29,7 +34,9 @@ describe('EscrowManagementService (#1611)', () => {
     jest.clearAllMocks();
     prisma.transaction.findUnique.mockResolvedValue(transaction());
     prisma.transaction.update.mockResolvedValue({ id: 'tx-1' });
+    prisma.transaction.findMany.mockResolvedValue([]);
     prisma.transactionHistory.create.mockResolvedValue({ id: 'audit-1' });
+    prisma.transactionHistory.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -105,6 +112,62 @@ describe('EscrowManagementService (#1611)', () => {
         escrowAmount: 112_860,
       }),
     });
+  });
+
+  it('stores a full escrow record snapshot in audit notes', async () => {
+    await create({}, 'agent-1');
+    const payload = JSON.parse(prisma.transactionHistory.create.mock.calls[0][0].data.notes);
+
+    expect(payload).toMatchObject({ action: EscrowAuditAction.CREATED, details: null });
+    expect(payload.__escrowSnapshot).toMatchObject({
+      transactionId: 'tx-1',
+      status: EscrowStatus.PENDING,
+      auditTrail: [{ action: EscrowAuditAction.CREATED, actorId: 'agent-1' }],
+    });
+  });
+
+  it('hydrates escrow records from persisted snapshots on init', async () => {
+    await create({}, 'agent-1');
+    const notes = prisma.transactionHistory.create.mock.calls[0][0].data.notes;
+    const restoredModule: TestingModule = await Test.createTestingModule({
+      providers: [
+        EscrowManagementService,
+        TransactionFeesService,
+        { provide: ESCROW_MANAGEMENT_PRISMA, useValue: prisma },
+      ],
+    }).compile();
+    const restored = restoredModule.get<EscrowManagementService>(EscrowManagementService);
+
+    prisma.transaction.findMany.mockResolvedValue([{ id: 'tx-1', escrowStatus: 'PENDING' }]);
+    prisma.transactionHistory.findMany.mockResolvedValue([{ notes }]);
+    await restored.onModuleInit();
+
+    expect(prisma.transaction.findMany).toHaveBeenCalledWith({
+      where: { escrowStatus: { not: null } },
+    });
+    const result = await restored.findOne('tx-1');
+    expect(result).toMatchObject({
+      transactionId: 'tx-1',
+      status: EscrowStatus.PENDING,
+      balance: 0,
+      milestones: ['DOCUMENTS_VERIFIED'],
+      auditTrail: [{ action: EscrowAuditAction.CREATED, actorId: 'agent-1' }],
+    });
+    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(result.auditTrail[0].recordedAt).toBeInstanceOf(Date);
+    expect(result.feeBreakdown.totalAmount).toBe(112_860);
+    expect(await restored.getBalance('tx-1')).toBe(0);
+  });
+
+  it('skips malformed snapshots and database errors during hydration', async () => {
+    prisma.transaction.findMany.mockResolvedValue([{ id: 'tx-bad', escrowStatus: 'HELD' }]);
+    prisma.transactionHistory.findMany.mockResolvedValue([{ notes: 'not-json' }]);
+
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+    await expect(service.findOne('tx-bad')).rejects.toThrow(NotFoundException);
+
+    prisma.transaction.findMany.mockRejectedValue(new Error('db down'));
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
   });
 
   it('holds funds and transitions to HELD', async () => {
@@ -210,11 +273,11 @@ describe('EscrowManagementService (#1611)', () => {
 
     expect(result).toMatchObject({ status: EscrowStatus.REFUNDED, balance: 0 });
     expect(result.refundedAt).toBeInstanceOf(Date);
-    expect(prisma.transactionHistory.create).toHaveBeenLastCalledWith({
-      data: expect.objectContaining({
-        notes: JSON.stringify({ action: 'REFUNDED', details: 'Inspection failed' }),
-        actorId: 'agent-1',
-      }),
+    const lastAudit = prisma.transactionHistory.create.mock.lastCall[0].data;
+    expect(lastAudit.actorId).toBe('agent-1');
+    expect(JSON.parse(lastAudit.notes)).toMatchObject({
+      action: EscrowAuditAction.REFUNDED,
+      details: 'Inspection failed',
     });
   });
 

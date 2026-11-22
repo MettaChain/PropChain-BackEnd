@@ -3,7 +3,9 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { PrismaService } from '../../../src/database/prisma.service';
@@ -34,13 +36,46 @@ interface EscrowRecord extends EscrowResponseDto {}
  * PENDING escrow into HELD and locks it until it is explicitly resolved.
  */
 @Injectable()
-export class EscrowManagementService {
+export class EscrowManagementService implements OnModuleInit {
+  private readonly logger = new Logger(EscrowManagementService.name);
   private readonly escrows = new Map<string, EscrowRecord>();
 
   constructor(
     @Inject(ESCROW_MANAGEMENT_PRISMA) private readonly prisma: EscrowPrisma,
     private readonly fees: TransactionFeesService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    try {
+      const transactions = await this.prisma.transaction.findMany({
+        where: { escrowStatus: { not: null } },
+      });
+      for (const transaction of transactions) {
+        try {
+          const history = await this.prisma.transactionHistory.findMany({
+            where: { transactionId: transaction.id },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          });
+          const notes = history[0]?.notes;
+          if (!notes) {
+            continue;
+          }
+          const parsed: unknown = JSON.parse(notes);
+          const snapshot = (parsed as Record<string, unknown> | null)?.__escrowSnapshot;
+          const record = this.reviveSnapshot(snapshot);
+          if (!record || record.transactionId !== transaction.id) {
+            continue;
+          }
+          this.escrows.set(record.transactionId, record);
+        } catch {
+          this.logger.warn(`Skipped malformed escrow snapshot for ${transaction.id}`);
+        }
+      }
+    } catch {
+      this.logger.warn('Escrow hydration failed; starting with an empty escrow store');
+    }
+  }
 
   /** Create a PENDING escrow and derive its funded amount from transaction fees. */
   async create(dto: CreateEscrowDto, actorId?: string): Promise<EscrowResponseDto> {
@@ -304,7 +339,17 @@ export class EscrowManagementService {
         transactionId: record.transactionId,
         status: 'PENDING',
         actorId: actorId ?? null,
-        notes: JSON.stringify({ action, details: details ?? null }),
+        notes: JSON.stringify({
+          action,
+          details: details ?? null,
+          __escrowSnapshot: {
+            ...record,
+            feeBreakdown: { ...record.feeBreakdown },
+            milestones: [...record.milestones],
+            metMilestones: [...record.metMilestones],
+            auditTrail: record.auditTrail.map((entry) => ({ ...entry })),
+          },
+        }),
         metadata: { action },
       },
     });
@@ -323,6 +368,90 @@ export class EscrowManagementService {
         escrowReleasedAt: record.releasedAt ?? null,
       },
     });
+  }
+
+  private reviveSnapshot(value: unknown): EscrowRecord | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+    const raw = value as Record<string, unknown>;
+    if (
+      typeof raw.id !== 'string' ||
+      typeof raw.transactionId !== 'string' ||
+      !Object.values(EscrowStatus).includes(raw.status as EscrowStatus) ||
+      typeof raw.amount !== 'number' ||
+      !Number.isFinite(raw.amount) ||
+      typeof raw.balance !== 'number' ||
+      !Number.isFinite(raw.balance) ||
+      typeof raw.baseAmount !== 'number' ||
+      !Number.isFinite(raw.baseAmount) ||
+      !raw.feeBreakdown ||
+      typeof raw.feeBreakdown !== 'object' ||
+      !Array.isArray(raw.milestones) ||
+      !Array.isArray(raw.metMilestones) ||
+      !Array.isArray(raw.auditTrail)
+    ) {
+      return null;
+    }
+
+    const createdAt = this.reviveDate(raw.createdAt);
+    const updatedAt = this.reviveDate(raw.updatedAt);
+    if (!createdAt || !updatedAt) {
+      return null;
+    }
+
+    return {
+      id: raw.id,
+      transactionId: raw.transactionId,
+      baseAmount: raw.baseAmount,
+      amount: raw.amount,
+      currency: typeof raw.currency === 'string' ? raw.currency : 'USD',
+      status: raw.status as EscrowStatus,
+      balance: raw.balance,
+      feeBreakdown: raw.feeBreakdown as FeeBreakdown,
+      milestones: raw.milestones.map(String),
+      metMilestones: raw.metMilestones.map(String),
+      disputed: raw.disputed === true,
+      disputeReason: typeof raw.disputeReason === 'string' ? raw.disputeReason : undefined,
+      auditTrail: raw.auditTrail
+        .map((entry) => this.reviveAuditEntry(entry))
+        .filter((entry): entry is EscrowAuditEntryDto => entry !== null),
+      createdAt,
+      updatedAt,
+      releasedAt: this.reviveDate(raw.releasedAt),
+      refundedAt: this.reviveDate(raw.refundedAt),
+    };
+  }
+
+  private reviveAuditEntry(value: unknown): EscrowAuditEntryDto | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+    const raw = value as Record<string, unknown>;
+    const recordedAt = this.reviveDate(raw.recordedAt);
+    if (
+      !recordedAt ||
+      !Object.values(EscrowAuditAction).includes(raw.action as EscrowAuditAction)
+    ) {
+      return null;
+    }
+    return {
+      action: raw.action as EscrowAuditAction,
+      actorId: typeof raw.actorId === 'string' ? raw.actorId : undefined,
+      details: typeof raw.details === 'string' ? raw.details : undefined,
+      recordedAt,
+    };
+  }
+
+  private reviveDate(value: unknown): Date | undefined {
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? undefined : value;
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? undefined : date;
+    }
+    return undefined;
   }
 
   private round(value: number): number {
